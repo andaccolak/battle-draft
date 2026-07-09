@@ -2,15 +2,17 @@
 
 import { motion } from "framer-motion";
 import type { BracketRound } from "@/lib/game/types";
+import { useI18n } from "@/lib/i18n";
 
 export default function Bracket({ rounds }: { rounds: BracketRound[] }) {
+  const { t } = useI18n();
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <h3 className="text-center font-display text-xl font-black text-slate-300">🏆 Tournament</h3>
+      <h3 className="text-center font-display text-xl font-black text-slate-300">{t("tournament")}</h3>
       {rounds.map((round, ri) => (
         <div key={ri} className="space-y-2">
           <div className="text-center text-xs font-bold uppercase tracking-widest text-slate-500">
-            {rounds.length - ri === 1 && round.matches.length === 1 ? "Final" : `Round ${ri + 1}`}
+            {rounds.length - ri === 1 && round.matches.length === 1 ? t("final") : t("round", { n: ri + 1 })}
           </div>
           {round.matches.map((m, mi) => (
             <motion.div
@@ -24,7 +26,7 @@ export default function Bracket({ rounds }: { rounds: BracketRound[] }) {
               </span>
               <span className="text-xs font-black text-slate-500">VS</span>
               <span className={`font-semibold ${m.winner && m.winner === m.b ? "text-amber-300" : m.winner && m.b ? "text-slate-500 line-through" : ""}`}>
-                {m.b ?? "(bye)"}
+                {m.b ?? t("bye")}
               </span>
             </motion.div>
           ))}

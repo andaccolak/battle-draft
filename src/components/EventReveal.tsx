@@ -4,8 +4,11 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import type { GameEvent } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
+import { useI18n } from "@/lib/i18n";
 
 export default function EventReveal({ event }: { event: GameEvent }) {
+  const { t, eventText } = useI18n();
+  const localized = eventText(event.id);
   useEffect(() => {
     sfx.event();
   }, [event.id]);
@@ -17,7 +20,7 @@ export default function EventReveal({ event }: { event: GameEvent }) {
         animate={{ opacity: 1 }}
         className="text-sm font-bold uppercase tracking-[0.3em] text-slate-400"
       >
-        Global Event
+        {t("globalEvent")}
       </motion.p>
       <motion.div
         initial={{ scale: 0, rotate: -30 }}
@@ -33,7 +36,7 @@ export default function EventReveal({ event }: { event: GameEvent }) {
         transition={{ delay: 0.5 }}
         className="font-display text-5xl font-black"
       >
-        {event.name}
+        {localized.name}
       </motion.h2>
       <motion.p
         initial={{ opacity: 0 }}
@@ -41,7 +44,7 @@ export default function EventReveal({ event }: { event: GameEvent }) {
         transition={{ delay: 0.9 }}
         className="max-w-sm text-lg text-slate-300"
       >
-        {event.description}
+        {localized.description}
       </motion.p>
       <motion.p
         initial={{ opacity: 0 }}
@@ -49,7 +52,7 @@ export default function EventReveal({ event }: { event: GameEvent }) {
         transition={{ delay: 1.5, duration: 1.5, repeat: Infinity }}
         className="text-sm font-bold text-amber-300"
       >
-        ⚔️ The tournament begins...
+        {t("tournamentBegins")}
       </motion.p>
     </div>
   );

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { BattlePayload, TimelineEntry } from "@/lib/game/types";
 import Fighter, { type Pose } from "./Fighter";
 import { sfx } from "@/lib/sound";
+import { useI18n } from "@/lib/i18n";
 
 interface FloatingNumber {
   id: number;
@@ -46,6 +47,7 @@ function playSound(entry: TimelineEntry): void {
 }
 
 export default function BattleStage({ battle }: { battle: BattlePayload }) {
+  const { t, logLine } = useI18n();
   const [index, setIndex] = useState(0);
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [shake, setShake] = useState(0);
@@ -106,7 +108,11 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
     <div className="flex h-full flex-col">
       <div className="mb-2 text-center">
         <span className="rounded-full bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-widest text-amber-300">
-          {battle.roundLabel}
+          {battle.roundKey === "final"
+            ? t("grandFinal")
+            : battle.roundKey === "semifinal"
+              ? t("semifinal")
+              : t("round", { n: battle.roundNumber })}
         </span>
       </div>
 
@@ -174,7 +180,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
               exit={{ y: 30, opacity: 0 }}
               className="absolute inset-x-3 top-3 z-10 rounded-2xl border border-amber-400/40 bg-slate-950/90 p-3 text-center text-sm font-bold text-amber-200 shadow-xl"
             >
-              {current.text}
+              {logLine(current)}
             </motion.div>
           )}
         </AnimatePresence>
@@ -207,7 +213,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
                       : "text-slate-300"
             }
           >
-            {entry.text}
+            {logLine(entry)}
           </motion.div>
         ))}
       </div>

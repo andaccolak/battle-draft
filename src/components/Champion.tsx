@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
+import { useI18n } from "@/lib/i18n";
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
+  const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const champion = snapshot.players.find((p) => !p.eliminated);
   const isMe = champion?.id === playerId;
@@ -32,7 +34,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
       </motion.div>
       <div>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-bold uppercase tracking-[0.3em] text-amber-400">
-          Champion
+          {t("champion")}
         </motion.p>
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
@@ -44,22 +46,22 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
         </motion.h2>
         {isMe && (
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }} className="mt-3 text-lg font-bold text-emerald-300">
-            THAT&apos;S YOU! Rub it in. 😎
+            {t("thatsYou")}
           </motion.p>
         )}
       </div>
 
       <div className="card-surface w-full p-4">
-        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">Final standings</div>
+        <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{t("finalStandings")}</div>
         <div className="space-y-1.5">
           {[...snapshot.players]
             .sort((a, b) => Number(a.eliminated) - Number(b.eliminated) || b.wins - a.wins)
             .map((p, i) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
                 <span className="font-semibold">
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.nickname}
+                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.isBot ? "🤖 " : ""}{p.nickname}
                 </span>
-                <span className="text-xs text-slate-400">{p.wins} win{p.wins === 1 ? "" : "s"}</span>
+                <span className="text-xs text-slate-400">{p.wins} {p.wins === 1 ? t("win") : t("wins")}</span>
               </div>
             ))}
         </div>
@@ -67,10 +69,10 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
 
       {isHost ? (
         <button onClick={onPlayAgain} className="btn-primary w-full text-lg">
-          🔄 ONE MORE GAME!
+          {t("oneMoreGame")}
         </button>
       ) : (
-        <p className="text-sm text-slate-400">Shout at the host to run it back.</p>
+        <p className="text-sm text-slate-400">{t("shoutHost")}</p>
       )}
     </div>
   );

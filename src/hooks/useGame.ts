@@ -42,7 +42,7 @@ export function useGame(code: string, nickname: string): GameApi {
     };
     const onOffer = (o: DraftOffer) => setOffer(o);
     const onLuck = (o: LuckOffer) => setLuckOffer(o);
-    const onError = (e: { message: string }) => setError(e.message);
+    const onError = (e: { code?: string; message?: string }) => setError(e.code ?? e.message ?? "err_unknown");
     const onConnect = () => {
       setConnected(true);
       socket.emit("room:join", { code, nickname, playerId: playerIdRef.current });

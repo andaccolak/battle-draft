@@ -52,6 +52,14 @@ interface Combatant {
   poison: number;
   stunned: boolean;
   weaponName: string;
+  weaponId: string;
+}
+
+interface PreEntry {
+  text: string;
+  key: string;
+  params: Record<string, string | number>;
+  fx?: string;
 }
 
 const rand = () => Math.random();
@@ -125,13 +133,17 @@ function buildCombatant(
     firstCritReady: false,
     poison: 0,
     stunned: false,
-    weaponName: "fists"
+    weaponName: "fists",
+    weaponId: "fists"
   };
 
   for (const slot of SLOTS) {
     const item = build.equipment[slot];
     if (!item || disabled.includes(item.id)) continue;
-    if (slot === "weapon") c.weaponName = item.name;
+    if (slot === "weapon") {
+      c.weaponName = item.name;
+      c.weaponId = item.id;
+    }
     let atkMult = 1;
     let defMult = 1;
     for (const mod of h.statMods ?? []) {
@@ -249,7 +261,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   const bEquip: Partial<Record<Slot, Item>> = { ...bBuild.equipment };
   const aDisabled: string[] = [];
   const bDisabled: string[] = [];
-  const pre: { text: string; fx?: string }[] = [];
+  const pre: PreEntry[] = [];
 
   const applyCards = (
     self: Build,
@@ -267,7 +279,12 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
         if (stolen) {
           delete otherEquip[slot];
           selfEquip[slot] = stolen;
-          pre.push({ text: `🏴‍☠️ ${selfName} activates Pirate and steals ${otherName}'s ${stolen.emoji} ${stolen.name}!`, fx: `steal:${slot}` });
+          pre.push({
+            text: `🏴‍☠️ ${selfName} activates Pirate and steals ${otherName}'s ${stolen.emoji} ${stolen.name}!`,
+            key: "pirate",
+            params: { p: selfName, o: otherName, item: stolen.id, emoji: stolen.emoji },
+            fx: `steal:${slot}`
+          });
         }
       }
     }
@@ -280,7 +297,12 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
         else delete selfEquip[slot];
         if (mine) otherEquip[slot] = mine;
         else delete otherEquip[slot];
-        pre.push({ text: `🎁 ${selfName} activates Trade! ${slot} items are swapped with ${otherName}!`, fx: `trade:${slot}` });
+        pre.push({
+          text: `🎁 ${selfName} activates Trade! ${slot} items are swapped with ${otherName}!`,
+          key: "trade",
+          params: { p: selfName, o: otherName, slot },
+          fx: `trade:${slot}`
+        });
       }
     }
     if (card === "curse") {
@@ -288,14 +310,24 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       if (id) {
         otherDisabled.push(id);
         const item = SLOTS.map((s) => otherEquip[s]).find((i) => i?.id === id);
-        pre.push({ text: `💀 ${selfName}'s Curse disables ${otherName}'s ${item?.emoji ?? ""} ${item?.name ?? "item"}!`, fx: "curse" });
+        pre.push({
+          text: `💀 ${selfName}'s Curse disables ${otherName}'s ${item?.emoji ?? ""} ${item?.name ?? "item"}!`,
+          key: "curse",
+          params: { p: selfName, o: otherName, item: item?.id ?? "", emoji: item?.emoji ?? "" },
+          fx: "curse"
+        });
       }
     }
     if (card === "magnet") {
       const weapon = otherEquip.weapon;
       if (weapon && !otherDisabled.includes(weapon.id)) {
         otherDisabled.push(weapon.id);
-        pre.push({ text: `🧲 ${selfName}'s Magnet rips ${otherName}'s ${weapon.emoji} ${weapon.name} away!`, fx: "magnet" });
+        pre.push({
+          text: `🧲 ${selfName}'s Magnet rips ${otherName}'s ${weapon.emoji} ${weapon.name} away!`,
+          key: "magnet",
+          params: { p: selfName, o: otherName, item: weapon.id, emoji: weapon.emoji },
+          fx: "magnet"
+        });
       }
     }
   };
@@ -314,7 +346,12 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     weak.defense *= boost;
     weak.maxHp = Math.round(weak.maxHp * boost);
     weak.hp = weak.maxHp;
-    pre.push({ text: `🐕 Underdog Spirit empowers ${weak.nickname}!`, fx: "underdog" });
+    pre.push({
+      text: `🐕 Underdog Spirit empowers ${weak.nickname}!`,
+      key: "underdog",
+      params: { p: weak.nickname },
+      fx: "underdog"
+    });
   }
 
   const applyBattleStartCards = (self: Combatant, selfBuild: Build, other: Combatant) => {
@@ -322,19 +359,34 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     if (card === "lightning") {
       other.maxHp = Math.round(other.maxHp * 0.75);
       other.hp = other.maxHp;
-      pre.push({ text: `⚡ ${self.nickname}'s Lightning strikes ${other.nickname} before the fight! -25% HP!`, fx: "lightning" });
+      pre.push({
+        text: `⚡ ${self.nickname}'s Lightning strikes ${other.nickname} before the fight! -25% HP!`,
+        key: "lightning",
+        params: { p: self.nickname, o: other.nickname },
+        fx: "lightning"
+      });
     }
     if (card === "allin") {
       if (roll(50)) {
         self.attack *= 1.8;
         self.maxHp = Math.round(self.maxHp * 1.8);
         self.hp = self.maxHp;
-        pre.push({ text: `🎰 ${self.nickname} goes ALL IN... JACKPOT! Attack and HP surge!`, fx: "jackpot" });
+        pre.push({
+          text: `🎰 ${self.nickname} goes ALL IN... JACKPOT! Attack and HP surge!`,
+          key: "jackpot",
+          params: { p: self.nickname },
+          fx: "jackpot"
+        });
       } else {
         self.attack *= 0.55;
         self.maxHp = Math.max(30, Math.round(self.maxHp * 0.55));
         self.hp = self.maxHp;
-        pre.push({ text: `🎰 ${self.nickname} goes ALL IN... and BUSTS! Attack and HP crumble!`, fx: "bust" });
+        pre.push({
+          text: `🎰 ${self.nickname} goes ALL IN... and BUSTS! Attack and HP crumble!`,
+          key: "bust",
+          params: { p: self.nickname },
+          fx: "bust"
+        });
       }
     }
   };
@@ -345,9 +397,22 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     timeline.push({ ...e, hpA: Math.max(0, Math.round(a.hp)), hpB: Math.max(0, Math.round(b.hp)) });
   };
 
-  push({ t: "intro", actor: "none", text: `⚔️ ${a.nickname} VS ${b.nickname}!` });
-  push({ t: "event", actor: "none", text: `${event.emoji} ${event.name}: ${event.description}`, fx: `event:${event.id}` });
-  for (const p of pre) push({ t: "card", actor: "none", text: p.text, fx: p.fx });
+  push({
+    t: "intro",
+    actor: "none",
+    text: `⚔️ ${a.nickname} VS ${b.nickname}!`,
+    key: "intro",
+    params: { a: a.nickname, b: b.nickname }
+  });
+  push({
+    t: "event",
+    actor: "none",
+    text: `${event.emoji} ${event.name}: ${event.description}`,
+    key: "eventLine",
+    params: { event: event.id, emoji: event.emoji },
+    fx: `event:${event.id}`
+  });
+  for (const p of pre) push({ t: "card", actor: "none", text: p.text, key: p.key, params: p.params, fx: p.fx });
 
   const attackOnce = (att: Combatant, def: Combatant, extra: boolean) => {
     if (att.hp <= 0 || def.hp <= 0) return;
@@ -355,9 +420,23 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     const hitChance = clamp(att.accuracy - def.dodge, 15, 100);
     if (!roll(hitChance)) {
       if (roll(50)) {
-        push({ t: "miss", actor: att.key, text: `${prefix}💨 ${att.nickname} swings the ${att.weaponName}... and misses!` });
+        push({
+          t: "miss",
+          actor: att.key,
+          text: `${prefix}💨 ${att.nickname} swings the ${att.weaponName}... and misses!`,
+          key: "miss",
+          params: { p: att.nickname, weapon: att.weaponId },
+          extra
+        });
       } else {
-        push({ t: "dodge", actor: att.key, text: `${prefix}🌀 ${def.nickname} dodges ${att.nickname}'s attack!` });
+        push({
+          t: "dodge",
+          actor: att.key,
+          text: `${prefix}🌀 ${def.nickname} dodges ${att.nickname}'s attack!`,
+          key: "dodgeLine",
+          params: { p: att.nickname, d: def.nickname },
+          extra
+        });
       }
       return;
     }
@@ -397,30 +476,61 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       t: "attack",
       actor: att.key,
       text: `${prefix}⚔️ ${att.nickname} strikes with the ${att.weaponName}! ${def.nickname} loses ${dmg - absorbed} HP. ${bits.join(" ")}`.trim(),
+      key: "strike",
+      params: { p: att.nickname, d: def.nickname, weapon: att.weaponId, dmg: dmg - absorbed },
       dmg: dmg - absorbed,
-      crit: isCrit
+      crit: isCrit,
+      blocked,
+      absorbed,
+      extra
     });
     if (att.lifesteal > 0 && !event.hooks.noHealing) {
       const heal = Math.round((dmg * att.lifesteal) / 100);
       if (heal > 0) {
         att.hp = Math.min(att.maxHp, att.hp + heal);
-        push({ t: "passive", actor: att.key, text: `🩸 ${att.nickname} drains ${heal} HP!`, heal });
+        push({
+          t: "passive",
+          actor: att.key,
+          text: `🩸 ${att.nickname} drains ${heal} HP!`,
+          key: "lifesteal",
+          params: { p: att.nickname, heal },
+          heal
+        });
       }
     }
     if (def.reflect > 0 && def.hp > 0) {
       const ref = Math.round((dmg * def.reflect) / 100);
       if (ref > 0) {
         att.hp -= ref;
-        push({ t: "passive", actor: def.key, text: `🌵 ${def.nickname}'s armor reflects ${ref} damage back!`, dmg: ref });
+        push({
+          t: "passive",
+          actor: def.key,
+          text: `🌵 ${def.nickname}'s armor reflects ${ref} damage back!`,
+          key: "reflect",
+          params: { d: def.nickname, dmg: ref },
+          dmg: ref
+        });
       }
     }
     if (att.poisonOnHit > 0 && def.hp > 0) {
       def.poison = Math.max(def.poison, att.poisonOnHit);
-      push({ t: "passive", actor: att.key, text: `🐍 ${def.nickname} is poisoned!` });
+      push({
+        t: "passive",
+        actor: att.key,
+        text: `🐍 ${def.nickname} is poisoned!`,
+        key: "poisonApplied",
+        params: { d: def.nickname }
+      });
     }
     if (att.stunChance > 0 && def.hp > 0 && roll(att.stunChance)) {
       def.stunned = true;
-      push({ t: "passive", actor: att.key, text: `💫 ${def.nickname} is stunned and will miss a turn!` });
+      push({
+        t: "passive",
+        actor: att.key,
+        text: `💫 ${def.nickname} is stunned and will miss a turn!`,
+        key: "stunApplied",
+        params: { d: def.nickname }
+      });
     }
   };
 
@@ -428,7 +538,14 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     if (c.hp <= 0 && c.lastStandValue > 0 && !c.lastStandUsed) {
       c.lastStandUsed = true;
       c.hp = Math.round((c.maxHp * c.lastStandValue) / 100);
-      push({ t: "passive", actor: c.key, text: `🔥 ${c.nickname} refuses to die and rises again with ${c.hp} HP!`, fx: "revive" });
+      push({
+        t: "passive",
+        actor: c.key,
+        text: `🔥 ${c.nickname} refuses to die and rises again with ${c.hp} HP!`,
+        key: "revive",
+        params: { p: c.nickname, hp: c.hp },
+        fx: "revive"
+      });
       return true;
     }
     return c.hp > 0;
@@ -452,7 +569,13 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       if (att.hp <= 0 || def.hp <= 0) continue;
       if (att.stunned) {
         att.stunned = false;
-        push({ t: "passive", actor: att.key, text: `💫 ${att.nickname} is stunned and staggers!` });
+        push({
+          t: "passive",
+          actor: att.key,
+          text: `💫 ${att.nickname} is stunned and staggers!`,
+          key: "stunSkip",
+          params: { p: att.nickname }
+        });
         continue;
       }
       attackOnce(att, def, false);
@@ -468,31 +591,65 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       if (round > 6) dot += (round - 6) * 6;
       if (dot > 0) {
         c.hp -= dot;
-        const label = round > 6 ? "⏳ Fatigue and poison" : "☠️ Poison";
-        push({ t: "poison", actor: c.key, text: `${label} deals ${dot} damage to ${c.nickname}!`, dmg: dot });
+        const fatigued = round > 6;
+        push({
+          t: "poison",
+          actor: c.key,
+          text: `${fatigued ? "⏳ Fatigue and poison" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
+          key: fatigued ? "fatigueTick" : "poisonTick",
+          params: { p: c.nickname, dmg: dot },
+          dmg: dot
+        });
         if (!tryRevive(c)) break;
       }
       if (c.healPerTurn > 0 && !event.hooks.noHealing && c.hp > 0 && c.hp < c.maxHp) {
         const heal = Math.min(c.healPerTurn, c.maxHp - c.hp);
         c.hp += heal;
-        push({ t: "passive", actor: c.key, text: `💚 ${c.nickname} regenerates ${heal} HP.`, heal });
+        push({
+          t: "passive",
+          actor: c.key,
+          text: `💚 ${c.nickname} regenerates ${heal} HP.`,
+          key: "regen",
+          params: { p: c.nickname, heal },
+          heal
+        });
       }
     }
     round++;
   }
 
   if (a.hp > 0 && b.hp > 0) {
-    const winner = a.hp / a.maxHp >= b.hp / b.maxHp ? a : b;
-    const loser = winner === a ? b : a;
-    loser.hp = 0;
-    push({ t: "passive", actor: "none", text: `⏱️ The judges call it! ${winner.nickname} takes it on remaining strength!` });
+    const winnerC = a.hp / a.maxHp >= b.hp / b.maxHp ? a : b;
+    const loserC = winnerC === a ? b : a;
+    loserC.hp = 0;
+    push({
+      t: "passive",
+      actor: "none",
+      text: `⏱️ The judges call it! ${winnerC.nickname} takes it on remaining strength!`,
+      key: "judges",
+      params: { p: winnerC.nickname }
+    });
   }
 
   const winner: "a" | "b" = a.hp > 0 ? "a" : "b";
   const winC = winner === "a" ? a : b;
   const loseC = winner === "a" ? b : a;
-  push({ t: "death", actor: loseC.key, text: `💀 ${loseC.nickname} has fallen!`, fx: "death" });
-  push({ t: "victory", actor: winC.key, text: `🏆 ${winC.nickname} WINS!`, fx: "victory" });
+  push({
+    t: "death",
+    actor: loseC.key,
+    text: `💀 ${loseC.nickname} has fallen!`,
+    key: "death",
+    params: { p: loseC.nickname },
+    fx: "death"
+  });
+  push({
+    t: "victory",
+    actor: winC.key,
+    text: `🏆 ${winC.nickname} WINS!`,
+    key: "victoryLine",
+    params: { p: winC.nickname },
+    fx: "victory"
+  });
 
   const stepMs = Math.round(clamp(13000 / timeline.length, 420, 950));
 

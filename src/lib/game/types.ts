@@ -68,6 +68,7 @@ export interface PublicPlayer {
   id: string;
   nickname: string;
   isHost: boolean;
+  isBot: boolean;
   connected: boolean;
   hasPicked: boolean;
   equipment: Partial<Record<Slot, Item>>;
@@ -102,9 +103,14 @@ export interface TimelineEntry {
   t: TimelineEntryType;
   actor: "a" | "b" | "none";
   text: string;
+  key?: string;
+  params?: Record<string, string | number>;
   dmg?: number;
   heal?: number;
   crit?: boolean;
+  blocked?: boolean;
+  absorbed?: number;
+  extra?: boolean;
   hpA: number;
   hpB: number;
   fx?: string;
@@ -122,6 +128,8 @@ export interface BattlePayload {
   roundIndex: number;
   matchIndex: number;
   roundLabel: string;
+  roundKey: "final" | "semifinal" | "round";
+  roundNumber: number;
   a: FighterView;
   b: FighterView;
   winner: "a" | "b";

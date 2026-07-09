@@ -33,12 +33,12 @@ export function registerSocketHandlers(io: Server): void {
     let joinedRoom: GameRoom | null = null;
     let myPlayerId: string | null = null;
 
-    const fail = (message: string) => socket.emit("game:error", { message });
+    const fail = (code: string) => socket.emit("game:error", { code });
 
     socket.on("room:create", (payload: JoinPayload) => {
       const nickname = cleanNickname(payload?.nickname);
       const playerId = typeof payload?.playerId === "string" ? payload.playerId.slice(0, 64) : null;
-      if (!nickname || !playerId) return fail("Enter a nickname (2-16 characters).");
+      if (!nickname || !playerId) return fail("err_nickname");
       const code = generateCode();
       const room = new GameRoom(code, io);
       rooms.set(code, room);
@@ -54,9 +54,9 @@ export function registerSocketHandlers(io: Server): void {
       const nickname = cleanNickname(payload?.nickname);
       const playerId = typeof payload?.playerId === "string" ? payload.playerId.slice(0, 64) : null;
       const code = typeof payload?.code === "string" ? payload.code.trim().toUpperCase() : "";
-      if (!nickname || !playerId) return fail("Enter a nickname (2-16 characters).");
+      if (!nickname || !playerId) return fail("err_nickname");
       const room = rooms.get(code);
-      if (!room) return fail("Room not found. Check the code.");
+      if (!room) return fail("err_not_found");
       const existing = room.players.get(playerId);
       if (existing) {
         existing.socketId = socket.id;
@@ -69,10 +69,10 @@ export function registerSocketHandlers(io: Server): void {
         room.sendPrivate();
         return;
       }
-      if (room.phase !== "lobby") return fail("This match already started. Wait for the next one!");
-      if (room.players.size >= 8) return fail("Room is full (8 players max).");
+      if (room.phase !== "lobby") return fail("err_started");
+      if (room.players.size >= 8) return fail("err_full");
       if ([...room.players.values()].some((p) => p.nickname.toLowerCase() === nickname.toLowerCase())) {
-        return fail("That nickname is taken in this room.");
+        return fail("err_taken");
       }
       room.addPlayer(playerId, socket.id, nickname);
       joinedRoom = room;
@@ -84,8 +84,7 @@ export function registerSocketHandlers(io: Server): void {
 
     socket.on("game:start", () => {
       if (!joinedRoom || !myPlayerId) return;
-      if (joinedRoom.hostId !== myPlayerId) return fail("Only the host can start the game.");
-      if (joinedRoom.players.size < 2) return fail("You need at least 2 players.");
+      if (joinedRoom.hostId !== myPlayerId) return fail("err_host_start");
       joinedRoom.startGame();
     });
 
@@ -103,7 +102,7 @@ export function registerSocketHandlers(io: Server): void {
 
     socket.on("game:again", () => {
       if (!joinedRoom || !myPlayerId) return;
-      if (joinedRoom.hostId !== myPlayerId) return fail("Only the host can restart.");
+      if (joinedRoom.hostId !== myPlayerId) return fail("err_host_restart");
       joinedRoom.playAgain();
     });
 
@@ -138,10 +137,10 @@ export function registerSocketHandlers(io: Server): void {
       if (room.phase === "lobby") {
         room.removeFromLobby(myPlayerId);
       }
-      const anyConnected = [...room.players.values()].some((p) => p.connected);
+      const anyConnected = [...room.players.values()].some((p) => p.connected && !p.isBot);
       if (!anyConnected) {
         setTimeout(() => {
-          const stillDead = ![...room.players.values()].some((p) => p.connected);
+          const stillDead = ![...room.players.values()].some((p) => p.connected && !p.isBot);
           if (stillDead && rooms.get(room.code) === room) {
             room.clearTimer();
             rooms.delete(room.code);

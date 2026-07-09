@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { getNickname, getPlayerId, getSocket, setNickname as storeNickname } from "@/lib/socket";
+import { LangToggle, useI18n } from "@/lib/i18n";
 
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [nickname, setNickname] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +20,7 @@ export default function HomePage() {
 
   const validate = (): boolean => {
     if (nickname.trim().length < 2) {
-      setError("Nickname must be at least 2 characters.");
+      setError(t("nickTooShort"));
       return false;
     }
     storeNickname(nickname.trim());
@@ -41,21 +43,21 @@ export default function HomePage() {
       };
       const timer = setTimeout(() => {
         cleanup();
-        setError("Could not reach the game server. Make sure the app runs via 'npm run dev' or 'npm start' (Socket.io needs the custom server).");
+        setError(t("serverUnreachable"));
         setBusy(false);
       }, 10000);
       const onJoined = ({ code: roomCode }: { code: string }) => {
         cleanup();
         router.push(`/room/${roomCode}`);
       };
-      const onError = ({ message }: { message: string }) => {
+      const onError = ({ code: errCode, message }: { code?: string; message?: string }) => {
         cleanup();
-        setError(message);
+        setError(errCode ? t(errCode) : message ?? t("genericError"));
         setBusy(false);
       };
       const onConnectError = () => {
         cleanup();
-        setError("Connection to the game server failed. Check that the server is running and reachable.");
+        setError(t("connectionFailed"));
         setBusy(false);
       };
       const emit = () => socket.emit("room:create", { nickname: nickname.trim(), playerId });
@@ -65,7 +67,7 @@ export default function HomePage() {
       if (socket.connected) emit();
       else socket.once("connect", emit);
     } catch {
-      setError("Something went wrong while creating the room. Refresh and try again.");
+      setError(t("genericError"));
       setBusy(false);
     }
   };
@@ -73,7 +75,7 @@ export default function HomePage() {
   const joinRoom = () => {
     if (!validate()) return;
     if (code.trim().length !== 6) {
-      setError("Room codes are 6 characters.");
+      setError(t("codeLength"));
       return;
     }
     router.push(`/room/${code.trim().toUpperCase()}`);
@@ -81,6 +83,9 @@ export default function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-8 px-6 py-12">
+      <div className="absolute right-4 top-4">
+        <LangToggle />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -90,9 +95,7 @@ export default function HomePage() {
         <h1 className="font-display mt-4 text-5xl font-black tracking-tight">
           Battle <span className="bg-gradient-to-r from-indigo-400 to-fuchsia-400 bg-clip-text text-transparent">Draft</span>
         </h1>
-        <p className="mt-3 text-sm text-slate-400">
-          Draft chaotic gear. Gamble on luck. Watch your friends fall.
-        </p>
+        <p className="mt-3 text-sm text-slate-400">{t("tagline")}</p>
       </motion.div>
 
       <motion.div
@@ -103,24 +106,24 @@ export default function HomePage() {
       >
         <div>
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Your nickname
+            {t("yourNickname")}
           </label>
           <input
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={16}
-            placeholder="e.g. AxeLord"
+            placeholder={t("nickPlaceholder")}
             className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-lg font-semibold placeholder:text-slate-600 focus:border-indigo-400"
           />
         </div>
 
         <button onClick={createRoom} disabled={busy} className="btn-primary w-full text-lg">
-          {busy ? "Creating..." : "🎮 Create Room"}
+          {busy ? t("creating") : t("createRoom")}
         </button>
 
         <div className="flex items-center gap-3 text-xs text-slate-500">
           <div className="h-px flex-1 bg-white/10" />
-          or join a friend
+          {t("orJoin")}
           <div className="h-px flex-1 bg-white/10" />
         </div>
 
@@ -129,11 +132,11 @@ export default function HomePage() {
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
             maxLength={6}
-            placeholder="ROOM CODE"
+            placeholder={t("roomCodePlaceholder")}
             className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-center text-lg font-bold uppercase tracking-[0.3em] placeholder:tracking-normal placeholder:text-slate-600 focus:border-fuchsia-400"
           />
           <button onClick={joinRoom} className="btn-ghost whitespace-nowrap">
-            Join
+            {t("join")}
           </button>
         </div>
 
@@ -144,9 +147,7 @@ export default function HomePage() {
         )}
       </motion.div>
 
-      <p className="text-center text-xs text-slate-500">
-        2–8 players · everyone on their own phone · loudest room wins
-      </p>
+      <p className="text-center text-xs text-slate-500">{t("footer")}</p>
     </main>
   );
 }

@@ -41,6 +41,7 @@ export async function persistMatch(room: GameRoom): Promise<void> {
       });
     }
     for (const p of players) {
+      if (p.isBot) continue;
       await prisma.playerStats.upsert({
         where: { nickname: p.nickname },
         update: {

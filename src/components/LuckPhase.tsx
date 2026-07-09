@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { LuckOffer, RoomSnapshot } from "@/lib/game/types";
 import { LUCK_TIME_MS } from "@/lib/game/types";
 import TimerBar from "./TimerBar";
+import { useI18n } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
 
 interface Props {
@@ -13,13 +14,14 @@ interface Props {
 }
 
 export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
+  const { t, cardText } = useI18n();
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <div className="text-center">
         <h2 className="font-display text-3xl font-black">
-          🍀 Luck <span className="text-fuchsia-300">Cards</span>
+          {t("luckTitle1")} <span className="text-fuchsia-300">{t("luckTitle2")}</span>
         </h2>
-        <p className="mt-1 text-sm text-slate-400">One card. It might save you. It might not.</p>
+        <p className="mt-1 text-sm text-slate-400">{t("luckSub")}</p>
       </div>
 
       <TimerBar deadline={snapshot.deadline} totalMs={LUCK_TIME_MS} />
@@ -43,8 +45,8 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
                 <div className="flex items-center gap-4">
                   <span className="text-4xl">{card.emoji}</span>
                   <div>
-                    <div className="font-display text-lg font-black">{card.name}</div>
-                    <div className="mt-0.5 text-sm text-slate-300">{card.description}</div>
+                    <div className="font-display text-lg font-black">{cardText(card).name}</div>
+                    <div className="mt-0.5 text-sm text-slate-300">{cardText(card).description}</div>
                   </div>
                 </div>
               </motion.button>
@@ -53,8 +55,8 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
         ) : (
           <motion.div key="picked" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="card-surface p-8 text-center">
             <div className="text-4xl">🎴</div>
-            <p className="mt-3 font-semibold">Your fate is sealed.</p>
-            <p className="mt-1 text-sm text-slate-400">Waiting for the others to gamble...</p>
+            <p className="mt-3 font-semibold">{t("fateSealed")}</p>
+            <p className="mt-1 text-sm text-slate-400">{t("waitingGamble")}</p>
             <div className="mt-4 flex flex-wrap justify-center gap-2">
               {snapshot.players.map((p) => (
                 <span

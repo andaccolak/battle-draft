@@ -12,8 +12,10 @@ import EventReveal from "@/components/EventReveal";
 import BattleStage from "@/components/BattleStage";
 import Bracket from "@/components/Bracket";
 import Champion from "@/components/Champion";
+import { LangToggle, useI18n } from "@/lib/i18n";
 
 export default function RoomPage() {
+  const { t } = useI18n();
   const params = useParams<{ code: string }>();
   const router = useRouter();
   const code = (params.code ?? "").toUpperCase();
@@ -25,20 +27,20 @@ export default function RoomPage() {
   }, []);
 
   if (nickname === null) {
-    return <main className="flex min-h-dvh items-center justify-center text-slate-500">Loading...</main>;
+    return <main className="flex min-h-dvh items-center justify-center text-slate-500">{t("loading")}</main>;
   }
 
   if (!nickname) {
     return (
       <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-5 px-6">
         <h1 className="font-display text-3xl font-black">
-          Joining <span className="text-indigo-300">{code}</span>
+          {t("joining")} <span className="text-indigo-300">{code}</span>
         </h1>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={16}
-          placeholder="Your nickname"
+          placeholder={t("yourNickname")}
           className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-center text-lg font-semibold placeholder:text-slate-600 focus:border-indigo-400"
         />
         <button
@@ -50,7 +52,7 @@ export default function RoomPage() {
           }}
           className="btn-primary w-full"
         >
-          Enter the Arena
+          {t("enterArena")}
         </button>
       </main>
     );
@@ -60,6 +62,7 @@ export default function RoomPage() {
 }
 
 function Game({ code, nickname, onExit }: { code: string; nickname: string; onExit: () => void }) {
+  const { t } = useI18n();
   const game = useGame(code, nickname);
   const { snapshot, error } = game;
 
@@ -76,8 +79,8 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
         {error ? (
           <>
             <div className="text-4xl">😵</div>
-            <p className="font-semibold text-rose-400">{error}</p>
-            <p className="text-sm text-slate-500">Heading back home...</p>
+            <p className="font-semibold text-rose-400">{t(error)}</p>
+            <p className="text-sm text-slate-500">{t("headingHome")}</p>
           </>
         ) : (
           <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1.2, ease: "linear" }} className="text-4xl">
@@ -92,12 +95,15 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
     <main className="mx-auto min-h-dvh max-w-2xl px-4 py-5">
       <header className="mb-5 flex items-center justify-between">
         <button onClick={() => { game.leaveRoom(); onExit(); }} className="text-sm font-semibold text-slate-500 transition hover:text-slate-300">
-          ← Leave
+          {t("leave")}
         </button>
         <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-          Room <span className="text-indigo-300">{snapshot.code}</span>
+          {t("room")} <span className="text-indigo-300">{snapshot.code}</span>
         </div>
-        <div className={`h-2 w-2 rounded-full ${game.connected ? "bg-emerald-400" : "bg-rose-500"}`} />
+        <div className="flex items-center gap-2">
+          <LangToggle />
+          <div className={`h-2 w-2 rounded-full ${game.connected ? "bg-emerald-400" : "bg-rose-500"}`} />
+        </div>
       </header>
 
       <AnimatePresence>
@@ -109,7 +115,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
             onAnimationComplete={() => setTimeout(game.clearError, 2500)}
             className="mb-4 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5 text-center text-sm font-semibold text-rose-300"
           >
-            {error}
+            {t(error)}
           </motion.div>
         )}
       </AnimatePresence>

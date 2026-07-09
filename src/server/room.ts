@@ -19,6 +19,7 @@ export interface ServerPlayer {
   id: string;
   socketId: string | null;
   nickname: string;
+  isBot: boolean;
   connected: boolean;
   equipment: Partial<Record<Slot, Item>>;
   currentOffer: Item[] | null;
@@ -46,6 +47,19 @@ export interface BattleRecord {
 
 const EVENT_REVEAL_MS = 7000;
 const BATTLE_GAP_MS = 5000;
+
+const BOT_NAMES = [
+  "Bot Kemal",
+  "Bot Ayşe",
+  "Bot Şahin",
+  "Bot Zeynep",
+  "Bot Rambo",
+  "Bot Cengiz",
+  "Bot Elif",
+  "Bot Baron",
+  "Bot Pala",
+  "Bot Fırtına"
+];
 
 export class GameRoom {
   code: string;
@@ -79,6 +93,7 @@ export class GameRoom {
       id: playerId,
       socketId,
       nickname,
+      isBot: false,
       connected: true,
       equipment: {},
       currentOffer: null,
@@ -98,8 +113,73 @@ export class GameRoom {
     if (this.phase !== "lobby") return;
     this.players.delete(playerId);
     if (this.hostId === playerId) {
-      const next = [...this.players.keys()][0];
-      this.hostId = next ?? null;
+      const humans = [...this.players.values()].filter((p) => !p.isBot);
+      this.hostId = humans[0]?.id ?? [...this.players.keys()][0] ?? null;
+    }
+  }
+
+  addBots(count: number): void {
+    const taken = new Set([...this.players.values()].map((p) => p.nickname.toLowerCase()));
+    const pool = BOT_NAMES.filter((n) => !taken.has(n.toLowerCase()));
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const x = pool[i];
+      const y = pool[j];
+      if (x !== undefined && y !== undefined) {
+        pool[i] = y;
+        pool[j] = x;
+      }
+    }
+    for (let i = 0; i < count && this.players.size < 8; i++) {
+      const nickname = pool[i] ?? `Bot ${i + 1}`;
+      const bot: ServerPlayer = {
+        id: `bot_${this.code}_${this.matchCounter}_${i}`,
+        socketId: null,
+        nickname,
+        isBot: true,
+        connected: true,
+        equipment: {},
+        currentOffer: null,
+        offerPicked: false,
+        luckOffer: null,
+        luckCard: null,
+        luckNote: null,
+        eliminated: false,
+        wins: 0
+      };
+      this.players.set(bot.id, bot);
+    }
+  }
+
+  removeBots(): void {
+    for (const [id, p] of this.players) {
+      if (p.isBot) this.players.delete(id);
+    }
+  }
+
+  scheduleBotDraftPicks(): void {
+    const round = this.draftRound;
+    for (const p of this.players.values()) {
+      if (!p.isBot) continue;
+      const delay = 1500 + Math.random() * 5000;
+      setTimeout(() => {
+        if (this.phase !== "draft" || this.draftRound !== round || p.offerPicked || !p.currentOffer) return;
+        const pickable = p.currentOffer.filter((i) => !p.equipment[i.slot]);
+        const pick = pickable[Math.floor(Math.random() * pickable.length)];
+        this.pickItem(p.id, pick ? pick.id : null);
+      }, delay);
+    }
+  }
+
+  scheduleBotLuckPicks(): void {
+    for (const p of this.players.values()) {
+      if (!p.isBot) continue;
+      const delay = 1500 + Math.random() * 5000;
+      setTimeout(() => {
+        if (this.phase !== "luck" || p.luckCard || !p.luckOffer) return;
+        const card = p.luckOffer[Math.floor(Math.random() * p.luckOffer.length)];
+        if (card) this.pickLuckCard(p.id, card.id);
+      }, delay);
     }
   }
 
@@ -124,6 +204,7 @@ export class GameRoom {
         id: p.id,
         nickname: p.nickname,
         isHost: p.id === this.hostId,
+        isBot: p.isBot,
         connected: p.connected,
         hasPicked: this.phase === "draft" ? p.offerPicked : this.phase === "luck" ? p.luckCard !== null : false,
         equipment: p.equipment,
@@ -173,8 +254,10 @@ export class GameRoom {
   }
 
   startGame(): void {
-    if (this.phase !== "lobby" || this.players.size < 2) return;
+    if (this.phase !== "lobby") return;
     this.matchCounter++;
+    if (this.players.size === 1) this.addBots(3);
+    if (this.players.size < 2) return;
     this.draftRound = 0;
     this.battleRecords = [];
     this.champion = null;
@@ -202,6 +285,7 @@ export class GameRoom {
       p.offerPicked = false;
     }
     this.setTimer(DRAFT_TIME_MS, () => this.finishDraftRound());
+    this.scheduleBotDraftPicks();
     this.broadcast();
     this.sendPrivate();
   }
@@ -251,6 +335,7 @@ export class GameRoom {
       p.luckCard = null;
     }
     this.setTimer(LUCK_TIME_MS, () => this.finishLuckPhase());
+    this.scheduleBotLuckPicks();
     this.broadcast();
     this.sendPrivate();
   }
@@ -363,11 +448,14 @@ export class GameRoom {
     const winnerId = result.winner === "a" ? pa.id : pb.id;
     const loser = result.winner === "a" ? pb : pa;
     const remaining = [...this.players.values()].filter((p) => !p.eliminated).length;
-    const roundLabel = remaining <= 2 ? "GRAND FINAL" : remaining <= 4 ? "Semifinal" : `Round ${this.currentRound + 1}`;
+    const roundKey = remaining <= 2 ? "final" : remaining <= 4 ? "semifinal" : "round";
+    const roundLabel = roundKey === "final" ? "GRAND FINAL" : roundKey === "semifinal" ? "Semifinal" : `Round ${this.currentRound + 1}`;
     this.battle = {
       roundIndex: this.currentRound,
       matchIndex: this.currentMatch,
       roundLabel,
+      roundKey,
+      roundNumber: this.currentRound + 1,
       a: {
         nickname: pa.nickname,
         maxHp: result.aMaxHp,
@@ -423,6 +511,7 @@ export class GameRoom {
     if (this.phase !== "champion") return;
     this.phase = "lobby";
     this.clearTimer();
+    this.removeBots();
     for (const p of this.players.values()) {
       p.equipment = {};
       p.currentOffer = null;
