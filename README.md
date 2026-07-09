@@ -16,8 +16,8 @@ A chaotic multiplayer party auto-battler for friends in the same room. Everyone 
 
 - Next.js (App Router) + TypeScript (strict)
 - TailwindCSS + Framer Motion
-- Socket.io on a custom Node server (`server.ts`)
-- Prisma ORM + PostgreSQL (Neon) for match history and the Hall of Fame (`/stats`)
+- Realtime via HTTP polling against API routes — all room state lives in PostgreSQL, so the game runs on serverless platforms like Vercel
+- Prisma ORM + PostgreSQL (Neon) for live game state, match history, and the Hall of Fame (`/stats`)
 
 ## Getting started
 
@@ -26,9 +26,15 @@ npm install
 npm run dev            # http://localhost:3000
 ```
 
-The repo ships with a ready `.env` pointing at a Neon PostgreSQL database, and the server creates the schema automatically on first start — no migration step needed. To use your own database, just change `DATABASE_URL` in `.env`.
+The repo ships with a ready `.env` pointing at a Neon PostgreSQL database, and the app creates the schema automatically on first use — no migration step needed. To use your own database, just change `DATABASE_URL` in `.env`. If the database is unreachable, rooms transparently fall back to in-memory storage (fine for local play; stats won't be saved).
 
-Any way of starting Next.js works: `npm run dev`, `npm start`, or a plain `next dev` / `next start` — the Socket.io server attaches itself to whichever Node server is running. The one hard requirement is a **persistent Node process**: serverless hosts like Vercel or Netlify cannot run this game (rooms live in server memory and websockets need a long-lived server). For deployment use Railway, Render, Fly.io, a VPS, or just a laptop on the local network.
+## Deploying to Vercel
+
+The game is fully serverless-compatible: rooms are stored in Postgres and clients poll API routes, so there is no websocket server to keep alive.
+
+1. Push this repo to GitHub and import it in Vercel.
+2. Add the `DATABASE_URL` environment variable in Vercel project settings (same value as `.env`).
+3. Deploy. The schema is created automatically on the first request.
 
 Playing alone? Start the game solo and 3 bots will join automatically. The UI is available in Turkish and English (toggle in the top corner).
 

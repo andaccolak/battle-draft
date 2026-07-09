@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx server.ts",
+    "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "NODE_ENV=production tsx server.ts",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:push": "prisma db push",
     "postinstall": "prisma generate"
@@ -15,10 +15,7 @@
     "framer-motion": "^11.11.17",
     "next": "^14.2.18",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1",
-    "tsx": "^4.19.2"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

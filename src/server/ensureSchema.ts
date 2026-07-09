@@ -47,6 +47,13 @@ const STATEMENTS = [
     "updatedAt" TIMESTAMP(3) NOT NULL,
     CONSTRAINT "PlayerStats_pkey" PRIMARY KEY ("id")
   )`,
+  `CREATE TABLE IF NOT EXISTS "GameState" (
+    "code" TEXT NOT NULL,
+    "state" JSONB NOT NULL,
+    "version" INTEGER NOT NULL DEFAULT 0,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    CONSTRAINT "GameState_pkey" PRIMARY KEY ("code")
+  )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "Room_code_key" ON "Room"("code")`,
   `CREATE INDEX IF NOT EXISTS "MatchPlayer_nickname_idx" ON "MatchPlayer"("nickname")`,
   `CREATE UNIQUE INDEX IF NOT EXISTS "PlayerStats_nickname_key" ON "PlayerStats"("nickname")`,
@@ -61,13 +68,15 @@ const STATEMENTS = [
   EXCEPTION WHEN duplicate_object THEN NULL; END $$`
 ];
 
-export async function ensureSchema(): Promise<void> {
+export async function ensureSchema(): Promise<boolean> {
   try {
     for (const sql of STATEMENTS) {
       await prisma.$executeRawUnsafe(sql);
     }
     console.log("🗄️  Database schema is ready");
+    return true;
   } catch (err) {
-    console.error("Database schema setup failed (game still playable, stats won't be saved):", err instanceof Error ? err.message : err);
+    console.error("Database unreachable, falling back to in-memory rooms (fine for local play, stats won't be saved):", err instanceof Error ? err.message : err);
+    return false;
   }
 }

@@ -48,22 +48,22 @@ function playSound(entry: TimelineEntry): void {
 
 export default function BattleStage({ battle }: { battle: BattlePayload }) {
   const { t, logLine } = useI18n();
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(() => {
+    const elapsed = battle.elapsedMs ?? 0;
+    return Math.max(0, Math.min(battle.timeline.length - 1, Math.floor(elapsed / battle.stepMs)));
+  });
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [shake, setShake] = useState(0);
   const [zoom, setZoom] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const floatId = useRef(0);
+  const entriesRef = useRef(battle.timeline);
+  entriesRef.current = battle.timeline;
 
   const entries = battle.timeline;
   const visible = entries.slice(0, index + 1);
   const current = entries[Math.min(index, entries.length - 1)];
   const poses = posesFor(current);
-
-  useEffect(() => {
-    setIndex(0);
-    setFloats([]);
-  }, [battle]);
 
   useEffect(() => {
     if (index >= entries.length - 1) return;
@@ -72,7 +72,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
   }, [index, entries.length, battle.stepMs]);
 
   useEffect(() => {
-    const entry = entries[index];
+    const entry = entriesRef.current[index];
     if (!entry) return;
     playSound(entry);
     if (entry.t === "attack" && entry.dmg !== undefined) {
@@ -94,7 +94,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
       const side = entry.actor === "a" ? "b" : "a";
       setFloats((f) => [...f, { id: floatId.current, side, value: `-${entry.dmg}`, kind: "dmg" }]);
     }
-  }, [index, entries]);
+  }, [index]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });

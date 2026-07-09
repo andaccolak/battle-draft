@@ -130,6 +130,7 @@ export interface BattlePayload {
   roundLabel: string;
   roundKey: "final" | "semifinal" | "round";
   roundNumber: number;
+  elapsedMs?: number;
   a: FighterView;
   b: FighterView;
   winner: "a" | "b";
@@ -149,6 +150,7 @@ export interface RoomSnapshot {
   bracket: BracketRound[] | null;
   battle: BattlePayload | null;
   champion: string | null;
+  serverNow: number;
 }
 
 export interface DraftOffer {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useGame } from "@/hooks/useGame";
-import { getNickname, setNickname as storeNickname } from "@/lib/socket";
+import { getNickname, setNickname as storeNickname } from "@/lib/session";
 import Lobby from "@/components/Lobby";
 import DraftPhase from "@/components/DraftPhase";
 import LuckPhase from "@/components/LuckPhase";

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { getNickname, getPlayerId, getSocket, setNickname as storeNickname } from "@/lib/socket";
+import { getNickname, getPlayerId, setNickname as storeNickname } from "@/lib/session";
 import { LangToggle, useI18n } from "@/lib/i18n";
 
 export default function HomePage() {
@@ -27,40 +27,25 @@ export default function HomePage() {
     return true;
   };
 
-  const createRoom = () => {
+  const createRoom = async () => {
     if (!validate()) return;
     setBusy(true);
     setError(null);
     try {
-      const socket = getSocket();
-      const playerId = getPlayerId();
-      const cleanup = () => {
-        clearTimeout(timer);
-        socket.off("room:joined", onJoined);
-        socket.off("game:error", onError);
-        socket.off("connect", emit);
-      };
-      const timer = setTimeout(() => {
-        cleanup();
-        setError(t("serverUnreachable"));
-        setBusy(false);
-      }, 12000);
-      const onJoined = ({ code: roomCode }: { code: string }) => {
-        cleanup();
-        router.push(`/room/${roomCode}`);
-      };
-      const onError = ({ code: errCode, message }: { code?: string; message?: string }) => {
-        cleanup();
-        setError(errCode ? t(errCode) : message ?? t("genericError"));
-        setBusy(false);
-      };
-      const emit = () => socket.emit("room:create", { nickname: nickname.trim(), playerId });
-      socket.once("room:joined", onJoined);
-      socket.once("game:error", onError);
-      if (socket.connected) emit();
-      else socket.once("connect", emit);
+      const res = await fetch("/api/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: nickname.trim(), playerId: getPlayerId() })
+      });
+      const data = (await res.json()) as { code?: string; error?: string };
+      if (data.code) {
+        router.push(`/room/${data.code}`);
+        return;
+      }
+      setError(t(data.error ?? "genericError"));
+      setBusy(false);
     } catch {
-      setError(t("genericError"));
+      setError(t("serverUnreachable"));
       setBusy(false);
     }
   };
@@ -110,7 +95,7 @@ export default function HomePage() {
           />
         </div>
 
-        <button onClick={createRoom} disabled={busy} className="btn-primary w-full text-lg">
+        <button onClick={() => void createRoom()} disabled={busy} className="btn-primary w-full text-lg">
           {busy ? t("creating") : t("createRoom")}
         </button>
 

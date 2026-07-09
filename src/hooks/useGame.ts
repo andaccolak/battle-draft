@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DraftOffer, LuckOffer, RoomSnapshot } from "@/lib/game/types";
-import { getPlayerId, getSocket } from "@/lib/socket";
+import { getPlayerId } from "@/lib/session";
+
+const POLL_MS = 1200;
 
 export interface GameApi {
   snapshot: RoomSnapshot | null;
@@ -19,6 +21,21 @@ export interface GameApi {
   clearError: () => void;
 }
 
+interface RoomResponse {
+  snapshot?: RoomSnapshot;
+  offer?: DraftOffer | null;
+  luckOffer?: LuckOffer | null;
+  error?: string;
+}
+
+function adjustClock(snapshot: RoomSnapshot): RoomSnapshot {
+  const skew = Date.now() - snapshot.serverNow;
+  return {
+    ...snapshot,
+    deadline: snapshot.deadline !== null ? snapshot.deadline + skew : null
+  };
+}
+
 export function useGame(code: string, nickname: string): GameApi {
   const [snapshot, setSnapshot] = useState<RoomSnapshot | null>(null);
   const [offer, setOffer] = useState<DraftOffer | null>(null);
@@ -26,53 +43,84 @@ export function useGame(code: string, nickname: string): GameApi {
   const [error, setError] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const playerIdRef = useRef<string>("");
+  const fatalRef = useRef(false);
+  const leftRef = useRef(false);
 
   if (!playerIdRef.current && typeof window !== "undefined") {
     playerIdRef.current = getPlayerId();
   }
 
+  const applyResponse = useCallback((data: RoomResponse) => {
+    if (data.snapshot) {
+      setSnapshot(adjustClock(data.snapshot));
+      setOffer(data.offer ?? null);
+      setLuckOffer(data.luckOffer ?? null);
+    }
+  }, []);
+
+  const postAction = useCallback(
+    async (payload: Record<string, unknown>): Promise<void> => {
+      if (leftRef.current) return;
+      try {
+        const res = await fetch(`/api/rooms/${code}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, playerId: playerIdRef.current })
+        });
+        const data = (await res.json()) as RoomResponse;
+        if (data.error) {
+          setError(data.error);
+          if (res.status === 404) fatalRef.current = true;
+        }
+        applyResponse(data);
+        setConnected(true);
+      } catch {
+        setConnected(false);
+      }
+    },
+    [code, applyResponse]
+  );
+
   useEffect(() => {
     if (!nickname) return;
-    const socket = getSocket();
+    fatalRef.current = false;
+    leftRef.current = false;
+    let stopped = false;
 
-    const onState = (state: RoomSnapshot) => {
-      setSnapshot(state);
-      if (state.phase !== "draft") setOffer(null);
-      if (state.phase !== "luck") setLuckOffer(null);
+    const poll = async () => {
+      if (stopped || fatalRef.current || leftRef.current) return;
+      try {
+        const res = await fetch(`/api/rooms/${code}?playerId=${encodeURIComponent(playerIdRef.current)}`);
+        if (res.status === 404) {
+          const data = (await res.json()) as RoomResponse;
+          setError(data.error ?? "err_not_found");
+          fatalRef.current = true;
+          return;
+        }
+        const data = (await res.json()) as RoomResponse;
+        applyResponse(data);
+        setConnected(true);
+      } catch {
+        setConnected(false);
+      }
     };
-    const onOffer = (o: DraftOffer) => setOffer(o);
-    const onLuck = (o: LuckOffer) => setLuckOffer(o);
-    const onError = (e: { code?: string; message?: string }) => setError(e.code ?? e.message ?? "err_unknown");
-    const onConnect = () => {
-      setConnected(true);
-      socket.emit("room:join", { code, nickname, playerId: playerIdRef.current });
-    };
-    const onDisconnect = () => setConnected(false);
 
-    socket.on("room:state", onState);
-    socket.on("draft:offer", onOffer);
-    socket.on("luck:offer", onLuck);
-    socket.on("game:error", onError);
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-
-    if (socket.connected) onConnect();
-
+    void postAction({ type: "join", nickname }).then(poll);
+    const interval = setInterval(() => void poll(), POLL_MS);
     return () => {
-      socket.off("room:state", onState);
-      socket.off("draft:offer", onOffer);
-      socket.off("luck:offer", onLuck);
-      socket.off("game:error", onError);
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
+      stopped = true;
+      clearInterval(interval);
     };
-  }, [code, nickname]);
+  }, [code, nickname, postAction, applyResponse]);
 
-  const startGame = useCallback(() => getSocket().emit("game:start"), []);
-  const pickItem = useCallback((itemId: string | null) => getSocket().emit("draft:pick", { itemId }), []);
-  const pickLuckCard = useCallback((cardId: string) => getSocket().emit("luck:pick", { cardId }), []);
-  const playAgain = useCallback(() => getSocket().emit("game:again"), []);
-  const leaveRoom = useCallback(() => getSocket().emit("room:leave"), []);
+  const startGame = useCallback(() => void postAction({ type: "start" }), [postAction]);
+  const pickItem = useCallback((itemId: string | null) => void postAction({ type: "pick", itemId }), [postAction]);
+  const pickLuckCard = useCallback((cardId: string) => void postAction({ type: "luck", cardId }), [postAction]);
+  const playAgain = useCallback(() => void postAction({ type: "again" }), [postAction]);
+  const leaveRoom = useCallback(() => {
+    void postAction({ type: "leave" });
+    leftRef.current = true;
+  }, [postAction]);
   const clearError = useCallback(() => setError(null), []);
 
   return {

@@ -1,23 +1,24 @@
 import { prisma } from "@/lib/db";
-import type { GameRoom } from "./room";
+import { EVENTS } from "@/lib/game/events";
+import type { RoomState } from "./engine";
 
-export async function persistMatch(room: GameRoom): Promise<void> {
+export async function persistMatch(state: RoomState): Promise<void> {
   try {
     const dbRoom = await prisma.room.upsert({
-      where: { code: room.code },
+      where: { code: state.code },
       update: {},
-      create: { code: room.code }
+      create: { code: state.code }
     });
-    const players = [...room.players.values()];
-    const champion = players.find((p) => !p.eliminated);
+    const champion = state.players.find((p) => !p.eliminated);
+    const eventName = EVENTS.find((e) => e.id === state.eventId)?.name ?? state.eventId ?? "Unknown";
     const match = await prisma.match.create({
       data: {
         roomId: dbRoom.id,
-        eventName: room.event?.name ?? "Unknown",
+        eventName,
         championNickname: champion?.nickname ?? "Unknown",
-        playerCount: players.length,
+        playerCount: state.players.length,
         participants: {
-          create: players.map((p) => ({
+          create: state.players.map((p) => ({
             nickname: p.nickname,
             luckCard: p.luckCard?.name ?? null,
             items: JSON.parse(JSON.stringify(p.equipment)),
@@ -28,9 +29,9 @@ export async function persistMatch(room: GameRoom): Promise<void> {
         }
       }
     });
-    if (room.battleRecords.length > 0) {
+    if (state.records.length > 0) {
       await prisma.battle.createMany({
-        data: room.battleRecords.map((b) => ({
+        data: state.records.map((b) => ({
           matchId: match.id,
           roundIndex: b.roundIndex,
           playerA: b.playerA,
@@ -40,7 +41,7 @@ export async function persistMatch(room: GameRoom): Promise<void> {
         }))
       });
     }
-    for (const p of players) {
+    for (const p of state.players) {
       if (p.isBot) continue;
       await prisma.playerStats.upsert({
         where: { nickname: p.nickname },
