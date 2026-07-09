@@ -23,10 +23,10 @@ A chaotic multiplayer party auto-battler for friends in the same room. Everyone 
 
 ```bash
 npm install
-cp .env.example .env   # set DATABASE_URL to your Postgres/Neon connection string
-npm run db:push        # create the schema
 npm run dev            # http://localhost:3000
 ```
+
+The repo ships with a ready `.env` pointing at a Neon PostgreSQL database, and the server creates the schema automatically on first start — no migration step needed. To use your own database, just change `DATABASE_URL` in `.env`.
 
 Production:
 

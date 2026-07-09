@@ -29,17 +29,45 @@ export default function HomePage() {
     if (!validate()) return;
     setBusy(true);
     setError(null);
-    const socket = getSocket();
-    socket.once("room:joined", ({ code: roomCode }: { code: string }) => {
-      router.push(`/room/${roomCode}`);
-    });
-    socket.once("game:error", ({ message }: { message: string }) => {
-      setError(message);
+    try {
+      const socket = getSocket();
+      const playerId = getPlayerId();
+      const cleanup = () => {
+        clearTimeout(timer);
+        socket.off("room:joined", onJoined);
+        socket.off("game:error", onError);
+        socket.off("connect", emit);
+        socket.off("connect_error", onConnectError);
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        setError("Could not reach the game server. Make sure the app runs via 'npm run dev' or 'npm start' (Socket.io needs the custom server).");
+        setBusy(false);
+      }, 10000);
+      const onJoined = ({ code: roomCode }: { code: string }) => {
+        cleanup();
+        router.push(`/room/${roomCode}`);
+      };
+      const onError = ({ message }: { message: string }) => {
+        cleanup();
+        setError(message);
+        setBusy(false);
+      };
+      const onConnectError = () => {
+        cleanup();
+        setError("Connection to the game server failed. Check that the server is running and reachable.");
+        setBusy(false);
+      };
+      const emit = () => socket.emit("room:create", { nickname: nickname.trim(), playerId });
+      socket.once("room:joined", onJoined);
+      socket.once("game:error", onError);
+      socket.once("connect_error", onConnectError);
+      if (socket.connected) emit();
+      else socket.once("connect", emit);
+    } catch {
+      setError("Something went wrong while creating the room. Refresh and try again.");
       setBusy(false);
-    });
-    const emit = () => socket.emit("room:create", { nickname: nickname.trim(), playerId: getPlayerId() });
-    if (socket.connected) emit();
-    else socket.once("connect", emit);
+    }
   };
 
   const joinRoom = () => {
