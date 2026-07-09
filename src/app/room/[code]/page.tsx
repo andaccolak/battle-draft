@@ -18,7 +18,7 @@ export default function RoomPage() {
   const { t } = useI18n();
   const params = useParams<{ code: string }>();
   const router = useRouter();
-  const code = (params.code ?? "").toUpperCase();
+  const code = (params?.code ?? "").toUpperCase();
   const [nickname, setNickname] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 

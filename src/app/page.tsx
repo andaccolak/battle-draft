@@ -39,13 +39,12 @@ export default function HomePage() {
         socket.off("room:joined", onJoined);
         socket.off("game:error", onError);
         socket.off("connect", emit);
-        socket.off("connect_error", onConnectError);
       };
       const timer = setTimeout(() => {
         cleanup();
         setError(t("serverUnreachable"));
         setBusy(false);
-      }, 10000);
+      }, 12000);
       const onJoined = ({ code: roomCode }: { code: string }) => {
         cleanup();
         router.push(`/room/${roomCode}`);
@@ -55,15 +54,9 @@ export default function HomePage() {
         setError(errCode ? t(errCode) : message ?? t("genericError"));
         setBusy(false);
       };
-      const onConnectError = () => {
-        cleanup();
-        setError(t("connectionFailed"));
-        setBusy(false);
-      };
       const emit = () => socket.emit("room:create", { nickname: nickname.trim(), playerId });
       socket.once("room:joined", onJoined);
       socket.once("game:error", onError);
-      socket.once("connect_error", onConnectError);
       if (socket.connected) emit();
       else socket.once("connect", emit);
     } catch {

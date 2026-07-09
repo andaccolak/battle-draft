@@ -28,6 +28,10 @@ npm run dev            # http://localhost:3000
 
 The repo ships with a ready `.env` pointing at a Neon PostgreSQL database, and the server creates the schema automatically on first start — no migration step needed. To use your own database, just change `DATABASE_URL` in `.env`.
 
+Any way of starting Next.js works: `npm run dev`, `npm start`, or a plain `next dev` / `next start` — the Socket.io server attaches itself to whichever Node server is running. The one hard requirement is a **persistent Node process**: serverless hosts like Vercel or Netlify cannot run this game (rooms live in server memory and websockets need a long-lived server). For deployment use Railway, Render, Fly.io, a VPS, or just a laptop on the local network.
+
+Playing alone? Start the game solo and 3 bots will join automatically. The UI is available in Turkish and English (toggle in the top corner).
+
 Production:
 
 ```bash

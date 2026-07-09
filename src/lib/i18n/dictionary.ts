@@ -12,7 +12,7 @@ export const UI: Record<string, { en: string; tr: string }> = {
   footer: { en: "2–8 players · everyone on their own phone · loudest room wins", tr: "2–8 oyuncu · herkes kendi telefonundan · en gürültülü oda kazanır" },
   nickTooShort: { en: "Nickname must be at least 2 characters.", tr: "Takma ad en az 2 karakter olmalı." },
   codeLength: { en: "Room codes are 6 characters.", tr: "Oda kodları 6 karakterdir." },
-  serverUnreachable: { en: "Could not reach the game server. Make sure the app runs via 'npm run dev' or 'npm start' (Socket.io needs the custom server).", tr: "Oyun sunucusuna ulaşılamadı. Uygulamanın 'npm run dev' veya 'npm start' ile çalıştığından emin ol (Socket.io özel sunucu gerektirir)." },
+  serverUnreachable: { en: "Could not reach the game server. The game needs a persistent Node server (npm run dev / npm start) — serverless hosts like Vercel are not supported.", tr: "Oyun sunucusuna ulaşılamadı. Oyun kalıcı bir Node sunucusu gerektirir (npm run dev / npm start) — Vercel gibi sunucusuz platformlar desteklenmez." },
   connectionFailed: { en: "Connection to the game server failed. Check that the server is running and reachable.", tr: "Oyun sunucusuna bağlantı kurulamadı. Sunucunun çalıştığından ve erişilebilir olduğundan emin ol." },
   genericError: { en: "Something went wrong while creating the room. Refresh and try again.", tr: "Oda kurulurken bir şeyler ters gitti. Sayfayı yenileyip tekrar dene." },
   roomCode: { en: "Room code", tr: "Oda kodu" },

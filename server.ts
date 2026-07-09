@@ -23,6 +23,8 @@ app.prepare().then(() => {
   });
 
   registerSocketHandlers(io);
+  (globalThis as unknown as { __bdIo?: Server; __bdSchema?: boolean }).__bdIo = io;
+  (globalThis as unknown as { __bdIo?: Server; __bdSchema?: boolean }).__bdSchema = true;
 
   httpServer.listen(port, hostname, () => {
     console.log(`⚔️  Battle Draft ready on http://${hostname}:${port}`);

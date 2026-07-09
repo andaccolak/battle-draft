@@ -3,10 +3,30 @@
 import { io, type Socket } from "socket.io-client";
 
 let socket: Socket | null = null;
+let initPromise: Promise<void> | null = null;
+
+function ensureServerStarted(): Promise<void> {
+  if (!initPromise) {
+    initPromise = fetch("/api/socket-init")
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+  return initPromise;
+}
 
 export function getSocket(): Socket {
   if (!socket) {
-    socket = io({ path: "/api/socket", autoConnect: true });
+    socket = io({
+      path: "/api/socket",
+      autoConnect: false,
+      reconnection: true,
+      reconnectionDelay: 500,
+      reconnectionDelayMax: 2000
+    });
+    const s = socket;
+    void ensureServerStarted().then(() => {
+      if (!s.connected) s.connect();
+    });
   }
   return socket;
 }
