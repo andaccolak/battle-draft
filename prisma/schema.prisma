@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  createdAt DateTime @default(now())
+  matches   Match[]
+}
+
+model Match {
+  id               String        @id @default(cuid())
+  roomId           String
+  room             Room          @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  eventName        String
+  championNickname String
+  playerCount      Int
+  createdAt        DateTime      @default(now())
+  participants     MatchPlayer[]
+  battles          Battle[]
+}
+
+model MatchPlayer {
+  id         String  @id @default(cuid())
+  matchId    String
+  match      Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  nickname   String
+  luckCard   String?
+  items      Json
+  wins       Int     @default(0)
+  losses     Int     @default(0)
+  isChampion Boolean @default(false)
+
+  @@index([nickname])
+}
+
+model Battle {
+  id         String @id @default(cuid())
+  matchId    String
+  match      Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  roundIndex Int
+  playerA    String
+  playerB    String
+  winner     String
+  log        Json
+}
+
+model PlayerStats {
+  id            String   @id @default(cuid())
+  nickname      String   @unique
+  matchesPlayed Int      @default(0)
+  wins          Int      @default(0)
+  losses        Int      @default(0)
+  championships Int      @default(0)
+  updatedAt     DateTime @updatedAt
+}
