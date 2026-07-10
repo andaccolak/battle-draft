@@ -67,6 +67,7 @@ export type Phase = "lobby" | "draft" | "luck" | "event" | "battle" | "champion"
 export interface PublicPlayer {
   id: string;
   nickname: string;
+  avatar: string;
   isHost: boolean;
   isBot: boolean;
   connected: boolean;
@@ -89,6 +90,7 @@ export interface BracketRound {
 
 export type TimelineEntryType =
   | "intro"
+  | "showcase"
   | "event"
   | "card"
   | "windup"
@@ -120,6 +122,7 @@ export interface TimelineEntry {
 
 export interface FighterView {
   nickname: string;
+  avatar?: string;
   maxHp: number;
   equipment: Partial<Record<Slot, Item>>;
   luckCard: LuckCard | null;

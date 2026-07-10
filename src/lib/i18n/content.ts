@@ -143,6 +143,7 @@ export const PASSIVE_TEMPLATES: Record<string, { en: string; tr: string }> = {
 
 export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   intro: { en: "⚔️ {a} VS {b}!", tr: "⚔️ {a} VS {b}!" },
+  showcase: { en: "🎺 {p} enters the arena!", tr: "🎺 {p} arenaya çıkıyor!" },
   pirate: { en: "🏴‍☠️ {p} activates Pirate and steals {o}'s {emoji} {item}!", tr: "🏴‍☠️ {p} Korsan kartını kullandı ve {o} oyuncusunun {emoji} {item} eşyasını çaldı!" },
   trade: { en: "🎁 {p} activates Trade! {slot} items are swapped with {o}!", tr: "🎁 {p} Takas kartını kullandı! {slot} eşyaları {o} ile değişti!" },
   curse: { en: "💀 {p}'s Curse disables {o}'s {emoji} {item}!", tr: "💀 {p} oyuncusunun Laneti, {o} oyuncusunun {emoji} {item} eşyasını devre dışı bıraktı!" },

@@ -14,6 +14,7 @@ export interface GameApi {
   playerId: string;
   connected: boolean;
   startGame: () => void;
+  chooseAvatar: (avatarId: string) => void;
   pickItem: (itemId: string | null) => void;
   pickLuckCard: (cardId: string) => void;
   playAgain: () => void;
@@ -114,6 +115,7 @@ export function useGame(code: string, nickname: string): GameApi {
   }, [code, nickname, postAction, applyResponse]);
 
   const startGame = useCallback(() => void postAction({ type: "start" }), [postAction]);
+  const chooseAvatar = useCallback((avatarId: string) => void postAction({ type: "avatar", avatarId }), [postAction]);
   const pickItem = useCallback((itemId: string | null) => void postAction({ type: "pick", itemId }), [postAction]);
   const pickLuckCard = useCallback((cardId: string) => void postAction({ type: "luck", cardId }), [postAction]);
   const playAgain = useCallback(() => void postAction({ type: "again" }), [postAction]);
@@ -131,6 +133,7 @@ export function useGame(code: string, nickname: string): GameApi {
     playerId: playerIdRef.current,
     connected,
     startGame,
+    chooseAvatar,
     pickItem,
     pickLuckCard,
     playAgain,

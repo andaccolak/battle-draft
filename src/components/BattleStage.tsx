@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import type { BattlePayload, TimelineEntry } from "@/lib/game/types";
+import type { BattlePayload, FighterView, Rarity, TimelineEntry } from "@/lib/game/types";
+import { SLOTS } from "@/lib/game/types";
+import { avatarById } from "@/lib/game/avatars";
 import Fighter, { type Pose } from "./Fighter";
+import CharacterSprite from "./CharacterSprite";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
 
@@ -13,6 +16,60 @@ interface FloatingNumber {
   value: string;
   kind: "dmg" | "heal";
 }
+
+type FxKind = "rain" | "storm" | "snow" | "fog" | "sun" | "night" | "bloodmoon" | "poison" | "wind" | "quake" | "overcast" | "none";
+
+interface ArenaTheme {
+  sky: string;
+  floor: string;
+  grid: string;
+  celestial: "sun" | "moon" | "redmoon" | null;
+}
+
+const EVENT_FX: Record<string, FxKind> = {
+  rain: "rain",
+  thunderstorm: "storm",
+  blizzard: "snow",
+  fog: "fog",
+  iron_sky: "overcast",
+  midnight_sun: "sun",
+  heatwave: "sun",
+  harvest: "sun",
+  blood_moon: "bloodmoon",
+  vampire_night: "bloodmoon",
+  eclipse: "night",
+  full_moon: "night",
+  poison_mist: "poison",
+  plague: "poison",
+  tornado: "wind",
+  storm_blades: "wind",
+  chaos_rift: "wind",
+  earthquake: "quake",
+  gravity: "quake"
+};
+
+const THEMES: Record<FxKind, ArenaTheme> = {
+  none: { sky: "linear-gradient(180deg,#1e1b4b,#0f172a)", floor: "#312e81", grid: "rgba(255,255,255,0.09)", celestial: null },
+  rain: { sky: "linear-gradient(180deg,#0c1929,#1e3a5f)", floor: "#1e3a5f", grid: "rgba(147,197,253,0.14)", celestial: null },
+  storm: { sky: "linear-gradient(180deg,#0b1220,#312e81)", floor: "#1e1b4b", grid: "rgba(196,181,253,0.16)", celestial: null },
+  snow: { sky: "linear-gradient(180deg,#334155,#64748b)", floor: "#7d8ba1", grid: "rgba(255,255,255,0.28)", celestial: null },
+  fog: { sky: "linear-gradient(180deg,#2b3646,#475569)", floor: "#475569", grid: "rgba(255,255,255,0.1)", celestial: null },
+  sun: { sky: "linear-gradient(180deg,#7c2d12,#d97706)", floor: "#b45309", grid: "rgba(255,241,118,0.2)", celestial: "sun" },
+  night: { sky: "linear-gradient(180deg,#020617,#1e293b)", floor: "#1e293b", grid: "rgba(148,163,184,0.14)", celestial: "moon" },
+  bloodmoon: { sky: "linear-gradient(180deg,#1c0a0a,#450a0a)", floor: "#4a0d0d", grid: "rgba(248,113,113,0.17)", celestial: "redmoon" },
+  poison: { sky: "linear-gradient(180deg,#052e16,#14532d)", floor: "#14532d", grid: "rgba(74,222,128,0.16)", celestial: null },
+  wind: { sky: "linear-gradient(180deg,#164e63,#0e7490)", floor: "#155e75", grid: "rgba(103,232,249,0.16)", celestial: null },
+  quake: { sky: "linear-gradient(180deg,#292524,#57534e)", floor: "#44403c", grid: "rgba(214,211,209,0.14)", celestial: null },
+  overcast: { sky: "linear-gradient(180deg,#1f2937,#4b5563)", floor: "#374151", grid: "rgba(209,213,219,0.11)", celestial: null }
+};
+
+const RARITY_CHIP: Record<Rarity, string> = {
+  common: "border-gray-500/60 bg-gray-500/10 text-gray-200",
+  uncommon: "border-green-400/60 bg-green-500/10 text-green-200",
+  rare: "border-blue-400/60 bg-blue-500/10 text-blue-200",
+  epic: "border-purple-400/60 bg-purple-500/10 text-purple-200",
+  legendary: "border-orange-400/80 bg-orange-500/10 text-orange-200"
+};
 
 function entryDuration(entry: TimelineEntry | undefined): number {
   return entry?.ms ?? 900;
@@ -57,13 +114,13 @@ function playSound(entry: TimelineEntry): void {
     else sfx.hit();
   } else if (entry.t === "miss" || entry.t === "dodge") sfx.miss();
   else if (entry.t === "event") sfx.event();
-  else if (entry.t === "card") sfx.legendary();
+  else if (entry.t === "card" || entry.t === "showcase") sfx.legendary();
   else if (entry.t === "victory") sfx.victory();
   else if (entry.t === "death") sfx.death();
   else if (entry.heal) sfx.heal();
 }
 
-export default function BattleStage({ battle }: { battle: BattlePayload }) {
+export default function BattleStage({ battle, eventId }: { battle: BattlePayload; eventId?: string }) {
   const { t, logLine } = useI18n();
   const [index, setIndex] = useState(() => indexForElapsed(battle.timeline, battle.elapsedMs ?? 0));
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
@@ -78,6 +135,8 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
   const visible = entries.slice(0, index + 1);
   const current = entries[Math.min(index, entries.length - 1)];
   const poses = posesFor(current);
+  const fx: FxKind = (eventId && EVENT_FX[eventId]) || "none";
+  const theme = THEMES[fx];
 
   useEffect(() => {
     if (index >= entries.length - 1) return;
@@ -119,6 +178,8 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
   const hpB = current?.hpB ?? battle.b.maxHp;
   const showIntro = current?.t === "intro";
   const suspense = current?.t === "windup";
+  const actor = current?.actor ?? "none";
+  const cameraX = suspense || current?.t === "attack" ? (actor === "a" ? 14 : actor === "b" ? -14 : 0) : 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -141,25 +202,61 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
         key={shake}
         animate={shake > 0 ? { x: [0, -12, 12, -8, 8, 0] } : {}}
         transition={{ duration: 0.45 }}
-        className="relative flex-1 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-indigo-950/60 to-slate-900/80"
+        className="relative flex-1 overflow-hidden rounded-3xl border border-white/10"
+        style={{ background: theme.sky }}
       >
-        <div className="absolute inset-x-0 bottom-10 h-px bg-white/20" />
-        <div className="absolute inset-x-8 bottom-0 top-auto h-10 rounded-t-[50%] bg-white/5" />
+        {theme.celestial === "sun" && (
+          <motion.div
+            animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.06, 1] }}
+            transition={{ repeat: Infinity, duration: 3.2 }}
+            className="absolute right-8 top-6 h-16 w-16 rounded-full bg-amber-300 shadow-[0_0_70px_30px_rgba(251,191,36,0.45)]"
+          />
+        )}
+        {theme.celestial === "moon" && (
+          <div className="absolute right-10 top-7 h-12 w-12 rounded-full bg-slate-200 shadow-[0_0_40px_12px_rgba(226,232,240,0.3)]">
+            <div className="absolute -right-1 -top-1 h-10 w-10 rounded-full" style={{ background: "linear-gradient(180deg,#020617,#1e293b)" }} />
+          </div>
+        )}
+        {theme.celestial === "redmoon" && (
+          <motion.div
+            animate={{ opacity: [0.8, 1, 0.8] }}
+            transition={{ repeat: Infinity, duration: 2.6 }}
+            className="absolute right-9 top-6 h-14 w-14 rounded-full bg-red-600 shadow-[0_0_60px_20px_rgba(220,38,38,0.5)]"
+          />
+        )}
 
         <motion.div
-          animate={{ scale: zoom ? 1.1 : suspense ? 1.04 : 1 }}
+          animate={{ scale: zoom ? 1.12 : suspense ? 1.05 : 1, x: cameraX }}
           transition={{ duration: suspense ? 1.1 : 0.4 }}
-          className="flex h-full items-end justify-between px-4 pb-12 sm:px-12"
+          className="absolute inset-0"
         >
-          <div className="relative">
-            <Fighter fighter={battle.a} facing="right" pose={poses.a} />
-            <FloatLayer floats={floats.filter((f) => f.side === "a")} />
+          <div className="absolute inset-x-0 bottom-0 h-[68%]" style={{ perspective: "640px" }}>
+            <div
+              className="absolute left-1/2 top-[4%] aspect-square w-[135%] rounded-[26px]"
+              style={{
+                transform: "translateX(-50%) rotateX(57deg) rotateZ(45deg)",
+                background: theme.floor,
+                backgroundImage: `repeating-linear-gradient(0deg, ${theme.grid} 0 1.5px, transparent 1.5px 36px), repeating-linear-gradient(90deg, ${theme.grid} 0 1.5px, transparent 1.5px 36px)`,
+                boxShadow: "inset 0 0 80px rgba(0,0,0,0.55), 0 0 40px rgba(0,0,0,0.4)"
+              }}
+            />
           </div>
-          <div className="relative">
-            <Fighter fighter={battle.b} facing="left" pose={poses.b} />
-            <FloatLayer floats={floats.filter((f) => f.side === "b")} />
+
+          <div className="absolute bottom-[30%] right-[9%] scale-90">
+            <div className="relative">
+              <Fighter fighter={battle.b} facing="left" pose={poses.b} depth="far" />
+              <FloatLayer floats={floats.filter((f) => f.side === "b")} />
+            </div>
+          </div>
+          <div className="absolute bottom-[4%] left-[9%] scale-105">
+            <div className="relative">
+              <Fighter fighter={battle.a} facing="right" pose={poses.a} depth="near" />
+              <FloatLayer floats={floats.filter((f) => f.side === "a")} />
+            </div>
           </div>
         </motion.div>
+
+        <ArenaFX fx={fx} />
 
         <AnimatePresence>
           {suspense && (
@@ -261,23 +358,38 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-slate-950/80"
+              className="absolute inset-0 z-10 flex items-center justify-center gap-3 bg-slate-950/85 px-4"
             >
-              <motion.div initial={{ x: -120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="font-display text-3xl font-black text-indigo-300">
-                {battle.a.nickname}
+              <motion.div initial={{ x: -120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
+                <CharacterSprite avatar={avatarById(battle.a.avatar)} equipment={battle.a.equipment} className="h-32 w-24" />
+                <div className="font-display max-w-[8rem] truncate text-xl font-black text-indigo-300">{battle.a.nickname}</div>
               </motion.div>
               <motion.div
                 initial={{ scale: 3, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", damping: 12 }}
-                className="font-display my-2 text-5xl font-black text-amber-400"
+                className="font-display text-5xl font-black text-amber-400"
               >
                 VS
               </motion.div>
-              <motion.div initial={{ x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="font-display text-3xl font-black text-fuchsia-300">
-                {battle.b.nickname}
+              <motion.div initial={{ x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
+                <div style={{ transform: "scaleX(-1)" }}>
+                  <CharacterSprite avatar={avatarById(battle.b.avatar)} equipment={battle.b.equipment} className="h-32 w-24" />
+                </div>
+                <div className="font-display max-w-[8rem] truncate text-xl font-black text-fuchsia-300">{battle.b.nickname}</div>
               </motion.div>
             </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {current && current.t === "showcase" && (
+            <Showcase
+              key={`showcase-${index}`}
+              fighter={current.actor === "a" ? battle.a : battle.b}
+              side={current.actor === "a" ? "left" : "right"}
+              headline={logLine(current)}
+            />
           )}
         </AnimatePresence>
 
@@ -316,7 +428,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
                     ? "italic text-slate-400"
                     : entry.crit
                       ? "font-bold text-orange-300"
-                      : entry.t === "card" || entry.t === "event"
+                      : entry.t === "card" || entry.t === "event" || entry.t === "showcase"
                         ? "text-amber-200"
                         : "text-slate-300"
             }
@@ -327,6 +439,176 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
       </div>
     </div>
   );
+}
+
+function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "left" | "right"; headline: string }) {
+  const { t, itemName } = useI18n();
+  const items = SLOTS.map((s) => fighter.equipment[s]).filter((i): i is NonNullable<typeof i> => !!i);
+  const fromX = side === "left" ? -140 : 140;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/90 px-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ y: -30, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        className="font-display text-center text-xl font-black text-amber-300"
+      >
+        {headline}
+      </motion.div>
+      <div className={`flex w-full max-w-md items-center gap-4 ${side === "right" ? "flex-row-reverse" : ""}`}>
+        <motion.div
+          initial={{ x: fromX, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          transition={{ type: "spring", damping: 14 }}
+          className="shrink-0"
+        >
+          <div style={{ transform: side === "right" ? "scaleX(-1)" : undefined }}>
+            <CharacterSprite avatar={avatarById(fighter.avatar)} equipment={fighter.equipment} disabledItems={fighter.disabledItems} className="h-40 w-28 drop-shadow-2xl" />
+          </div>
+        </motion.div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {items.length === 0 && (
+            <motion.div
+              initial={{ x: -fromX / 3, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="rounded-xl border border-gray-500/60 bg-gray-500/10 px-3 py-2 text-sm font-bold text-gray-200"
+            >
+              🤜 {t("bareHands")}
+            </motion.div>
+          )}
+          {items.map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ x: -fromX / 3, opacity: 0, scale: 0.85 }}
+              animate={{ x: 0, opacity: 1, scale: 1 }}
+              transition={{ delay: 0.25 + i * 0.3, type: "spring", damping: 15 }}
+              className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${RARITY_CHIP[item.rarity]} ${
+                item.rarity === "legendary" ? "shadow-[0_0_18px_rgba(251,146,60,0.35)]" : ""
+              }`}
+            >
+              <span className="text-xl">{item.emoji}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-bold">{itemName(item)}</span>
+              <span className="shrink-0 text-[9px] font-black uppercase tracking-wider opacity-80">{t(item.rarity)}</span>
+            </motion.div>
+          ))}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function ArenaFX({ fx }: { fx: FxKind }) {
+  if (fx === "rain" || fx === "storm") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 26 }, (_, i) => (
+          <motion.div
+            key={i}
+            initial={{ y: "-10%" }}
+            animate={{ y: "110%" }}
+            transition={{ repeat: Infinity, duration: 0.55 + (i % 5) * 0.12, delay: (i * 0.13) % 1.4, ease: "linear" }}
+            className="absolute h-7 w-px rotate-12 bg-sky-300/50"
+            style={{ left: `${(i * 137) % 100}%` }}
+          />
+        ))}
+        {fx === "storm" && (
+          <motion.div
+            animate={{ opacity: [0, 0, 0, 0.55, 0, 0.25, 0] }}
+            transition={{ repeat: Infinity, duration: 4.2 }}
+            className="absolute inset-0 bg-indigo-100"
+          />
+        )}
+      </div>
+    );
+  }
+  if (fx === "snow") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 22 }, (_, i) => (
+          <motion.div
+            key={i}
+            initial={{ y: "-5%" }}
+            animate={{ y: "110%", x: [0, 12, -10, 0] }}
+            transition={{ repeat: Infinity, duration: 4 + (i % 5), delay: (i * 0.4) % 4, ease: "linear" }}
+            className="absolute h-1.5 w-1.5 rounded-full bg-white/80"
+            style={{ left: `${(i * 149) % 100}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (fx === "fog") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 3 }, (_, i) => (
+          <motion.div
+            key={i}
+            animate={{ x: ["-15%", "15%", "-15%"] }}
+            transition={{ repeat: Infinity, duration: 9 + i * 3, ease: "easeInOut" }}
+            className="absolute h-16 w-[75%] rounded-full bg-slate-300/15 blur-xl"
+            style={{ top: `${25 + i * 22}%`, left: `${(i * 20) % 40}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (fx === "poison") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 12 }, (_, i) => (
+          <motion.div
+            key={i}
+            initial={{ y: 0, opacity: 0 }}
+            animate={{ y: -90, opacity: [0, 0.7, 0] }}
+            transition={{ repeat: Infinity, duration: 2.6 + (i % 4) * 0.5, delay: (i * 0.5) % 3 }}
+            className="absolute bottom-[8%] h-2.5 w-2.5 rounded-full bg-green-400/50"
+            style={{ left: `${(i * 157) % 100}%` }}
+          />
+        ))}
+        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-green-500/20 to-transparent" />
+      </div>
+    );
+  }
+  if (fx === "wind") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 10 }, (_, i) => (
+          <motion.div
+            key={i}
+            initial={{ x: "-15%" }}
+            animate={{ x: "115%" }}
+            transition={{ repeat: Infinity, duration: 1.3 + (i % 4) * 0.35, delay: (i * 0.3) % 2, ease: "linear" }}
+            className="absolute h-px w-20 bg-white/30"
+            style={{ top: `${(i * 173) % 90}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (fx === "night" || fx === "bloodmoon") {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
+        {Array.from({ length: 16 }, (_, i) => (
+          <motion.div
+            key={i}
+            animate={{ opacity: [0.15, 0.9, 0.15] }}
+            transition={{ repeat: Infinity, duration: 2 + (i % 3), delay: (i * 0.35) % 2 }}
+            className={`absolute h-1 w-1 rounded-full ${fx === "bloodmoon" ? "bg-red-300/80" : "bg-white/80"}`}
+            style={{ left: `${(i * 137) % 100}%`, top: `${(i * 89) % 45}%` }}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (fx === "sun") {
+    return <div className="pointer-events-none absolute inset-0 z-[5] bg-gradient-to-b from-amber-200/10 to-transparent" />;
+  }
+  return null;
 }
 
 function HpBar({ name, hp, maxHp, align }: { name: string; hp: number; maxHp: number; align: "left" | "right" }) {

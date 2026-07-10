@@ -12,6 +12,7 @@ import type {
 } from "@/lib/game/types";
 import { DRAFT_TIME_MS, LUCK_TIME_MS, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
+import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle } from "@/lib/game/battle";
 
@@ -37,6 +38,7 @@ const BOT_NAMES = [
 export interface StatePlayer {
   id: string;
   nickname: string;
+  avatar?: string;
   isBot: boolean;
   lastSeen: number;
   equipment: Partial<Record<Slot, Item>>;
@@ -93,6 +95,7 @@ function makePlayer(id: string, nickname: string, isBot: boolean, now: number): 
   return {
     id,
     nickname,
+    avatar: avatarIdForSeed(id + nickname),
     isBot,
     lastSeen: now,
     equipment: {},
@@ -146,6 +149,14 @@ export function joinState(state: RoomState, playerId: string, nickname: string, 
   if (state.players.some((p) => p.nickname.toLowerCase() === nickname.toLowerCase())) return "err_taken";
   state.players.push(makePlayer(playerId, nickname, false, now));
   if (!state.hostId) state.hostId = playerId;
+  return null;
+}
+
+export function setAvatar(state: RoomState, playerId: string, avatarId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  const p = findPlayer(state, playerId);
+  if (!p || !AVATAR_IDS.includes(avatarId)) return null;
+  p.avatar = avatarId;
   return null;
 }
 
@@ -384,6 +395,7 @@ function advanceBattles(state: RoomState, now: number): void {
       roundNumber: state.currentRound + 1,
       a: {
         nickname: pa.nickname,
+        avatar: pa.avatar ?? avatarIdForSeed(pa.id + pa.nickname),
         maxHp: result.aMaxHp,
         equipment: result.aEquipment,
         luckCard: pa.luckCard,
@@ -391,6 +403,7 @@ function advanceBattles(state: RoomState, now: number): void {
       },
       b: {
         nickname: pb.nickname,
+        avatar: pb.avatar ?? avatarIdForSeed(pb.id + pb.nickname),
         maxHp: result.bMaxHp,
         equipment: result.bEquipment,
         luckCard: pb.luckCard,
@@ -551,6 +564,7 @@ export function snapshotFor(
     players: state.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,
+      avatar: p.avatar ?? avatarIdForSeed(p.id + p.nickname),
       isHost: p.id === state.hostId,
       isBot: p.isBot,
       connected: isConnected(p, now),

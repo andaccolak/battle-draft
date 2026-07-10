@@ -76,3 +76,13 @@ export const ITEMS: Item[] = [
 export function itemById(id: string): Item | undefined {
   return ITEMS.find((i) => i.id === id);
 }
+
+export type WeaponKind = "ranged" | "heavy" | "blade";
+
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_wooden_club", "w_spiked_flail", "w_dragonfang"]);
+
+export function weaponKindFor(item: Item): WeaponKind {
+  if ((item.tags ?? []).includes("ranged")) return "ranged";
+  if (HEAVY_WEAPON_IDS.has(item.id.replace(/_(forged|gambled)$/, ""))) return "heavy";
+  return "blade";
+}

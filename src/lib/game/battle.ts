@@ -1,5 +1,6 @@
 import type { Item, LuckCard, Slot, TimelineEntry } from "./types";
 import { RARITY_ORDER, SLOTS } from "./types";
+import { weaponKindFor } from "./items";
 import type { EventDef } from "./events";
 
 export interface Build {
@@ -68,11 +69,10 @@ const rand = () => Math.random();
 const roll = (pct: number) => Math.random() * 100 < pct;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-const HEAVY_WEAPONS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_wooden_club", "w_spiked_flail", "w_dragonfang"]);
-
 function windupKeyFor(item: Item): string {
-  if ((item.tags ?? []).includes("ranged")) return "windupRanged";
-  if (HEAVY_WEAPONS.has(item.id.replace(/_(forged|gambled)$/, ""))) return "windupHeavy";
+  const kind = weaponKindFor(item);
+  if (kind === "ranged") return "windupRanged";
+  if (kind === "heavy") return "windupHeavy";
   return "windupBlade";
 }
 
@@ -80,6 +80,8 @@ function entryMs(e: Omit<TimelineEntry, "hpA" | "hpB">): number {
   switch (e.t) {
     case "intro":
       return 1300;
+    case "showcase":
+      return 2600;
     case "event":
       return 2100;
     case "card":
@@ -444,6 +446,20 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     params: { a: a.nickname, b: b.nickname }
   });
   push({
+    t: "showcase",
+    actor: "a",
+    text: `🎺 ${a.nickname} enters the arena!`,
+    key: "showcase",
+    params: { p: a.nickname }
+  });
+  push({
+    t: "showcase",
+    actor: "b",
+    text: `🎺 ${b.nickname} enters the arena!`,
+    key: "showcase",
+    params: { p: b.nickname }
+  });
+  push({
     t: "event",
     actor: "none",
     text: `${event.emoji} ${event.name}: ${event.description}`,
@@ -700,7 +716,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   });
 
   let totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
-  const MAX_BATTLE_MS = 38000;
+  const MAX_BATTLE_MS = 44000;
   if (totalMs > MAX_BATTLE_MS) {
     const scale = MAX_BATTLE_MS / totalMs;
     for (const e of timeline) {
