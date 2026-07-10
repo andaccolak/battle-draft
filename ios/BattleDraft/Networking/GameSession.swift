@@ -93,6 +93,7 @@ final class GameSession: ObservableObject {
             connected = true
         } catch {
             connected = false
+            errorCode = "serverUnreachable"
         }
     }
 

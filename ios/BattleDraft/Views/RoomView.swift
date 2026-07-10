@@ -15,7 +15,14 @@ struct RoomView: View {
             if let snapshot = session.snapshot {
                 VStack(spacing: 0) {
                     header(snapshot)
-                    if let error = session.errorCode, !session.fatal {
+                    if session.me == nil && snapshot.phase != .lobby {
+                        Text(loc.t(session.errorCode ?? "err_started"))
+                            .font(.footnote.bold())
+                            .foregroundStyle(.orange)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 6)
+                    } else if let error = session.errorCode, !session.fatal {
                         Text(loc.t(error))
                             .font(.footnote.bold())
                             .foregroundStyle(.red)

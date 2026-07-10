@@ -4,7 +4,8 @@ Living status document for the native iOS client. Read `handoff.md` (web/server)
 
 ## Ground rules
 
-- **Pull before every session** (`git pull`). Two people develop in parallel; the web/server side changes under you. After pulling, check whether the API/timeline contract changed (see "Contract watch" below) and mirror changes into the Swift models.
+- **Branch model**: all iOS work lives on the `ios` branch — commit and push there, never to the shared default branch (`claude/multiplayer-party-game-5dip9w`). Start every session with `git checkout ios && git merge origin/claude/multiplayer-party-game-5dip9w` (after `git fetch`) to inherit the teammate's web/server work; resolve conflicts in favor of his web changes.
+- **Pull before every session** (`git fetch` + merge as above). Two people develop in parallel; the web/server side changes under you. After merging, check whether the API/timeline contract changed (see "Contract watch" below) and mirror changes into the Swift models.
 - All iOS work lives in `ios/`. Never touch web/server files unless the task explicitly requires an API extension — and any API change must stay backward-compatible with the deployed web client (add fields, never rename/remove).
 - **No code comments anywhere**, Swift included (owner rule).
 - Commit small with imperative messages; push to the same branch (`claude/multiplayer-party-game-5dip9w`).
@@ -63,6 +64,11 @@ README.md                      Open/run instructions
 4. ARPG drama pass: camera cuts (dolly to attacker on windup, orbit on death blow, slow-mo on crit via scaled entry ms), WebAudio-equivalent sound (AVAudioEngine or bundled SFX), particle hits, sound toggle.
 5. Polish: app icon, TestFlight, PWA-parity features (stats screen).
 
+## Open issue: draft picks reported not working on device
+
+Owner reported he "could not select items" during draft on his device. Verified NOT a data-layer bug: a compiled Swift harness using the app's own GameModels + identical JSON bodies played FULL matches against both localhost and the production Vercel server — create/join/pick/luck/react all succeed and decode (harness pattern: compile Models/GameModels.swift + a main.swift against macOS SDK, see session log). Leading hypothesis: he was a spectator — join silently failed (err_taken: same nickname already in room from a web session with a different playerId, or err_started), so no offer arrives and cards never render. Hardening shipped: persistent orange banner when `me == nil` mid-game, action failures set errorCode (no more silent taps), pressed-state feedback + contentShape on item cards. If he reproduces after this, the banner text identifies the failure class. Simulator UI automation to reproduce it live was blocked by a macOS TCC permission prompt (Terminal input-control) that only the owner can approve — if approved, cliclick + AXRaise + bezel-less window mapping works (see scratchpad tap.sh technique: turn OFF Show Device Bezels, content starts ~52pt below window top).
+
 ## Session log
 
 - **2026-07-10 (session 1)**: Created the whole ios/ project from scratch: pbxproj, models, networking, all screens, RealityKit battle stage, TR/EN localization port, QTE support (inherited teammate's a44a82e mid-session), Meshy pipeline docs + script, this handoff. Build verified.
+- **2026-07-10 (session 2)**: Created `ios` branch (new home for iOS work). Investigated draft-pick report (see Open issue above), shipped visibility/hardening fixes, verified full-match Swift harness against production. Owner set DEVELOPMENT_TEAM in pbxproj (keep it).

@@ -275,7 +275,7 @@ struct ShowcaseOverlay: View {
                     if items.isEmpty {
                         gearChip(emoji: "🤜", name: loc.t("bareHands"), color: .gray)
                     }
-                    ForEach(items) { item in
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                         gearChip(emoji: item.emoji, name: loc.itemName(item), color: RarityStyle.color(item.rarity))
                     }
                 }

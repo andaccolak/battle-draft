@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 extension Color {
     init(hex: String) {
@@ -51,6 +52,15 @@ struct AvatarBadge: View {
     }
 }
 
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.95 : 1)
+            .opacity(configuration.isPressed ? 0.85 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
 struct ItemCardView: View {
     @ObservedObject var loc = Localization.shared
     let item: Item
@@ -59,6 +69,7 @@ struct ItemCardView: View {
 
     var body: some View {
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             onPick?()
         } label: {
             HStack(alignment: .top, spacing: 12) {
@@ -104,8 +115,9 @@ struct ItemCardView: View {
                         .font(.caption.bold())
                 }
             }
+            .contentShape(RoundedRectangle(cornerRadius: 16))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(PressableCardStyle())
         .disabled(locked || onPick == nil)
         .saturation(locked ? 0 : 1)
     }
