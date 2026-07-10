@@ -3,20 +3,27 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
+import { ARENA_MAPS } from "@/lib/game/types";
 import { AVATARS, MODELED_AVATARS } from "@/lib/game/avatars";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 
 const Avatar3DThumb = dynamic(() => import("./Avatar3DThumb"), { ssr: false });
 
+const MAP_EMOJI: Record<string, string> = {
+  colosseum: "🏟️",
+  dungeon: "🏰"
+};
+
 interface Props {
   snapshot: RoomSnapshot;
   playerId: string;
   onStart: () => void;
   onAvatar: (avatarId: string) => void;
+  onMap: (mapId: string) => void;
 }
 
-export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) {
+export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap }: Props) {
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const solo = snapshot.players.length === 1;
@@ -52,6 +59,32 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) 
                 <span className={`mt-0.5 text-[10px] font-bold ${selected ? "text-indigo-300" : "text-slate-400"}`}>
                   {t(`avatar_${av.id}`)}
                 </span>
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">{t("chooseMap")}</h2>
+          {!isHost && <span className="text-xs text-slate-500">{t("mapHostOnly")}</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {ARENA_MAPS.map((mapId) => {
+            const selected = snapshot.arenaMap === mapId;
+            return (
+              <motion.button
+                key={mapId}
+                whileTap={isHost ? { scale: 0.95 } : undefined}
+                disabled={!isHost}
+                onClick={() => onMap(mapId)}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
+                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
+                } ${isHost ? "" : "cursor-default opacity-80"}`}
+              >
+                <span className="text-xl">{MAP_EMOJI[mapId]}</span>
+                {t(`map_${mapId}`)}
               </motion.button>
             );
           })}

@@ -152,11 +152,12 @@ function playSound(entry: TimelineEntry): void {
 interface BattleStageProps {
   battle: BattlePayload;
   eventId?: string;
+  arenaMap?: string;
   playerId: string;
   onReact: (pass: boolean) => void;
 }
 
-export default function BattleStage({ battle, eventId, playerId, onReact }: BattleStageProps) {
+export default function BattleStage({ battle, eventId, arenaMap, playerId, onReact }: BattleStageProps) {
   const { t, logLine } = useI18n();
   const [index, setIndex] = useState(() => indexForElapsed(battle.timeline, battle.elapsedMs ?? 0));
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
@@ -270,6 +271,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
           poseB={poses.b}
           beat={index}
           fx={fx}
+          map={arenaMap ?? "colosseum"}
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}

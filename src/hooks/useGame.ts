@@ -15,6 +15,7 @@ export interface GameApi {
   connected: boolean;
   startGame: () => void;
   chooseAvatar: (avatarId: string) => void;
+  chooseMap: (mapId: string) => void;
   pickItem: (itemId: string | null) => void;
   pickLuckCard: (cardId: string) => void;
   reactBattle: (pass: boolean) => void;
@@ -117,6 +118,7 @@ export function useGame(code: string, nickname: string): GameApi {
 
   const startGame = useCallback(() => void postAction({ type: "start" }), [postAction]);
   const chooseAvatar = useCallback((avatarId: string) => void postAction({ type: "avatar", avatarId }), [postAction]);
+  const chooseMap = useCallback((mapId: string) => void postAction({ type: "map", mapId }), [postAction]);
   const pickItem = useCallback((itemId: string | null) => void postAction({ type: "pick", itemId }), [postAction]);
   const pickLuckCard = useCallback((cardId: string) => void postAction({ type: "luck", cardId }), [postAction]);
   const reactBattle = useCallback((pass: boolean) => void postAction({ type: "react", pass }), [postAction]);
@@ -136,6 +138,7 @@ export function useGame(code: string, nickname: string): GameApi {
     connected,
     startGame,
     chooseAvatar,
+    chooseMap,
     pickItem,
     pickLuckCard,
     reactBattle,

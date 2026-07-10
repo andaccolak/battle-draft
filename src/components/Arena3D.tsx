@@ -8,6 +8,7 @@ import { avatarById } from "@/lib/game/avatars";
 import { weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize, attachWeapons } from "@/lib/three/characterAssets";
+import { buildDungeonArena } from "@/lib/three/arenaKits";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -499,12 +500,13 @@ interface Props {
   poseB: Pose;
   beat: number;
   fx: string;
+  map: string;
   focus: "a" | "b" | "none";
   zoom: boolean;
   crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom, crit }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
   const rigBRef = useRef<Rig | null>(null);
@@ -719,10 +721,13 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     weatherRef.current = weather;
     if (weather) scene.add(weather.group);
     let cancelled = false;
-    void loadArenaModel(fx).then((template) => {
-      if (cancelled || !template || !sceneRef.current) return;
+    const arenaPromise =
+      map === "dungeon"
+        ? buildDungeonArena()
+        : loadArenaModel(fx).then((template) => (template ? prepareArena(template) : null));
+    void arenaPromise.then((arena) => {
+      if (cancelled || !arena || !sceneRef.current) return;
       arenaRef.current?.removeFromParent();
-      const arena = prepareArena(template);
       sceneRef.current.add(arena);
       arenaRef.current = arena;
       if (floorRef.current) floorRef.current.visible = false;
@@ -730,7 +735,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     return () => {
       cancelled = true;
     };
-  }, [fx]);
+  }, [fx, map]);
 
   useEffect(() => {
     if (rigARef.current) applyPose(rigARef.current, poseA, kindRef.current.a, crit);

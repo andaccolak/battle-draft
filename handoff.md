@@ -16,6 +16,9 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 
 ## What has been completed
 
+- **SELECTABLE ARENA MAPS (2026-07-11)**: the host picks the arena in the lobby. `ARENA_MAPS` (`colosseum` | `dungeon`) in types.ts; `RoomState.arenaMap` (optional field, `?? "colosseum"` for old rooms), host-only `setArenaMap` in engine.ts behind the `map` action, exposed on the snapshot, `chooseMap` in useGame, map card in Lobby, plumbed page → BattleStage → Arena3D as the `map` prop. Adding a third map = add id to `ARENA_MAPS`, `map_<id>` dictionary entry (en+tr), an emoji in Lobby's `MAP_EMOJI`, and an arena builder/GLB branch in Arena3D's fx effect.
+- **DUNGEON ARENA BUILT FROM KAYKIT KIT PIECES (2026-07-11)**: `buildDungeonArena()` in `src/lib/three/arenaKits.ts` composes a 40×40 torch-lit dungeon room (10×10 floor tiles, walls + doorway, corner/inner pillars, banners, barrels/crates/gold chest clutter, 4 warm PointLights) from 13 modular pieces in `public/models3d/kaykit/dungeon/` (~800 KB, KayKit Dungeon Remastered, CC0, fetched from GitHub). The template is built once and cloned per mount; unlike the Colosseum GLB it is authored in world units so it skips `prepareArena` normalization. Room half-size 20 was chosen so the max camera zoom-out (~19.2) stays inside the walls.
+- **PROJECT TREE CLEANUP (2026-07-11)**: `MESHY_ASSETS.md` moved to `docs/MESHY_ASSETS.md`; README rewritten (it still described the removed Socket.io architecture — now covers 3D pipeline, repo layout, KayKit credits); **unused Meshy character leftovers (`public/models3d/characters/`, ~184 MB) deleted from the repo** (confirmed dead code path — every avatar has a `KAYKIT_MODELS` entry; recoverable from git history). `main` is now the default branch on GitHub (the old `claude/multiplayer-party-game-5dip9w` branch still exists and points at the same history — switch your local clone with `git fetch && git checkout main`).
 - **WEAPONS IN HANDS (2026-07-11)**: KayKit weapon models (CC0, fetched from the KayKit-Game-Assets GitHub repos, Adventurers 1.0 + Skeletons 1.0) live in `public/models3d/kaykit/weapons/` as `.gltf`+`.bin`+shared textures (~500 KB total; GLTFLoader resolves the relative uris). `WEAPON_MODELS` in items.ts maps every weapon item id to a model (+optional offhand: Twin Blades dual-wields daggers) and a `WeaponVisualKind` (`blade|heavy|dual|crossbow|magic|fists`) that picks Arena3D animation pools (dualwield attacks, 1H/2H shoot for crossbows, magic raise/shoot for staves/wands). `attachWeapons()` in characterAssets clones the weapon into the rig's `handslot.r`/`handslot.l` bones (GLTFLoader sanitizes the names to `handslotr`/`handslotl` — the lookup regex handles both). Weapons render correctly at native scale, verified in real matches via puppeteer screenshots.
 - **ITEM ROSTER ALIGNED TO MODELS (2026-07-11)**: weapons whose model didn't exist were renamed (en+tr both updated): Wooden Club→Tavern Mug 🍺 (mug_full), Longbow→Hand Crossbow (crossbow_1handed), War Hammer→Giant's Greatsword (sword_2handed_color), Spiked Flail→Spiked Shield (shield_spikes), Vampire Scythe→Blood Wand (wand, now ranged), Storm Spear→Storm Staff (staff, now ranged); Void Reaper kept its name but is now a ranged dark staff (Skeleton_Staff). Ids unchanged, stats unchanged, only names/emoji/tags/models. HEAVY_WEAPON_IDS shrank accordingly.
 - **3D PORTRAITS EVERYWHERE (2026-07-11)**: `avatarThumb()` (`src/lib/three/avatarThumbs.ts`) renders any avatar (optionally holding its weapon) to a cached PNG dataURL using ONE shared offscreen WebGL context — no context-cap problem. `AvatarPortrait` (component) shows it with a CharacterSprite fallback while loading. Used in: lobby picker (non-selected tiles; selected keeps the live turntable Avatar3DThumb) and player list, battle intro VS, gear showcase, draft/luck waiting chips, bracket rows (Bracket now takes a `players` prop to map nicknames→avatars), champion podium + standings. The 2D `CharacterSprite` remains only as the loading/no-model fallback.
@@ -24,7 +27,7 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 - **Layout**: `public/models3d/kaykit/characters/<Model>.glb` (10 models, textures embedded) and `public/models3d/kaykit/anims/Rig_Medium_<Lib>.glb` (7 libraries: General, MovementBasic, MovementAdvanced, CombatMelee, CombatRanged, Special, Simulation). `KAYKIT_MODELS` in `src/lib/game/avatars.ts` maps every avatar id to a model (all 12 mapped; valkyrie/blaze share Knight, monk/viking share Barbarian). `loadAnimLibrary()` in characterAssets merges all libraries into one clip Map (root motion stripped), loaded once and shared.
 - **3D battle arena is live** (`src/components/Arena3D.tsx`): pose logic picks KayKit clips by name — attack pools per `weaponKindFor()` kind (blade: 4 one-hand variants, heavy: 3 two-hand, ranged: bow release/magic shoot, fists: punch/kick; crit: spinning/jump-chop), Hit_A/Hit_B reactions, Melee_Block_Hit, Dodge_Left/Right (QTE: Dodge_Backward), Skeletons_Taunt idles/interludes, Skeletons_Death_Resurrect for revives, Death_A/B, Cheering victory, Walking_A menacing melee windup, Running_A attack approach, Ranged_Magic_Raise ranged windup. Fighters without models still render as block placeholders.
 - **Arena GLB support**: `public/models3d/arena/arena_<fx>.glb` per event-FX group with `arena_base.glb` fallback (Meshy-generated, 24 MB, still in use); plain cylinder remains the final fallback. Scale normalized from bounding-box width, floor height by downward raycast at center.
-- **Meshy character leftovers are UNUSED**: `public/models3d/characters/blaze/` (~190 MB) is no longer loaded by anything (the KayKit path shadows it in `loadBase`). Candidates for deletion to slim the repo/deploys — ask the owner. `MESHY_ASSETS.md` is superseded for characters/animations; only its arena section (§5) still applies.
+- **Meshy character leftovers were deleted (2026-07-11)** — `docs/MESHY_ASSETS.md` is superseded for characters/animations; only its arena section (§5) still applies.
 - **Full camera control**: horizontal drag orbits 360°, vertical drag changes camera height (clamped 1.2–6.5), pinch and mouse wheel zoom (0.55×–1.6× of the aspect-computed distance); focus/zoom punch-ins still work at any angle by shifting the look-at target.
 - **Readability pass (battle-follow)**: idle clip no longer restarts every beat (playAction skips same-running-loop — this was making fighters look frozen in one stance); an action ticker below the fight shows the current entry (ALL text lives there — the 3D view itself shows only damage numbers, no banners/labels/dim overlays; the QTE-waiting notice also renders in the ticker); glowing team-colored turn rings under the acting fighter; nickname sprites above heads (canvas textures, indigo=A / red=B); big hits costing ≥60% of the defender's current HP play the knockdown animation even without a crit.
 - **Never-freeze animation rules**: one-shot clips must always either loop or `backToIdle` — a clamped once-clip (the old windup charge) freezes the fighter for the rest of the beat and reads as "stuck in one stance". Melee windups walk forward menacingly (`walk_fwd` loop), ranged windups charge then return to stance; attacks run in (`run_fwd` ~320 ms via `rig.actionTimer`) before the strike clip. All 20 clips are now used except none — walk/run included.
@@ -37,26 +40,25 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 - **Draft hands guarantee a pickable item** — see the amended sacred rule below.
 - Shared model-loading code lives in `src/lib/three/characterAssets.ts` (ANIM_KEYS, legacy keyword backfill, base/clip/height caches) — used by both Arena3D and Avatar3DThumb.
 - Earlier this cycle (also live): 12 selectable avatars, pre-battle gear showcase (`showcase` timeline entries), event-themed weather overlays, and the teammate's QTE reaction dodge + comedy quirks (`quirk` entries, growing timelines).
-- **`MESHY_ASSETS.md`** (repo root): the complete generation spec — 12 character prompts, the 20-animation set with required clip-name keywords, 48 item prompts with export/orientation rules, the item-attachment design (bones/offsets), and arena prompts per event theme. This is the contract between Meshy output and the code.
+- **`docs/MESHY_ASSETS.md`**: the complete generation spec — 12 character prompts, the 20-animation set with required clip-name keywords, 48 item prompts with export/orientation rules, the item-attachment design (bones/offsets), and arena prompts per event theme. This is the contract between Meshy output and the code.
 
 ## Where we are currently stuck / open problems
 
 1. **Pipeline now visually verified in real matches** (2026-07-11, puppeteer screenshots): facing, scale, weapons, portraits all correct. Clip-name taste choices (Idle_B stance, Hit_B stun) still await the owner's eye.
 2. **Only the weapon slot renders in 3D** — helmets/armor/boots/accessories have no models (KayKit character meshes bake their own headgear). Helmet→`head` bone attachment would need helmet prop models we don't have yet.
 3. Only the base arena exists (no per-theme arenas). Two avatar pairs share a model (valkyrie=Knight, monk=Barbarian) — differentiating them (e.g. material tint) would help; the pairs can also end up visually identical in a bracket.
-4. **Meshy leftovers** (`public/models3d/characters/blaze/`, ~190 MB) sit unused in the repo — owner to decide on deletion.
-5. Parked: iOS draft-pick bug (see `ios_handoff.md` on the `ios` branch) — data layer was proven innocent; suspected silent join failure.
+4. Parked: iOS draft-pick bug (see `ios_handoff.md` on the `ios` branch) — data layer was proven innocent; suspected silent join failure.
 
 ## Next plan, in order
 
-1. Owner sanity-checks a real match on a phone (clip taste, camera framing, weapon look).
+1. Owner sanity-checks a real match on a phone (clip taste, camera framing, weapon look, both maps).
 2. Differentiate the two shared-model avatar pairs (material tint or different KayKit models when more packs are bought).
-3. Arena GLBs per event theme with base/cylinder fallback.
-4. Delete Meshy character leftovers (owner decision); then sound design for 3D beats; then camera drama (slow-mo death blows, orbit on finisher).
+3. More kit-built maps (KayKit has City Builder, Halloween, Medieval Hexagon, Space Base packs on GitHub — same recipe as the dungeon) and/or per-event arena variants.
+4. Sound design for 3D beats; then camera drama (slow-mo death blows, orbit on finisher).
 
 ## Pitfalls we hit — do NOT fall into these again
 
-- **Meshy GLB mesh bounds LIE**: bind-space geometry bbox read 1.8 cm for a 1.75 m character. Scale is normalized from **skeleton bone spread** (`measureHeight` in characterAssets). Never "fix" it back to `Box3.setFromObject`.
+- **Meshy GLB mesh bounds LIE, KayKit bone spread lies the other way**: Meshy bind-space geometry bbox read 1.8 cm for a 1.75 m character, while KayKit bone spread under-measures (~1.5 for a 2.5-unit-tall mesh) and made characters giant. `measureHeight` in characterAssets uses the mesh bbox when it's plausible (≥ bone spread, < 3× it) and bone spread otherwise. Don't simplify it to either single source.
 - **Meshy clips bake horizontal root motion**: rolls/runs/attacks travel inside the clip, which doubles with the rig's group-position lerp and makes the character pop back when the clip blends out. All clips are pinned in place at load (`stripRootMotion` in characterAssets — X/Z position keys frozen to frame 0, Y kept for jumps/crouches). Don't remove it.
 - **Portrait camera math**: with vertical-FOV cameras, phones crop horizontally — fighters were fully off-screen. Camera distance is computed from viewport aspect (`baseZ` in resize). Test every 3D change in a ~430px-wide viewport, not desktop.
 - **framer-motion `%` transforms are relative to the element's own size** — rain "fell" 6 pixels. Animate `top`/`left` (layout) for cross-container travel, not `x`/`y` percentages.
@@ -126,11 +128,14 @@ src/server/store.ts           Load/save GameState with version locking + in-memo
 src/server/persistence.ts     Writes finished matches to history tables (skips bots in PlayerStats)
 src/server/ensureSchema.ts    CREATE TABLE IF NOT EXISTS bootstrap, runs on first DB access
 src/app/api/rooms/route.ts    POST create room
-src/app/api/rooms/[code]/route.ts  GET snapshot (+tick), POST actions (join/start/pick/luck/again/leave)
+src/app/api/rooms/[code]/route.ts  GET snapshot (+tick), POST actions (join/start/pick/luck/map/again/leave)
 src/hooks/useGame.ts          Client polling hook; adjusts server↔client clock skew on deadlines
 src/lib/session.ts            localStorage playerId (with non-HTTPS crypto.randomUUID fallback) + nickname
 src/lib/i18n/                 Full TR/EN localization (see §5)
-src/components/               Lobby, DraftPhase, LuckPhase, EventReveal, BattleStage, Fighter, Bracket, Champion, ItemCard, TimerBar, StatsView
+src/lib/three/characterAssets.ts  Model/anim/weapon loading, caches, height normalization, hand attachment
+src/lib/three/avatarThumbs.ts     Shared offscreen renderer baking avatar+weapon portrait PNGs
+src/lib/three/arenaKits.ts        Kit-built arenas composed from KayKit pieces (Dungeon)
+src/components/               Lobby, DraftPhase, LuckPhase, EventReveal, BattleStage, Arena3D, AvatarPortrait, Fighter, Bracket, Champion, ItemCard, TimerBar, StatsView
 src/app/page.tsx              Home (create/join)
 src/app/room/[code]/page.tsx  The whole game, switching on snapshot.phase
 src/app/stats/page.tsx        Hall of Fame (server component → StatsView client component)
@@ -182,6 +187,7 @@ Forged/gambled item ids get `_forged`/`_gambled` suffixes; `itemNameById` strips
 - Model scale is normalized from **skeleton bone spread**, not mesh bounds (`normalizeSize`, target 1.75).
 - Poses are driven by the same `posesFor(entry)` mapping; camera distance adapts to viewport aspect so portrait phones frame both fighters.
 - Arena colors per event live in `ARENA_COLORS` (keyed by the `EVENT_FX` groups in BattleStage) — keep both in sync when adding events.
+- **Maps are selectable** (host, lobby): Arena3D's `map` prop switches between the Colosseum GLB pipeline below and kit-built arenas from `arenaKits.ts` (Dungeon). Kit arenas are authored in world units and skip normalization.
 - **Arena GLBs** live in `public/models3d/arena/arena_<fx>.glb` (per `EVENT_FX` group), falling back to `arena_base.glb`, then to the plain cylinder. The model is auto-scaled to ~11 world units wide, centered on XZ, and its floor height found by raycasting down at the arena center; the cylinder floor is hidden once a GLB arena loads, the glowing event-color ring stays.
 - Asset budget: ≤ ~30k triangles and ≤ ~20 MB per character GLB; raw Meshy exports go in `/models` (gitignored), shippable files in `public/models3d/`.
 

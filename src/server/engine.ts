@@ -1,4 +1,5 @@
 import type {
+  ArenaMap,
   BattlePayload,
   BracketRound,
   DraftOffer,
@@ -10,7 +11,7 @@ import type {
   Slot,
   TimelineEntry
 } from "@/lib/game/types";
-import { DRAFT_TIME_MS, LUCK_TIME_MS, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
+import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
@@ -103,6 +104,7 @@ export interface RoomState {
   records: StateBattleRecord[];
   persisted: boolean;
   matchCounter: number;
+  arenaMap?: ArenaMap;
 }
 
 function makePlayer(id: string, nickname: string, isBot: boolean, now: number): StatePlayer {
@@ -140,7 +142,8 @@ export function createState(code: string, playerId: string, nickname: string, no
     champion: null,
     records: [],
     persisted: false,
-    matchCounter: 0
+    matchCounter: 0,
+    arenaMap: "colosseum"
   };
 }
 
@@ -171,6 +174,14 @@ export function setAvatar(state: RoomState, playerId: string, avatarId: string):
   const p = findPlayer(state, playerId);
   if (!p || !AVATAR_IDS.includes(avatarId)) return null;
   p.avatar = avatarId;
+  return null;
+}
+
+export function setArenaMap(state: RoomState, playerId: string, mapId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  if (state.hostId !== playerId) return "err_host_start";
+  if (!ARENA_MAPS.includes(mapId as ArenaMap)) return null;
+  state.arenaMap = mapId as ArenaMap;
   return null;
 }
 
@@ -677,6 +688,7 @@ export function snapshotFor(
     code: state.code,
     phase: state.phase,
     hostId: state.hostId ?? "",
+    arenaMap: state.arenaMap ?? "colosseum",
     players: state.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,

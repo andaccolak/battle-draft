@@ -151,10 +151,14 @@ export interface BattlePayload {
   stepMs: number;
 }
 
+export const ARENA_MAPS = ["colosseum", "dungeon"] as const;
+export type ArenaMap = (typeof ARENA_MAPS)[number];
+
 export interface RoomSnapshot {
   code: string;
   phase: Phase;
   hostId: string;
+  arenaMap: ArenaMap;
   players: PublicPlayer[];
   draftRound: number;
   totalDraftRounds: number;

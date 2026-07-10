@@ -129,7 +129,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           transition={{ duration: 0.25 }}
         >
           {snapshot.phase === "lobby" && (
-            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} />
+            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} />
           )}
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />
@@ -139,7 +139,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
               <div className="h-[calc(100dvh-8rem)] min-h-[540px]">
-                <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} playerId={game.playerId} onReact={game.reactBattle} />
+                <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} arenaMap={snapshot.arenaMap} playerId={game.playerId} onReact={game.reactBattle} />
               </div>
             ) : (
               snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />
