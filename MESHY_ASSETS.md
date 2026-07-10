@@ -12,7 +12,7 @@ Budgets: characters ≤30k triangles / ≤16 MB GLB (aim ~10 MB with 1024px text
 
 ## 1. The 12 character models
 
-Export: `public/models3d/<avatarId>.glb`, rigged, ALL animation clips baked into the one GLB.
+Export: `public/models3d/characters/<avatarId>/<avatarId>.glb` (the rigged base model) plus one GLB per animation named `<avatarId>_<animKey>.glb` in the same folder (anim keys in §2). Legacy single-GLB characters at `public/models3d/<avatarId>.glb` with baked-in clips still load as a fallback.
 
 | avatarId | Prompt core |
 | --- | --- |
@@ -31,30 +31,30 @@ Export: `public/models3d/<avatarId>.glb`, rigged, ALL animation clips baked into
 
 ## 2. The 20 common animations (every character gets the same set)
 
-Apply via Meshy auto-rig → animation library. Search terms below; the clip NAME in the export must contain the keyword in the third column — that is how the game finds it (CODE: extend `CLIP_KEYWORDS` in `src/components/Arena3D.tsx` to the full table when the first 20-clip character lands).
+Apply via Meshy auto-rig → animation library. Each animation exports as its own GLB named `<avatarId>_<animKey>.glb` — the FILE name is how the game finds the clip (`ANIM_KEYS` in `src/components/Arena3D.tsx`); the clip name inside the GLB does not matter. For legacy single-GLB characters the game backfills by clip-name keyword matching (`LEGACY_KEYWORDS`).
 
-| # | Animation | Required name keyword | Game use |
+| # | Animation | File anim key | Game use |
 | --- | --- | --- | --- |
-| 1 | Combat idle stance | `stance` or `idle` | default loop |
-| 2 | Idle taunt / flex | `taunt` | random idle variety, pre-battle showcase |
-| 3 | Walk forward | `walk` | approach in intros |
-| 4 | Run forward | `run` | lunge approach on attack |
-| 5 | Light sword slash | `slash` | blade weapon attack |
-| 6 | Heavy overhead strike | `overhead` or `heavy` | heavy weapon attack (hammer/axe/club) |
-| 7 | Triple combo attack | `combo` | crit attack |
-| 8 | Punch cross | `punch` | fists / improvised quirk attacks |
-| 9 | Kick | `kick` | fists variety, boot-throw quirks |
-| 10 | Bow aim and shoot | `shoot` or `bow` | ranged weapon attack |
-| 11 | Power-up charge | `charge` or `power` | windup suspense beat |
-| 12 | Light hit reaction | `hit` | taking normal damage |
-| 13 | Heavy knockdown | `knockdown` or `knock` | taking crit damage |
-| 14 | Sidestep dodge | `sidestep` or `dodge` | dodge result |
-| 15 | Dodge roll | `roll` | QTE perfect dodge |
-| 16 | Block with guard | `block` | blocked-hit result |
-| 17 | Stunned / dizzy | `stun` or `dizzy` | stun entries |
-| 18 | Death fall forward | `death` or `dead` | losing |
-| 19 | Death fall backward | `death_back` or `dying` | crit finisher variety |
-| 20 | Victory cheer | `victory` or `cheer` | winning |
+| 1 | Combat idle stance | `idle_stance` | default loop |
+| 2 | Idle taunt / flex | `idle_taunt` | random idle variety, revive celebration |
+| 3 | Walk forward | `walk_fwd` | approach in intros (not wired yet) |
+| 4 | Run forward | `run_fwd` | lunge approach on attack (not wired yet) |
+| 5 | Light sword slash | `atk_slash` | blade weapon attack |
+| 6 | Heavy overhead strike | `atk_heavy` | heavy weapon attack (hammer/axe/club) |
+| 7 | Triple combo attack | `atk_combo` | crit attack |
+| 8 | Punch cross | `atk_punch` | fists / improvised quirk attacks |
+| 9 | Kick | `atk_kick` | fists variety, boot-throw quirks |
+| 10 | Bow aim and shoot | `atk_shoot` | ranged weapon attack |
+| 11 | Power-up charge | `charge_up` | windup suspense beat |
+| 12 | Light hit reaction | `hit_light` | taking normal damage |
+| 13 | Heavy knockdown | `hit_knock` | taking crit damage |
+| 14 | Sidestep dodge | `dodge_step` | dodge result |
+| 15 | Dodge roll | `dodge_roll` | QTE perfect dodge |
+| 16 | Block with guard | `guard_block` | blocked-hit result |
+| 17 | Stunned / dizzy | `status_stun` | stun entries |
+| 18 | Death fall forward | `death_fwd` | losing |
+| 19 | Death fall backward | `death_bwd` | crit finisher variety |
+| 20 | Victory cheer | `anim_victory` | winning |
 
 Bonus if available: `getup` (rise from ground) — used for Phoenix/lastStand revive.
 
@@ -146,7 +146,7 @@ Data model: `src/lib/game/attachments.ts` — per-item `{ file, bone: "hand"|"he
 
 ## 5. Arena prompts (Meshy CAN do these — generate as a prop, not a scene)
 
-Export: `public/models3d/arena_<fx>.glb`, a circular platform ~20 m diameter, FLAT and EMPTY in the middle 10 m (fighters stand there), decoration only on the outer ring. CODE: load in Arena3D per `EVENT_FX` group, replacing the plain cylinder; keep cylinder as fallback.
+Export: `public/models3d/arena/arena_<fx>.glb`, a circular platform ~20 m diameter, FLAT and EMPTY in the middle 10 m (fighters stand there), decoration only on the outer ring. Arena3D loads the GLB matching the battle's `EVENT_FX` group, falls back to `arena/arena_base.glb`, and keeps the plain cylinder if neither exists. Scale and floor height are normalized automatically (bounding-box width + downward raycast at center).
 
 Base prompt:
 `stylized low-poly circular fantasy battle arena platform, 20 meter diameter round stone colosseum ring, flat empty center floor, outer ring with broken pillars torches and banners, isometric game environment asset, hand-painted, single object, centered`

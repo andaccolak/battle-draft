@@ -6,6 +6,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
+import { weaponKindFor } from "@/lib/game/items";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -30,14 +31,88 @@ const ARENA_COLORS: Record<string, ArenaColors> = {
   overcast: { bg: 0x1f2937, floor: 0x374151, ring: 0x9ca3af, fog: 0x1f2937 }
 };
 
-const CLIP_KEYWORDS: Record<string, string[]> = {
-  idle: ["combat_stance", "stance", "idle", "breathing"],
-  attack: ["judgment", "combo", "attack", "sword", "slash", "punch", "swing"],
-  hit: ["hit", "reaction"],
-  dodge: ["dodge", "roll", "step"],
-  death: ["fall_dead", "dying", "death", "dead", "knock_down"],
-  victory: ["victory", "cheer", "win"]
+type AnimKey =
+  | "idle_stance"
+  | "idle_taunt"
+  | "walk_fwd"
+  | "run_fwd"
+  | "atk_slash"
+  | "atk_heavy"
+  | "atk_combo"
+  | "atk_punch"
+  | "atk_kick"
+  | "atk_shoot"
+  | "charge_up"
+  | "hit_light"
+  | "hit_knock"
+  | "dodge_step"
+  | "dodge_roll"
+  | "guard_block"
+  | "status_stun"
+  | "death_fwd"
+  | "death_bwd"
+  | "anim_victory";
+
+const ANIM_KEYS: AnimKey[] = [
+  "idle_stance",
+  "idle_taunt",
+  "walk_fwd",
+  "run_fwd",
+  "atk_slash",
+  "atk_heavy",
+  "atk_combo",
+  "atk_punch",
+  "atk_kick",
+  "atk_shoot",
+  "charge_up",
+  "hit_light",
+  "hit_knock",
+  "dodge_step",
+  "dodge_roll",
+  "guard_block",
+  "status_stun",
+  "death_fwd",
+  "death_bwd",
+  "anim_victory"
+];
+
+const LEGACY_KEYWORDS: Record<AnimKey, string[]> = {
+  idle_stance: ["combat_stance", "stance", "idle", "breathing"],
+  idle_taunt: ["taunt", "flex"],
+  walk_fwd: ["walk"],
+  run_fwd: ["run"],
+  atk_slash: ["slash", "sword", "judgment", "attack", "swing"],
+  atk_heavy: ["overhead", "heavy"],
+  atk_combo: ["combo"],
+  atk_punch: ["punch"],
+  atk_kick: ["kick"],
+  atk_shoot: ["shoot", "bow", "archery"],
+  charge_up: ["charge", "power", "cast"],
+  hit_light: ["hit", "reaction"],
+  hit_knock: ["knockdown", "knock"],
+  dodge_step: ["sidestep", "dodge", "step"],
+  dodge_roll: ["roll"],
+  guard_block: ["block", "parry", "guard"],
+  status_stun: ["stun", "dizzy"],
+  death_fwd: ["fall_dead", "death", "dead", "dying"],
+  death_bwd: ["death_back"],
+  anim_victory: ["victory", "cheer", "win"]
 };
+
+type FighterKind = "blade" | "heavy" | "ranged" | "fists";
+
+const ATTACK_POOLS: Record<FighterKind, AnimKey[]> = {
+  blade: ["atk_slash", "atk_heavy"],
+  heavy: ["atk_heavy", "atk_slash"],
+  ranged: ["atk_shoot", "atk_slash"],
+  fists: ["atk_punch", "atk_kick"]
+};
+
+function fighterKind(fighter: FighterView): FighterKind {
+  const weapon = fighter.equipment.weapon;
+  if (!weapon || fighter.disabledItems.includes(weapon.id)) return "fists";
+  return weaponKindFor(weapon);
+}
 
 function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.AnimationClip | null {
   for (const key of keys) {
@@ -47,18 +122,79 @@ function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.Animation
   return null;
 }
 
-const templateCache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null>>();
+const gltfLoader = new GLTFLoader();
+const baseCache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null>>();
+const clipCache = new Map<string, Promise<THREE.AnimationClip | null>>();
+const arenaCache = new Map<string, Promise<THREE.Group | null>>();
 
-function loadTemplate(avatarId: string): Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null> {
-  const cached = templateCache.get(avatarId);
+function loadBase(avatarId: string): Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null> {
+  const cached = baseCache.get(avatarId);
   if (cached) return cached;
-  const loader = new GLTFLoader();
-  const promise = loader
-    .loadAsync(`/models3d/${avatarId}.glb`)
+  const promise = gltfLoader
+    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}.glb`)
+    .catch(() => gltfLoader.loadAsync(`/models3d/${avatarId}.glb`))
     .then((gltf) => ({ scene: gltf.scene as THREE.Group, clips: gltf.animations }))
     .catch(() => null);
-  templateCache.set(avatarId, promise);
+  baseCache.set(avatarId, promise);
   return promise;
+}
+
+function loadAnimClip(avatarId: string, key: AnimKey): Promise<THREE.AnimationClip | null> {
+  const cacheKey = `${avatarId}/${key}`;
+  const cached = clipCache.get(cacheKey);
+  if (cached) return cached;
+  const promise = gltfLoader
+    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}_${key}.glb`)
+    .then((gltf) => gltf.animations[0] ?? null)
+    .catch(() => null);
+  clipCache.set(cacheKey, promise);
+  return promise;
+}
+
+function loadArenaTemplate(name: string): Promise<THREE.Group | null> {
+  const cached = arenaCache.get(name);
+  if (cached) return cached;
+  const promise = gltfLoader
+    .loadAsync(`/models3d/arena/arena_${name}.glb`)
+    .then((gltf) => gltf.scene as THREE.Group)
+    .catch(() => null);
+  arenaCache.set(name, promise);
+  return promise;
+}
+
+async function loadArenaModel(fx: string): Promise<THREE.Group | null> {
+  if (fx !== "none") {
+    const themed = await loadArenaTemplate(fx);
+    if (themed) return themed;
+  }
+  return loadArenaTemplate("base");
+}
+
+function prepareArena(template: THREE.Group): THREE.Group {
+  const arena = template.clone(true);
+  arena.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      child.receiveShadow = true;
+    }
+  });
+  const box = new THREE.Box3().setFromObject(arena);
+  const width = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+  if (width > 0.0001) {
+    const scale = 11 / width;
+    arena.scale.setScalar(scale);
+    const center = box.getCenter(new THREE.Vector3());
+    arena.position.set(-center.x * scale, 0, -center.z * scale);
+    arena.updateMatrixWorld(true);
+    const raycaster = new THREE.Raycaster(new THREE.Vector3(0, 50, 0), new THREE.Vector3(0, -1, 0));
+    const hits = raycaster.intersectObject(arena, true);
+    const firstHit = hits[0];
+    if (firstHit) {
+      arena.position.y -= firstHit.point.y;
+    } else {
+      arena.position.y -= box.min.y * scale;
+    }
+  }
+  return arena;
 }
 
 function hexNum(hex: string): number {
@@ -97,7 +233,7 @@ function buildPlaceholder(avatarId: string): THREE.Group {
 interface Rig {
   group: THREE.Group;
   mixer: THREE.AnimationMixer | null;
-  actions: Partial<Record<string, THREE.AnimationAction>>;
+  actions: Partial<Record<AnimKey, THREE.AnimationAction>>;
   current: THREE.AnimationAction | null;
   base: THREE.Vector3;
   dir: THREE.Vector3;
@@ -151,14 +287,26 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   };
 }
 
+function registerClip(rig: Rig, key: AnimKey, clip: THREE.AnimationClip): void {
+  if (!rig.mixer || rig.actions[key]) return;
+  rig.actions[key] = rig.mixer.clipAction(clip);
+  if (key === "idle_stance" && !rig.current) {
+    const idle = rig.actions[key];
+    if (idle) {
+      idle.play();
+      rig.current = idle;
+    }
+  }
+}
+
 async function attachModel(rig: Rig, avatarId: string): Promise<void> {
-  const template = await loadTemplate(avatarId);
-  if (!template) {
+  const base = await loadBase(avatarId);
+  if (!base) {
     const placeholder = buildPlaceholder(avatarId);
     rig.group.add(placeholder);
     return;
   }
-  const instance = cloneSkeleton(template.scene) as THREE.Group;
+  const instance = cloneSkeleton(base.scene) as THREE.Group;
   instance.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       child.castShadow = true;
@@ -169,20 +317,28 @@ async function attachModel(rig: Rig, avatarId: string): Promise<void> {
   rig.group.add(instance);
   rig.placeholder = false;
   rig.mixer = new THREE.AnimationMixer(instance);
-  for (const [name, keywords] of Object.entries(CLIP_KEYWORDS)) {
-    const clip = pickClip(template.clips, keywords);
-    if (clip) rig.actions[name] = rig.mixer.clipAction(clip);
+  for (const key of ANIM_KEYS) {
+    const clip = pickClip(base.clips, LEGACY_KEYWORDS[key]);
+    if (clip) registerClip(rig, key, clip);
   }
-  const idle = rig.actions.idle;
-  if (idle) {
-    idle.play();
-    rig.current = idle;
+  for (const key of ANIM_KEYS) {
+    void loadAnimClip(avatarId, key).then((clip) => {
+      if (clip) registerClip(rig, key, clip);
+    });
   }
 }
 
-function playAction(rig: Rig, name: string, opts: { once?: boolean; clamp?: boolean; backToIdle?: boolean } = {}): void {
-  const target = rig.actions[name];
-  if (!target || !rig.mixer) return;
+function playAction(
+  rig: Rig,
+  candidates: AnimKey[],
+  opts: { once?: boolean; clamp?: boolean; backToIdle?: boolean; random?: boolean } = {}
+): void {
+  if (!rig.mixer) return;
+  const available = candidates.filter((key) => rig.actions[key]);
+  const pick = opts.random && available.length > 1 ? available[Math.floor(Math.random() * available.length)] : available[0];
+  if (!pick) return;
+  const target = rig.actions[pick];
+  if (!target) return;
   const fade = 0.22;
   target.reset();
   if (opts.once) {
@@ -199,7 +355,7 @@ function playAction(rig: Rig, name: string, opts: { once?: boolean; clamp?: bool
     const onFinished = (e: { action: THREE.AnimationAction }) => {
       if (e.action !== target) return;
       mixer.removeEventListener("finished", onFinished as never);
-      const idle = rig.actions.idle;
+      const idle = rig.actions.idle_stance;
       if (idle && rig.current === target) {
         idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
         target.fadeOut(0.3);
@@ -218,7 +374,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   }, ms);
 }
 
-function applyPose(rig: Rig, pose: Pose): void {
+function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void {
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
     rig.returnTimer = null;
@@ -227,36 +383,67 @@ function applyPose(rig: Rig, pose: Pose): void {
   switch (pose) {
     case "idle":
       rig.targetPos.copy(rig.base);
-      playAction(rig, "idle");
+      if (Math.random() < 0.15) playAction(rig, ["idle_taunt"], { once: true, backToIdle: true });
+      else playAction(rig, ["idle_stance"]);
       break;
     case "windup":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-      playAction(rig, "idle");
+      playAction(rig, ["charge_up", "idle_stance"]);
       break;
-    case "attack":
+    case "attack": {
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.15);
-      playAction(rig, "attack", { once: true, backToIdle: true });
+      const pool = ATTACK_POOLS[kind];
+      if (crit) playAction(rig, ["atk_combo", ...pool], { once: true, backToIdle: true });
+      else playAction(rig, pool, { once: true, backToIdle: true, random: kind === "fists" });
       scheduleReturn(rig, 900);
       break;
+    }
     case "hit":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.35);
       if (rig.placeholder) rig.targetTilt = -0.25;
-      playAction(rig, "hit", { once: true, backToIdle: true });
+      playAction(rig, ["hit_light"], { once: true, backToIdle: true });
+      scheduleReturn(rig, 500);
+      break;
+    case "knockdown":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.6);
+      if (rig.placeholder) rig.targetTilt = -0.45;
+      playAction(rig, ["hit_knock", "hit_light"], { once: true, backToIdle: true });
+      scheduleReturn(rig, 800);
+      break;
+    case "block":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.15);
+      if (rig.placeholder) rig.targetTilt = -0.12;
+      playAction(rig, ["guard_block", "hit_light"], { once: true, backToIdle: true });
       scheduleReturn(rig, 500);
       break;
     case "dodge":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 0.7);
-      playAction(rig, "dodge", { once: true, backToIdle: true });
+      playAction(rig, ["dodge_step", "dodge_roll"], { once: true, backToIdle: true });
       scheduleReturn(rig, 600);
+      break;
+    case "roll":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.side, 1);
+      playAction(rig, ["dodge_roll", "dodge_step"], { once: true, backToIdle: true });
+      scheduleReturn(rig, 700);
+      break;
+    case "stun":
+      rig.targetPos.copy(rig.base);
+      if (rig.placeholder) rig.targetTilt = 0.2;
+      playAction(rig, ["status_stun", "hit_light"], { once: true, backToIdle: true });
+      scheduleReturn(rig, 900);
+      break;
+    case "revive":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, ["idle_taunt", "idle_stance"], { once: true, backToIdle: true });
       break;
     case "dead":
       rig.targetPos.copy(rig.base);
       if (rig.placeholder) rig.targetTilt = Math.PI / 2;
-      playAction(rig, "death", { once: true });
+      playAction(rig, ["death_fwd", "death_bwd"], { once: true, random: true });
       break;
     case "victory":
       rig.targetPos.copy(rig.base);
-      playAction(rig, "victory");
+      playAction(rig, ["anim_victory"]);
       break;
   }
 }
@@ -270,9 +457,10 @@ interface Props {
   fx: string;
   focus: "a" | "b" | "none";
   zoom: boolean;
+  crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, crit }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
   const rigBRef = useRef<Rig | null>(null);
@@ -280,9 +468,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: P
   const sceneRef = useRef<THREE.Scene | null>(null);
   const floorRef = useRef<THREE.Mesh | null>(null);
   const ringRef = useRef<THREE.Mesh | null>(null);
+  const arenaRef = useRef<THREE.Group | null>(null);
   const camTarget = useRef({ x: 0, z: 6 });
   const baseZ = useRef(6);
   const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
+  const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
+  kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
 
   const retargetCamera = () => {
     const { focus: f, zoom: z } = zoomState.current;
@@ -348,8 +539,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: P
     scene.add(rigB.group);
     rigARef.current = rigA;
     rigBRef.current = rigB;
-    void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle"));
-    void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle"));
+    void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
+    void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
 
     const clock = new THREE.Clock();
     let frame = 0;
@@ -390,6 +581,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: P
       observer.disconnect();
       if (rigA.returnTimer) clearTimeout(rigA.returnTimer);
       if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
+      arenaRef.current?.removeFromParent();
+      arenaRef.current = null;
       renderer.dispose();
       renderer.domElement.remove();
     };
@@ -408,12 +601,24 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: P
       ringMat.color.set(colors.ring);
       ringMat.emissive.set(colors.ring);
     }
+    let cancelled = false;
+    void loadArenaModel(fx).then((template) => {
+      if (cancelled || !template || !sceneRef.current) return;
+      arenaRef.current?.removeFromParent();
+      const arena = prepareArena(template);
+      sceneRef.current.add(arena);
+      arenaRef.current = arena;
+      if (floorRef.current) floorRef.current.visible = false;
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [fx]);
 
   useEffect(() => {
-    if (rigARef.current) applyPose(rigARef.current, poseA);
-    if (rigBRef.current) applyPose(rigBRef.current, poseB);
-  }, [poseA, poseB, beat]);
+    if (rigARef.current) applyPose(rigARef.current, poseA, kindRef.current.a, crit);
+    if (rigBRef.current) applyPose(rigBRef.current, poseB, kindRef.current.b, crit);
+  }, [poseA, poseB, beat, crit]);
 
   useEffect(() => {
     zoomState.current = { focus, zoom };

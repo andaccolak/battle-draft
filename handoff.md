@@ -17,16 +17,18 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 ## What has been completed
 
 - **3D battle arena is live** (`src/components/Arena3D.tsx`, three.js via `next/dynamic`): rigged GLB characters play timeline-driven animation clips (idle/attack/hit/dodge/death/victory chosen by clip-name keywords in `CLIP_KEYWORDS`), event-themed arena colors/fog, shadows, aspect-aware camera with attacker focus and crit punch-in. Fighters without models render as block placeholders — the game never breaks on missing assets.
-- **First character shipped**: `public/models3d/blaze.glb` (16 MB, 30k tris, 13 clips). Verified in real matches via automated Chrome screenshots.
+- **First character shipped with the full 20-clip set**: `public/models3d/characters/blaze/` — base `blaze.glb` plus one GLB per animation (`blaze_<animKey>.glb`). The loader merges them at runtime; clip names inside the GLBs are ignored (Meshy's are unreliable — the stun clip is literally named `Gunshot_Reaction`), the FILE name is the contract.
+- **Animation variety implemented**: attack clips picked by `weaponKindFor()` (blade/heavy/ranged; no/disabled weapon → fists with random punch/kick), crit → combo, windup → charge-up, block/stun/knockdown/QTE-roll/revive mapped end to end (new `Pose` values flow from `posesFor` in BattleStage through Arena3D and the 2D `Fighter` fallback variants), random death fwd/bwd, occasional idle taunt.
+- **Arena GLB support**: `public/models3d/arena/arena_<fx>.glb` per event-FX group with `arena_base.glb` fallback (shipped, 24 MB); plain cylinder remains the final fallback. Scale is normalized from bounding-box width and the floor height by a downward raycast at center.
 - Earlier this cycle (also live): 12 selectable avatars, pre-battle gear showcase (`showcase` timeline entries), event-themed weather overlays, and the teammate's QTE reaction dodge + comedy quirks (`quirk` entries, growing timelines).
 - **`MESHY_ASSETS.md`** (repo root): the complete generation spec — 12 character prompts, the 20-animation set with required clip-name keywords, 48 item prompts with export/orientation rules, the item-attachment design (bones/offsets), and arena prompts per event theme. This is the contract between Meshy output and the code.
 
 ## Where we are currently stuck / open problems
 
-1. **Animation variety is poor** — with only ~6 mapped clip types and one attack clip, fighters visibly repeat one move. Fix is spec'd: the 20-clip set in MESHY_ASSETS.md §2 plus code to (a) extend `CLIP_KEYWORDS`, (b) pick attack clips by `weaponKindFor()` (blade/heavy/ranged/fists), (c) randomize among variants per beat, (d) map block/stun/knockdown/revive entries.
-2. **Items are not visible on 3D characters** — attachment system designed (MESHY_ASSETS.md §4) but not implemented; needs bone-name discovery per Meshy rig.
-3. Only 1 of 12 characters has a model; arenas still use the plain cylinder floor.
-4. `blaze.glb` is 16 MB — needs Draco/meshopt compression or smaller textures once the pipeline settles.
+1. **New pipeline untested in a real match** — the per-file animation loader, weapon-kind attack selection, new poses (block/stun/knockdown/roll/revive), and the arena GLB (auto-scale + raycast floor) all typecheck and build but await visual verification by the owner. Watch: fighter position vs arena floor, arena scale, ring/floor z-fighting, clip blending.
+2. **Asset weight is now the top problem** — each animation GLB carries the full mesh+textures (~9 MB × 20 + base ≈ 190 MB per character; arena 24 MB). Needs either meshes stripped from animation files, Draco/meshopt compression, or both, before more characters ship.
+3. **Items are not visible on 3D characters** — attachment system designed (MESHY_ASSETS.md §4) but not implemented; needs bone-name discovery per Meshy rig.
+4. Only 1 of 12 characters has a model; only the base arena exists (no per-theme arenas yet). `walk_fwd`/`run_fwd` clips load but are not wired to intro/lunge movement.
 5. Parked: iOS draft-pick bug (see `ios_handoff.md` on the `ios` branch) — data layer was proven innocent; suspected silent join failure.
 
 ## Next plan, in order
@@ -159,11 +161,12 @@ Forged/gambled item ids get `_forged`/`_gambled` suffixes; `itemNameById` strips
 
 `src/components/Arena3D.tsx` renders the battle in WebGL (three.js, loaded client-side via `next/dynamic`). It replaces only the fighters/floor layer of `BattleStage`; every overlay (windup banners, damage reveals, QTE, showcase, weather FX, log) stays DOM.
 
-- **Character models** live in `public/models3d/<avatarId>.glb` — one GLB per avatar id (see `src/lib/game/avatars.ts`), rigged, with all animation clips inside. Missing models automatically fall back to block-figure placeholders, so the game never breaks when only some avatars have models.
-- Clips are matched by name keywords (`CLIP_KEYWORDS`): idle/attack/hit/dodge/death/victory. When adding a character, make sure its clip names contain one of those keywords.
+- **Character models** live in `public/models3d/characters/<avatarId>/` — a rigged base `<avatarId>.glb` plus one GLB per animation named `<avatarId>_<animKey>.glb` (the 20 keys are `ANIM_KEYS` in Arena3D; full table in MESHY_ASSETS.md §2). The FILE name identifies the clip; internal clip names are ignored. Legacy all-in-one GLBs at `public/models3d/<avatarId>.glb` still load, with clips backfilled by name keywords (`LEGACY_KEYWORDS`). Missing models fall back to block-figure placeholders; missing individual animations are simply skipped (each pose has a fallback candidate list), so partial sets never break the game.
+- Attack clips are chosen by `weaponKindFor()` on the fighter's weapon (blade/heavy/ranged; none or disabled → fists), crits prefer `atk_combo`, and `crit` arrives as a prop from BattleStage.
 - Model scale is normalized from **skeleton bone spread**, not mesh bounds (Meshy exports have misleading bind-space geometry bounds).
 - Poses are driven by the same `posesFor(entry)` mapping; camera distance adapts to viewport aspect so portrait phones frame both fighters.
 - Arena colors per event live in `ARENA_COLORS` (keyed by the `EVENT_FX` groups in BattleStage) — keep both in sync when adding events.
+- **Arena GLBs** live in `public/models3d/arena/arena_<fx>.glb` (per `EVENT_FX` group), falling back to `arena_base.glb`, then to the plain cylinder. The model is auto-scaled to ~11 world units wide, centered on XZ, and its floor height found by raycasting down at the arena center; the cylinder floor is hidden once a GLB arena loads, the glowing event-color ring stays.
 - Asset budget: ≤ ~30k triangles and ≤ ~20 MB per character GLB; raw Meshy exports go in `/models` (gitignored), shippable files in `public/models3d/`.
 
 ## 6. Bots

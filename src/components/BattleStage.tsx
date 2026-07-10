@@ -93,13 +93,26 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     return entry.actor === "a" ? { a: "windup", b: "idle" } : { a: "idle", b: "windup" };
   }
   if (entry.t === "attack") {
-    return entry.actor === "a" ? { a: "attack", b: "hit" } : { a: "hit", b: "attack" };
+    const reaction: Pose = entry.blocked ? "block" : entry.crit ? "knockdown" : "hit";
+    return entry.actor === "a" ? { a: "attack", b: reaction } : { a: reaction, b: "attack" };
   }
   if (entry.t === "miss") {
     return entry.actor === "a" ? { a: "attack", b: "idle" } : { a: "idle", b: "attack" };
   }
   if (entry.t === "dodge") {
-    return entry.actor === "a" ? { a: "attack", b: "dodge" } : { a: "dodge", b: "attack" };
+    const evasion: Pose = entry.key === "qteDodge" ? "roll" : "dodge";
+    return entry.actor === "a" ? { a: "attack", b: evasion } : { a: evasion, b: "attack" };
+  }
+  if (entry.t === "passive") {
+    if (entry.key === "stunApplied") {
+      return entry.actor === "a" ? { a: "idle", b: "stun" } : { a: "stun", b: "idle" };
+    }
+    if (entry.key === "stunSkip") {
+      return entry.actor === "a" ? { a: "stun", b: "idle" } : { a: "idle", b: "stun" };
+    }
+    if (entry.key === "revive") {
+      return entry.actor === "a" ? { a: "revive", b: "idle" } : { a: "idle", b: "revive" };
+    }
   }
   if (entry.t === "quirk") {
     if (entry.actor === "none" || !entry.dmg) return { a: "idle", b: "idle" };
@@ -254,6 +267,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
           fx={fx}
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
           zoom={zoom}
+          crit={current?.t === "attack" && !!current.crit}
         />
         <div className="pointer-events-none absolute bottom-[42%] left-[16%]">
           <FloatLayer floats={floats.filter((f) => f.side === "a")} />

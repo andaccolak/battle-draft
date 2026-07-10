@@ -5,7 +5,19 @@ import type { Item, Slot } from "@/lib/game/types";
 import { weaponKindFor } from "@/lib/game/items";
 import type { AvatarDef } from "@/lib/game/avatars";
 
-export type Pose = "idle" | "windup" | "attack" | "hit" | "dodge" | "dead" | "victory";
+export type Pose =
+  | "idle"
+  | "windup"
+  | "attack"
+  | "hit"
+  | "knockdown"
+  | "block"
+  | "dodge"
+  | "roll"
+  | "stun"
+  | "revive"
+  | "dead"
+  | "victory";
 
 interface Props {
   avatar: AvatarDef;
