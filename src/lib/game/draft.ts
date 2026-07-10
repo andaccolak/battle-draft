@@ -1,8 +1,9 @@
 import type { Item, LuckCard, Slot } from "./types";
+import { SLOTS } from "./types";
 import { ITEMS } from "./items";
 import { LUCK_CARDS } from "./luckCards";
 
-export function rollDraftHand(): Item[] {
+export function rollDraftHand(lockedSlots: Slot[] = []): Item[] {
   const hand: Item[] = [];
   const used = new Set<string>();
   while (hand.length < 5) {
@@ -10,6 +11,13 @@ export function rollDraftHand(): Item[] {
     if (!item || used.has(item.id)) continue;
     used.add(item.id);
     hand.push(item);
+  }
+  const locked = new Set(lockedSlots);
+  const hasPickable = hand.some((item) => !locked.has(item.slot));
+  if (!hasPickable && locked.size < SLOTS.length) {
+    const options = ITEMS.filter((item) => !locked.has(item.slot) && !used.has(item.id));
+    const replacement = options[Math.floor(Math.random() * options.length)];
+    if (replacement) hand[Math.floor(Math.random() * hand.length)] = replacement;
   }
   return hand;
 }

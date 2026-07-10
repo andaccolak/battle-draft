@@ -39,6 +39,7 @@ export default function Fighter({ fighter, facing, pose, depth = "near" }: Props
     roll: { x: dir * -62, y: -16, rotate: dir * -40, opacity: 1, transition: { duration: 0.35 } },
     stun: { x: 0, y: 0, rotate: [0, dir * 9, dir * -9, 0], opacity: 1, transition: { rotate: { repeat: Infinity, duration: 0.8 } } },
     revive: { x: 0, y: [12, -24, 0], rotate: 0, opacity: 1, transition: { duration: 0.7 } },
+    taunt: { x: 0, y: [0, -14, 0], rotate: [0, dir * -8, 0], scale: 1.08, opacity: 1, transition: { duration: 0.6 } },
     dead: { x: 0, y: 26, rotate: dir * 90, opacity: 0.35, transition: { duration: 0.7, ease: "easeIn" } },
     victory: { x: 0, y: [0, -22, 0], rotate: [0, dir * -6, 0], opacity: 1, transition: { repeat: Infinity, duration: 0.7 } }
   };

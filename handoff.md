@@ -20,6 +20,12 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 - **First character shipped with the full 20-clip set**: `public/models3d/characters/blaze/` — base `blaze.glb` plus one GLB per animation (`blaze_<animKey>.glb`). The loader merges them at runtime; clip names inside the GLBs are ignored (Meshy's are unreliable — the stun clip is literally named `Gunshot_Reaction`), the FILE name is the contract.
 - **Animation variety implemented**: attack clips picked by `weaponKindFor()` (blade/heavy/ranged; no/disabled weapon → fists with random punch/kick), crit → combo, windup → charge-up, block/stun/knockdown/QTE-roll/revive mapped end to end (new `Pose` values flow from `posesFor` in BattleStage through Arena3D and the 2D `Fighter` fallback variants), random death fwd/bwd, occasional idle taunt.
 - **Arena GLB support**: `public/models3d/arena/arena_<fx>.glb` per event-FX group with `arena_base.glb` fallback (shipped, 24 MB); plain cylinder remains the final fallback. Scale is normalized from bounding-box width and the floor height by a downward raycast at center.
+- **360° orbit camera**: horizontal drag on the 3D canvas orbits around the fight (pointer events, azimuth smoothing); focus/zoom punch-ins still work at any angle by shifting the look-at target.
+- **Status reveals & smaller numbers**: center-screen damage/miss/dodge reveals shrunk (~text-4xl/5xl from 7xl/8xl); added BLOCKED!/STUNNED!/REVIVED! reveals (dictionary keys `bigBlocked`/`bigStunned`/`bigRevived`, en+tr) and a `quirkTaunt` round-start interlude in the sim (seeded rng, `LOG_TEMPLATES` entry added) with a `taunt` pose mapped to `idle_taunt`.
+- **3D avatar in the lobby picker**: `Avatar3DThumb` renders a slow-turntable idle model for avatars in `MODELED_AVATARS` (avatars.ts — add each new character id there); others keep the SVG sprite. NOTE: each thumb is its own WebGL context — fine for a few characters, but when most of the 12 have models this must switch to render-to-image thumbnails (browsers cap ~8-16 contexts).
+- **Bots pick instantly** (`botPickAt = now`), executed on the next poll tick.
+- **Draft hands guarantee a pickable item** — see the amended sacred rule below.
+- Shared model-loading code lives in `src/lib/three/characterAssets.ts` (ANIM_KEYS, legacy keyword backfill, base/clip/height caches) — used by both Arena3D and Avatar3DThumb.
 - Earlier this cycle (also live): 12 selectable avatars, pre-battle gear showcase (`showcase` timeline entries), event-themed weather overlays, and the teammate's QTE reaction dodge + comedy quirks (`quirk` entries, growing timelines).
 - **`MESHY_ASSETS.md`** (repo root): the complete generation spec — 12 character prompts, the 20-animation set with required clip-name keywords, 48 item prompts with export/orientation rules, the item-attachment design (bones/offsets), and arena prompts per event theme. This is the contract between Meshy output and the code.
 
@@ -74,7 +80,7 @@ Lobby (6-char room code)
 
 - **Fun over balance. Chaos over predictability.** Players should scream "NO WAY!", "I SHOULD HAVE PICKED THAT!", "THIS EVENT RUINED MY BUILD!".
 - There must **never be a universally correct strategy**. Every pick is a gamble.
-- **Draft rolls are never manipulated.** Each of the 5 offered items every round is fully random, independent of what the player owns or lacks. Items for already-locked slots still appear (shown grayscale with a 🔒) purely to create regret. Do not "help" players by biasing rolls — that is explicitly forbidden.
+- **Draft rolls are never manipulated — with one owner-approved exception (2026-07-10).** Each of the 5 offered items every round is fully random, independent of what the player owns or lacks. Items for already-locked slots still appear (shown grayscale with a 🔒) purely to create regret. The single exception: if a rolled hand contains ZERO items for still-unlocked slots, one random card is replaced with a random item from a random unlocked slot (`rollDraftHand` in draft.ts), so every player can always fill all 5 slots by the end of round 5. No other biasing is allowed.
 - Weaker builds must still sometimes win (randomness, crits, dodges, passives).
 - Legendary items must NOT auto-win; some Commons outperform Legendaries in the right build.
 

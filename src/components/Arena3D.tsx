@@ -2,11 +2,20 @@
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
 import { weaponKindFor } from "@/lib/game/items";
+import {
+  type AnimKey,
+  ANIM_KEYS,
+  LEGACY_KEYWORDS,
+  pickClip,
+  gltfLoader,
+  loadBase,
+  loadAnimClip,
+  normalizeSize
+} from "@/lib/three/characterAssets";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -31,74 +40,6 @@ const ARENA_COLORS: Record<string, ArenaColors> = {
   overcast: { bg: 0x1f2937, floor: 0x374151, ring: 0x9ca3af, fog: 0x1f2937 }
 };
 
-type AnimKey =
-  | "idle_stance"
-  | "idle_taunt"
-  | "walk_fwd"
-  | "run_fwd"
-  | "atk_slash"
-  | "atk_heavy"
-  | "atk_combo"
-  | "atk_punch"
-  | "atk_kick"
-  | "atk_shoot"
-  | "charge_up"
-  | "hit_light"
-  | "hit_knock"
-  | "dodge_step"
-  | "dodge_roll"
-  | "guard_block"
-  | "status_stun"
-  | "death_fwd"
-  | "death_bwd"
-  | "anim_victory";
-
-const ANIM_KEYS: AnimKey[] = [
-  "idle_stance",
-  "idle_taunt",
-  "walk_fwd",
-  "run_fwd",
-  "atk_slash",
-  "atk_heavy",
-  "atk_combo",
-  "atk_punch",
-  "atk_kick",
-  "atk_shoot",
-  "charge_up",
-  "hit_light",
-  "hit_knock",
-  "dodge_step",
-  "dodge_roll",
-  "guard_block",
-  "status_stun",
-  "death_fwd",
-  "death_bwd",
-  "anim_victory"
-];
-
-const LEGACY_KEYWORDS: Record<AnimKey, string[]> = {
-  idle_stance: ["combat_stance", "stance", "idle", "breathing"],
-  idle_taunt: ["taunt", "flex"],
-  walk_fwd: ["walk"],
-  run_fwd: ["run"],
-  atk_slash: ["slash", "sword", "judgment", "attack", "swing"],
-  atk_heavy: ["overhead", "heavy"],
-  atk_combo: ["combo"],
-  atk_punch: ["punch"],
-  atk_kick: ["kick"],
-  atk_shoot: ["shoot", "bow", "archery"],
-  charge_up: ["charge", "power", "cast"],
-  hit_light: ["hit", "reaction"],
-  hit_knock: ["knockdown", "knock"],
-  dodge_step: ["sidestep", "dodge", "step"],
-  dodge_roll: ["roll"],
-  guard_block: ["block", "parry", "guard"],
-  status_stun: ["stun", "dizzy"],
-  death_fwd: ["fall_dead", "death", "dead", "dying"],
-  death_bwd: ["death_back"],
-  anim_victory: ["victory", "cheer", "win"]
-};
-
 type FighterKind = "blade" | "heavy" | "ranged" | "fists";
 
 const ATTACK_POOLS: Record<FighterKind, AnimKey[]> = {
@@ -114,42 +55,7 @@ function fighterKind(fighter: FighterView): FighterKind {
   return weaponKindFor(weapon);
 }
 
-function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.AnimationClip | null {
-  for (const key of keys) {
-    const found = clips.find((c) => c.name.toLowerCase().includes(key));
-    if (found) return found;
-  }
-  return null;
-}
-
-const gltfLoader = new GLTFLoader();
-const baseCache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null>>();
-const clipCache = new Map<string, Promise<THREE.AnimationClip | null>>();
 const arenaCache = new Map<string, Promise<THREE.Group | null>>();
-
-function loadBase(avatarId: string): Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null> {
-  const cached = baseCache.get(avatarId);
-  if (cached) return cached;
-  const promise = gltfLoader
-    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}.glb`)
-    .catch(() => gltfLoader.loadAsync(`/models3d/${avatarId}.glb`))
-    .then((gltf) => ({ scene: gltf.scene as THREE.Group, clips: gltf.animations }))
-    .catch(() => null);
-  baseCache.set(avatarId, promise);
-  return promise;
-}
-
-function loadAnimClip(avatarId: string, key: AnimKey): Promise<THREE.AnimationClip | null> {
-  const cacheKey = `${avatarId}/${key}`;
-  const cached = clipCache.get(cacheKey);
-  if (cached) return cached;
-  const promise = gltfLoader
-    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}_${key}.glb`)
-    .then((gltf) => gltf.animations[0] ?? null)
-    .catch(() => null);
-  clipCache.set(cacheKey, promise);
-  return promise;
-}
 
 function loadArenaTemplate(name: string): Promise<THREE.Group | null> {
   const cached = arenaCache.get(name);
@@ -244,30 +150,6 @@ interface Rig {
   placeholder: boolean;
 }
 
-function measureHeight(object: THREE.Object3D): { height: number; minY: number } {
-  object.updateMatrixWorld(true);
-  const box = new THREE.Box3();
-  const point = new THREE.Vector3();
-  let bones = 0;
-  object.traverse((child) => {
-    if ((child as THREE.Bone).isBone) {
-      bones++;
-      box.expandByPoint(child.getWorldPosition(point));
-    }
-  });
-  if (bones < 3) box.setFromObject(object);
-  return { height: box.max.y - box.min.y, minY: box.min.y };
-}
-
-function normalizeSize(object: THREE.Object3D, targetHeight: number): void {
-  const measured = measureHeight(object);
-  if (measured.height > 0.0001) {
-    const scale = targetHeight / measured.height;
-    object.scale.setScalar(scale);
-    object.position.y -= measured.minY * scale;
-  }
-}
-
 function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   const group = new THREE.Group();
   group.position.copy(position);
@@ -331,7 +213,7 @@ async function attachModel(rig: Rig, avatarId: string): Promise<void> {
 function playAction(
   rig: Rig,
   candidates: AnimKey[],
-  opts: { once?: boolean; clamp?: boolean; backToIdle?: boolean; random?: boolean } = {}
+  opts: { once?: boolean; backToIdle?: boolean; random?: boolean } = {}
 ): void {
   if (!rig.mixer) return;
   const available = candidates.filter((key) => rig.actions[key]);
@@ -386,6 +268,10 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       if (Math.random() < 0.15) playAction(rig, ["idle_taunt"], { once: true, backToIdle: true });
       else playAction(rig, ["idle_stance"]);
       break;
+    case "taunt":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, ["idle_taunt", "idle_stance"], { once: true, backToIdle: true });
+      break;
     case "windup":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
       playAction(rig, ["charge_up", "idle_stance"]);
@@ -418,7 +304,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       break;
     case "dodge":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 0.7);
-      playAction(rig, ["dodge_step", "dodge_roll"], { once: true, backToIdle: true });
+      playAction(rig, ["dodge_step", "dodge_roll"], { once: true, backToIdle: true, random: true });
       scheduleReturn(rig, 600);
       break;
     case "roll":
@@ -473,6 +359,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
   const baseZ = useRef(6);
   const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
   const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
+  const azimuthTarget = useRef(0);
   kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
 
   const retargetCamera = () => {
@@ -542,8 +429,32 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
     void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
 
+    const dom = renderer.domElement;
+    dom.style.touchAction = "none";
+    let dragging = false;
+    let lastX = 0;
+    const onPointerDown = (e: PointerEvent) => {
+      dragging = true;
+      lastX = e.clientX;
+      dom.setPointerCapture(e.pointerId);
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      azimuthTarget.current -= (e.clientX - lastX) * 0.008;
+      lastX = e.clientX;
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      dragging = false;
+      if (dom.hasPointerCapture(e.pointerId)) dom.releasePointerCapture(e.pointerId);
+    };
+    dom.addEventListener("pointerdown", onPointerDown);
+    dom.addEventListener("pointermove", onPointerMove);
+    dom.addEventListener("pointerup", onPointerUp);
+    dom.addEventListener("pointercancel", onPointerUp);
+
     const clock = new THREE.Clock();
     let frame = 0;
+    const orbit = { azimuth: 0, dist: 8, lookX: 0 };
     const lookAt = new THREE.Vector3(0, 0.95, 0);
     const animate = () => {
       frame = requestAnimationFrame(animate);
@@ -554,8 +465,11 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
         rig.group.position.lerp(rig.targetPos, damp * 0.9);
         rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
       }
-      camera.position.x += (camTarget.current.x - camera.position.x) * damp * 0.6;
-      camera.position.z += (camTarget.current.z - camera.position.z) * damp * 0.6;
+      orbit.azimuth += (azimuthTarget.current - orbit.azimuth) * damp * 0.9;
+      orbit.dist += (camTarget.current.z - orbit.dist) * damp * 0.6;
+      orbit.lookX += (camTarget.current.x - orbit.lookX) * damp * 0.6;
+      camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, 3, Math.cos(orbit.azimuth) * orbit.dist);
+      lookAt.set(orbit.lookX, 0.95, 0);
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
     };
@@ -579,6 +493,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      dom.removeEventListener("pointerdown", onPointerDown);
+      dom.removeEventListener("pointermove", onPointerMove);
+      dom.removeEventListener("pointerup", onPointerUp);
+      dom.removeEventListener("pointercancel", onPointerUp);
       if (rigA.returnTimer) clearTimeout(rigA.returnTimer);
       if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
       arenaRef.current?.removeFromParent();

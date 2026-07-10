@@ -16,6 +16,7 @@ export type Pose =
   | "roll"
   | "stun"
   | "revive"
+  | "taunt"
   | "dead"
   | "victory";
 

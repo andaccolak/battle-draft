@@ -980,7 +980,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
 
   const interlude = (round: number) => {
     const r = rand();
-    if (r < 0.3) {
+    if (r < 0.25) {
       push({
         t: "quirk",
         actor: "none",
@@ -988,7 +988,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         key: "quirkChicken",
         params: {}
       });
-    } else if (r < 0.55) {
+    } else if (r < 0.48) {
       const target = roll(50) ? a : b;
       target.hp -= 2;
       push({
@@ -1000,7 +1000,16 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         dmg: 2
       });
       tryRevive(target);
-    } else if (r < 0.8 || round <= 4) {
+    } else if (r < 0.68) {
+      const show = roll(50) ? a : b;
+      push({
+        t: "quirk",
+        actor: show.key,
+        text: `💪 ${show.nickname} flexes at the crowd!`,
+        key: "quirkTaunt",
+        params: { p: show.nickname }
+      });
+    } else if (r < 0.86 || round <= 4) {
       push({
         t: "quirk",
         actor: "none",

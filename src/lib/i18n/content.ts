@@ -177,6 +177,7 @@ export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   quirkTomato: { en: "🍅 Tomato from the crowd! {p} is hit!", tr: "🍅 Seyirciden domates! {p} yedi!" },
   quirkRain: { en: "🌧️ It started raining. Dramatic.", tr: "🌧️ Yağmur başladı. Çok dramatik." },
   quirkBreather: { en: "😮‍💨 Both stop to catch their breath...", tr: "😮‍💨 İkisi de soluklanıyor..." },
+  quirkTaunt: { en: "💪 {p} flexes at the crowd!", tr: "💪 {p} tribünlere poz veriyor!" },
   quirkBump: { en: "🤦 They clashed heads!", tr: "🤦 Kafa kafaya tokuştular!" },
   quirkDead: { en: "💀 {p} played dead... SURPRISE ATTACK!", tr: "💀 {p} ölü taklidi yaptı... SÜRPRİZ SALDIRI!" },
   quirkAllOutHit: { en: "😤 {p} went ALL OUT!", tr: "😤 {p} her şeyini koydu!" },

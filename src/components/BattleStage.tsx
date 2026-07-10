@@ -115,6 +115,9 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     }
   }
   if (entry.t === "quirk") {
+    if (entry.key === "quirkTaunt" && entry.actor !== "none") {
+      return entry.actor === "a" ? { a: "taunt", b: "idle" } : { a: "idle", b: "taunt" };
+    }
     if (entry.actor === "none" || !entry.dmg) return { a: "idle", b: "idle" };
     return entry.actor === "a" ? { a: "attack", b: "hit" } : { a: "hit", b: "attack" };
   }
@@ -325,19 +328,24 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
                 <motion.div
                   animate={{ scale: [1, 1.15, 1] }}
                   transition={{ repeat: Infinity, duration: 0.5 }}
-                  className="font-display mb-1 text-3xl font-black tracking-wider text-orange-400 drop-shadow-[0_0_18px_rgba(251,146,60,0.8)]"
+                  className="font-display mb-1 text-xl font-black tracking-wider text-orange-400 drop-shadow-[0_0_18px_rgba(251,146,60,0.8)]"
                 >
                   💥 {t("bigCrit")}
                 </motion.div>
               )}
               <div
                 className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
-                  current.crit ? "text-8xl text-orange-300" : "text-7xl text-rose-400"
+                  current.crit ? "text-5xl text-orange-300" : "text-4xl text-rose-400"
                 }`}
               >
                 -{current.dmg ?? 0}
               </div>
-              <div className="mt-1 text-xs font-black uppercase tracking-[0.3em] text-slate-300">{t("bigDamage")}</div>
+              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{t("bigDamage")}</div>
+              {current.blocked && (
+                <div className="mt-1 text-sm font-black tracking-wider text-sky-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
+                  🛡️ {t("bigBlocked")}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -350,7 +358,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               transition={{ type: "spring", damping: 12 }}
               className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
             >
-              <div className="font-display text-6xl font-black text-slate-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+              <div className="font-display text-4xl font-black text-slate-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
                 💨 {t("bigMiss")}
               </div>
             </motion.div>
@@ -367,7 +375,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
             >
               <div
                 className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
-                  current.key === "qteDodge" ? "text-5xl text-emerald-300 sm:text-6xl" : "text-6xl text-cyan-300"
+                  current.key === "qteDodge" ? "text-3xl text-emerald-300 sm:text-4xl" : "text-4xl text-cyan-300"
                 }`}
               >
                 🌀 {current.key === "qteDodge" ? t("qtePerfect") : t("bigDodge")}
@@ -387,11 +395,41 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               <div className="mx-auto max-w-sm rounded-2xl border border-lime-400/30 bg-slate-950/85 px-5 py-4 shadow-2xl backdrop-blur-sm">
                 <div className="text-xl font-black leading-snug text-lime-300">{logLine(current)}</div>
                 {current.dmg !== undefined && current.dmg > 0 && (
-                  <div className="font-display mt-1 text-5xl font-black text-rose-400">-{current.dmg}</div>
+                  <div className="font-display mt-1 text-3xl font-black text-rose-400">-{current.dmg}</div>
                 )}
                 {current.heal !== undefined && current.heal > 0 && (
-                  <div className="font-display mt-1 text-5xl font-black text-emerald-400">+{current.heal}</div>
+                  <div className="font-display mt-1 text-3xl font-black text-emerald-400">+{current.heal}</div>
                 )}
+              </div>
+            </motion.div>
+          )}
+
+          {current && current.t === "passive" && (current.key === "stunApplied" || current.key === "stunSkip") && (
+            <motion.div
+              key={`stun-${index}`}
+              initial={{ opacity: 0, scale: 1.8, rotate: -4 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
+            >
+              <div className="font-display text-4xl font-black text-amber-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                💫 {t("bigStunned")}
+              </div>
+            </motion.div>
+          )}
+
+          {current && current.t === "passive" && current.key === "revive" && (
+            <motion.div
+              key={`revive-${index}`}
+              initial={{ opacity: 0, scale: 0.5, y: 30 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
+            >
+              <div className="font-display text-4xl font-black text-orange-400 drop-shadow-[0_0_20px_rgba(251,146,60,0.7)]">
+                🔥 {t("bigRevived")}
               </div>
             </motion.div>
           )}

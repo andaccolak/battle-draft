@@ -254,9 +254,9 @@ function beginDraftRound(state: RoomState, now: number): void {
   state.draftRound++;
   state.deadline = now + DRAFT_TIME_MS;
   for (const p of state.players) {
-    p.offer = rollDraftHand();
+    p.offer = rollDraftHand((Object.keys(p.equipment) as Slot[]).filter((slot) => p.equipment[slot]));
     p.offerPicked = false;
-    p.botPickAt = p.isBot ? now + 1500 + Math.random() * 5000 : null;
+    p.botPickAt = p.isBot ? now : null;
   }
 }
 
@@ -298,7 +298,7 @@ function beginLuckPhase(state: RoomState, now: number): void {
   for (const p of state.players) {
     p.luckOffer = rollLuckHand();
     p.luckCard = null;
-    p.botPickAt = p.isBot ? now + 1500 + Math.random() * 5000 : null;
+    p.botPickAt = p.isBot ? now : null;
   }
 }
 

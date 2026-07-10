@@ -37,6 +37,8 @@ export const AVATARS: AvatarDef[] = [
 
 export const AVATAR_IDS = AVATARS.map((a) => a.id);
 
+export const MODELED_AVATARS = new Set(["blaze"]);
+
 export function avatarById(id: string | undefined): AvatarDef {
   return AVATARS.find((a) => a.id === id) ?? (AVATARS[0] as AvatarDef);
 }

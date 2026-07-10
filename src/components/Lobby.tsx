@@ -1,10 +1,13 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
-import { AVATARS, avatarById } from "@/lib/game/avatars";
+import { AVATARS, MODELED_AVATARS, avatarById } from "@/lib/game/avatars";
 import CharacterSprite from "./CharacterSprite";
 import { useI18n } from "@/lib/i18n";
+
+const Avatar3DThumb = dynamic(() => import("./Avatar3DThumb"), { ssr: false });
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -41,7 +44,11 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) 
                   selected ? "border-indigo-400 bg-indigo-500/20" : "border-white/10 bg-white/5"
                 }`}
               >
-                <CharacterSprite avatar={av} className="h-16 w-12" />
+                {MODELED_AVATARS.has(av.id) ? (
+                  <Avatar3DThumb avatarId={av.id} className="h-16 w-12" />
+                ) : (
+                  <CharacterSprite avatar={av} className="h-16 w-12" />
+                )}
                 <span className={`mt-0.5 text-[10px] font-bold ${selected ? "text-indigo-300" : "text-slate-400"}`}>
                   {t(`avatar_${av.id}`)}
                 </span>
