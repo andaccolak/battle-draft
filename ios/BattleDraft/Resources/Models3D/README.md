@@ -6,9 +6,12 @@ Any `.usdz` placed here is bundled into the app and picked up automatically by n
 
 | File | Used for |
 | --- | --- |
-| `character_<avatarId>.usdz` | Fighter model. Avatar ids: blaze, shadow, viking, ronin, corsair, mystic, golem, punk, valkyrie, monk, frost, minotaur |
+| `character_<avatarId>.usdz` | Fighter model with idle animation baked in. Avatar ids: blaze, shadow, viking, ronin, corsair, mystic, golem, punk, valkyrie, monk, frost, minotaur |
+| `character_<avatarId>_attack.usdz` | Attack clip on the same rig (same for `_hit`, `_dodge`, `_death`, `_victory`) — pose switching wired up in code once the first set lands |
 | `weapon_<itemId>.usdz` | Weapon prop (e.g. `weapon_w_rusty_sword.usdz`) — reserved for the attachment phase |
 | `arena_<themeId>.usdz` | Arena terrain — reserved for the terrain phase |
+
+Meshy note: API and web app share the same subscription credit pool. Generate → refine → auto-rig → apply animation presets (idle, attack, hit, dodge, death, victory) → export FBX per animation → Reality Converter → USDZ with the names above.
 
 ## Export requirements (Meshy → Reality Converter → here)
 
