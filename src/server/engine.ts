@@ -375,7 +375,7 @@ function advanceBattles(state: RoomState, now: number): void {
     pb.equipment = result.bEquipment;
     const remaining = state.players.filter((p) => !p.eliminated).length;
     const roundKey = remaining <= 2 ? "final" : remaining <= 4 ? "semifinal" : "round";
-    const duration = result.timeline.length * result.stepMs + POST_BATTLE_MS;
+    const duration = result.totalMs + POST_BATTLE_MS;
     state.battle = {
       roundIndex: state.currentRound,
       matchIndex: state.currentMatch,

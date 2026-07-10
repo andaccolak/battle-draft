@@ -69,5 +69,11 @@ export const sfx = {
   pick(): void {
     tone(440, 0.1, "sine", 0.08);
     tone(587, 0.12, "sine", 0.08, 0.06);
+  },
+  windup(): void {
+    tone(150, 0.12, "sine", 0.06);
+    tone(190, 0.12, "sine", 0.06, 0.35);
+    tone(240, 0.15, "sine", 0.07, 0.7);
+    tone(300, 0.25, "sine", 0.05, 1.0);
   }
 };

@@ -91,6 +91,7 @@ export type TimelineEntryType =
   | "intro"
   | "event"
   | "card"
+  | "windup"
   | "attack"
   | "miss"
   | "dodge"
@@ -103,6 +104,7 @@ export interface TimelineEntry {
   t: TimelineEntryType;
   actor: "a" | "b" | "none";
   text: string;
+  ms?: number;
   key?: string;
   params?: Record<string, string | number>;
   dmg?: number;

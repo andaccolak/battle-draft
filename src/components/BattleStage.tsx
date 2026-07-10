@@ -11,11 +11,27 @@ interface FloatingNumber {
   id: number;
   side: "a" | "b";
   value: string;
-  kind: "dmg" | "heal" | "crit";
+  kind: "dmg" | "heal";
+}
+
+function entryDuration(entry: TimelineEntry | undefined): number {
+  return entry?.ms ?? 900;
+}
+
+function indexForElapsed(entries: TimelineEntry[], elapsed: number): number {
+  let acc = 0;
+  for (let i = 0; i < entries.length; i++) {
+    acc += entryDuration(entries[i]);
+    if (elapsed < acc) return i;
+  }
+  return Math.max(0, entries.length - 1);
 }
 
 function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
   if (!entry) return { a: "idle", b: "idle" };
+  if (entry.t === "windup") {
+    return entry.actor === "a" ? { a: "windup", b: "idle" } : { a: "idle", b: "windup" };
+  }
   if (entry.t === "attack") {
     return entry.actor === "a" ? { a: "attack", b: "hit" } : { a: "hit", b: "attack" };
   }
@@ -35,7 +51,8 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
 }
 
 function playSound(entry: TimelineEntry): void {
-  if (entry.t === "attack") {
+  if (entry.t === "windup") sfx.windup();
+  else if (entry.t === "attack") {
     if (entry.crit) sfx.crit();
     else sfx.hit();
   } else if (entry.t === "miss" || entry.t === "dodge") sfx.miss();
@@ -48,10 +65,7 @@ function playSound(entry: TimelineEntry): void {
 
 export default function BattleStage({ battle }: { battle: BattlePayload }) {
   const { t, logLine } = useI18n();
-  const [index, setIndex] = useState(() => {
-    const elapsed = battle.elapsedMs ?? 0;
-    return Math.max(0, Math.min(battle.timeline.length - 1, Math.floor(elapsed / battle.stepMs)));
-  });
+  const [index, setIndex] = useState(() => indexForElapsed(battle.timeline, battle.elapsedMs ?? 0));
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [shake, setShake] = useState(0);
   const [zoom, setZoom] = useState(false);
@@ -67,22 +81,19 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
 
   useEffect(() => {
     if (index >= entries.length - 1) return;
-    const timer = setTimeout(() => setIndex((i) => i + 1), battle.stepMs);
+    const timer = setTimeout(() => setIndex((i) => i + 1), entryDuration(entries[index]));
     return () => clearTimeout(timer);
-  }, [index, entries.length, battle.stepMs]);
+  }, [index, entries.length]);
 
   useEffect(() => {
     const entry = entriesRef.current[index];
     if (!entry) return;
     playSound(entry);
-    if (entry.t === "attack" && entry.dmg !== undefined) {
-      const side = entry.actor === "a" ? "b" : "a";
-      floatId.current++;
-      setFloats((f) => [...f, { id: floatId.current, side, value: `-${entry.dmg}`, kind: entry.crit ? "crit" : "dmg" }]);
+    if (entry.t === "attack") {
       if (entry.crit) {
         setShake((s) => s + 1);
         setZoom(true);
-        setTimeout(() => setZoom(false), 500);
+        setTimeout(() => setZoom(false), 600);
       }
     }
     if (entry.heal !== undefined && entry.heal > 0) {
@@ -94,6 +105,10 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
       const side = entry.actor === "a" ? "b" : "a";
       setFloats((f) => [...f, { id: floatId.current, side, value: `-${entry.dmg}`, kind: "dmg" }]);
     }
+    if (entry.t === "poison" && entry.dmg !== undefined) {
+      floatId.current++;
+      setFloats((f) => [...f, { id: floatId.current, side: entry.actor === "a" ? "a" : "b", value: `-${entry.dmg}`, kind: "dmg" }]);
+    }
   }, [index]);
 
   useEffect(() => {
@@ -102,7 +117,8 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
 
   const hpA = current?.hpA ?? battle.a.maxHp;
   const hpB = current?.hpB ?? battle.b.maxHp;
-  const showIntro = index === 0;
+  const showIntro = current?.t === "intro";
+  const suspense = current?.t === "windup";
 
   return (
     <div className="flex h-full flex-col">
@@ -123,16 +139,16 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
 
       <motion.div
         key={shake}
-        animate={shake > 0 ? { x: [0, -10, 10, -6, 6, 0] } : {}}
-        transition={{ duration: 0.4 }}
+        animate={shake > 0 ? { x: [0, -12, 12, -8, 8, 0] } : {}}
+        transition={{ duration: 0.45 }}
         className="relative flex-1 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-indigo-950/60 to-slate-900/80"
       >
         <div className="absolute inset-x-0 bottom-10 h-px bg-white/20" />
         <div className="absolute inset-x-8 bottom-0 top-auto h-10 rounded-t-[50%] bg-white/5" />
 
         <motion.div
-          animate={{ scale: zoom ? 1.08 : 1 }}
-          transition={{ duration: 0.4 }}
+          animate={{ scale: zoom ? 1.1 : suspense ? 1.04 : 1 }}
+          transition={{ duration: suspense ? 1.1 : 0.4 }}
           className="flex h-full items-end justify-between px-4 pb-12 sm:px-12"
         >
           <div className="relative">
@@ -144,6 +160,100 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
             <FloatLayer floats={floats.filter((f) => f.side === "b")} />
           </div>
         </motion.div>
+
+        <AnimatePresence>
+          {suspense && (
+            <motion.div
+              key={`dim-${index}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-none absolute inset-0 bg-slate-950/45"
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence mode="wait">
+          {current && current.t === "windup" && (
+            <motion.div
+              key={`windup-${index}`}
+              initial={{ opacity: 0, y: 24, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 1.05 }}
+              className="absolute inset-x-4 top-1/3 z-20 -translate-y-1/2 text-center"
+            >
+              <div className="mx-auto max-w-sm rounded-2xl bg-slate-950/80 px-5 py-4 text-lg font-bold italic text-amber-200 shadow-2xl backdrop-blur-sm">
+                {logLine(current)}
+                <motion.span
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ repeat: Infinity, duration: 0.8 }}
+                  className="ml-1"
+                >
+                  ●●●
+                </motion.span>
+              </div>
+            </motion.div>
+          )}
+
+          {current && current.t === "attack" && (
+            <motion.div
+              key={`hit-${index}`}
+              initial={{ opacity: 0, scale: 2.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, y: -30 }}
+              transition={{ type: "spring", damping: 14, stiffness: 300 }}
+              className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
+            >
+              {current.crit && (
+                <motion.div
+                  animate={{ scale: [1, 1.15, 1] }}
+                  transition={{ repeat: Infinity, duration: 0.5 }}
+                  className="font-display mb-1 text-3xl font-black tracking-wider text-orange-400 drop-shadow-[0_0_18px_rgba(251,146,60,0.8)]"
+                >
+                  💥 {t("bigCrit")}
+                </motion.div>
+              )}
+              <div
+                className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
+                  current.crit ? "text-8xl text-orange-300" : "text-7xl text-rose-400"
+                }`}
+              >
+                -{current.dmg ?? 0}
+              </div>
+              <div className="mt-1 text-xs font-black uppercase tracking-[0.3em] text-slate-300">{t("bigDamage")}</div>
+            </motion.div>
+          )}
+
+          {current && current.t === "miss" && (
+            <motion.div
+              key={`miss-${index}`}
+              initial={{ opacity: 0, scale: 2.2, rotate: -8 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
+            >
+              <div className="font-display text-6xl font-black text-slate-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                💨 {t("bigMiss")}
+              </div>
+            </motion.div>
+          )}
+
+          {current && current.t === "dodge" && (
+            <motion.div
+              key={`dodge-${index}`}
+              initial={{ opacity: 0, scale: 2.2, rotate: 8 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
+            >
+              <div className="font-display text-6xl font-black text-cyan-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                🌀 {t("bigDodge")}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {showIntro && (
@@ -174,7 +284,7 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
         <AnimatePresence>
           {current && (current.t === "event" || current.t === "card") && (
             <motion.div
-              key={index}
+              key={`banner-${index}`}
               initial={{ y: -60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 30, opacity: 0 }}
@@ -185,16 +295,12 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {current && current.t === "victory" && (
-            <Confetti />
-          )}
-        </AnimatePresence>
+        <AnimatePresence>{current && current.t === "victory" && <Confetti />}</AnimatePresence>
       </motion.div>
 
       <div
         ref={logRef}
-        className="mt-3 h-36 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-3 h-32 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div
@@ -206,11 +312,13 @@ export default function BattleStage({ battle }: { battle: BattlePayload }) {
                 ? "font-black text-amber-300"
                 : entry.t === "death"
                   ? "font-bold text-rose-400"
-                  : entry.crit
-                    ? "font-bold text-orange-300"
-                    : entry.t === "card" || entry.t === "event"
-                      ? "text-amber-200"
-                      : "text-slate-300"
+                  : entry.t === "windup"
+                    ? "italic text-slate-400"
+                    : entry.crit
+                      ? "font-bold text-orange-300"
+                      : entry.t === "card" || entry.t === "event"
+                        ? "text-amber-200"
+                        : "text-slate-300"
             }
           >
             {logLine(entry)}
@@ -247,14 +355,14 @@ function FloatLayer({ floats }: { floats: FloatingNumber[] }) {
         {floats.slice(-3).map((f) => (
           <motion.div
             key={f.id}
-            initial={{ y: 0, opacity: 1, scale: f.kind === "crit" ? 1.6 : 1 }}
+            initial={{ y: 0, opacity: 1 }}
             animate={{ y: -55, opacity: 0 }}
             transition={{ duration: 1.1 }}
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-display text-2xl font-black ${
-              f.kind === "crit" ? "text-orange-400" : f.kind === "heal" ? "text-emerald-400" : "text-rose-400"
+              f.kind === "heal" ? "text-emerald-400" : "text-rose-400"
             }`}
           >
-            {f.kind === "crit" ? `💥${f.value}` : f.value}
+            {f.value}
           </motion.div>
         ))}
       </AnimatePresence>

@@ -12,6 +12,7 @@ export interface BattleResult {
   winner: "a" | "b";
   timeline: TimelineEntry[];
   stepMs: number;
+  totalMs: number;
   aEquipment: Partial<Record<Slot, Item>>;
   bEquipment: Partial<Record<Slot, Item>>;
   aDisabled: string[];
@@ -53,6 +54,7 @@ interface Combatant {
   stunned: boolean;
   weaponName: string;
   weaponId: string;
+  windupKey: string;
 }
 
 interface PreEntry {
@@ -65,6 +67,41 @@ interface PreEntry {
 const rand = () => Math.random();
 const roll = (pct: number) => Math.random() * 100 < pct;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+
+const HEAVY_WEAPONS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_wooden_club", "w_spiked_flail", "w_dragonfang"]);
+
+function windupKeyFor(item: Item): string {
+  if ((item.tags ?? []).includes("ranged")) return "windupRanged";
+  if (HEAVY_WEAPONS.has(item.id.replace(/_(forged|gambled)$/, ""))) return "windupHeavy";
+  return "windupBlade";
+}
+
+function entryMs(e: Omit<TimelineEntry, "hpA" | "hpB">): number {
+  switch (e.t) {
+    case "intro":
+      return 1300;
+    case "event":
+      return 2100;
+    case "card":
+      return 1500;
+    case "windup":
+      return 1300;
+    case "attack":
+      return e.crit ? 1500 : 1050;
+    case "miss":
+    case "dodge":
+      return 1150;
+    case "passive":
+    case "poison":
+      return 650;
+    case "death":
+      return 1200;
+    case "victory":
+      return 2400;
+    default:
+      return 900;
+  }
+}
 
 function itemPower(item: Item): number {
   const s = item.stats;
@@ -134,7 +171,8 @@ function buildCombatant(
     poison: 0,
     stunned: false,
     weaponName: "fists",
-    weaponId: "fists"
+    weaponId: "fists",
+    windupKey: "windupBlade"
   };
 
   for (const slot of SLOTS) {
@@ -143,6 +181,7 @@ function buildCombatant(
     if (slot === "weapon") {
       c.weaponName = item.name;
       c.weaponId = item.id;
+      c.windupKey = windupKeyFor(item);
     }
     let atkMult = 1;
     let defMult = 1;
@@ -394,7 +433,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   applyBattleStartCards(b, bBuild, a);
 
   const push = (e: Omit<TimelineEntry, "hpA" | "hpB">) => {
-    timeline.push({ ...e, hpA: Math.max(0, Math.round(a.hp)), hpB: Math.max(0, Math.round(b.hp)) });
+    timeline.push({ ms: entryMs(e), ...e, hpA: Math.max(0, Math.round(a.hp)), hpB: Math.max(0, Math.round(b.hp)) });
   };
 
   push({
@@ -417,6 +456,15 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   const attackOnce = (att: Combatant, def: Combatant, extra: boolean) => {
     if (att.hp <= 0 || def.hp <= 0) return;
     const prefix = extra ? "⚡ Extra attack! " : "";
+    if (!extra) {
+      push({
+        t: "windup",
+        actor: att.key,
+        text: `⏳ ${att.nickname} readies the ${att.weaponName}...`,
+        key: att.windupKey,
+        params: { p: att.nickname, weapon: att.weaponId }
+      });
+    }
     const hitChance = clamp(att.accuracy - def.dodge, 15, 100);
     if (!roll(hitChance)) {
       if (roll(50)) {
@@ -442,7 +490,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     }
     let atk = att.attack;
     if (att.berserk > 0 && att.hp < att.maxHp * 0.4) atk *= 1 + att.berserk / 100;
-    let dmg = atk * (0.85 + rand() * 0.3);
+    let dmg = atk * (0.85 + rand() * 0.3) * 1.45;
     let isCrit = roll(att.critChance);
     if (att.firstCritReady) {
       isCrit = true;
@@ -552,7 +600,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   };
 
   let round = 1;
-  const maxRounds = 30;
+  const maxRounds = 20;
   while (a.hp > 0 && b.hp > 0 && round <= maxRounds) {
     let order: [Combatant, Combatant];
     if (event.hooks.randomInitiative) {
@@ -588,10 +636,10 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       const other = c === a ? b : a;
       if (other.hp <= 0) continue;
       let dot = c.poison + (event.hooks.poisonAll ?? 0);
-      if (round > 6) dot += (round - 6) * 6;
+      if (round > 4) dot += (round - 4) * 8;
       if (dot > 0) {
         c.hp -= dot;
-        const fatigued = round > 6;
+        const fatigued = round > 4;
         push({
           t: "poison",
           actor: c.key,
@@ -651,12 +699,21 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     fx: "victory"
   });
 
-  const stepMs = Math.round(clamp(13000 / timeline.length, 420, 950));
+  let totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
+  const MAX_BATTLE_MS = 38000;
+  if (totalMs > MAX_BATTLE_MS) {
+    const scale = MAX_BATTLE_MS / totalMs;
+    for (const e of timeline) {
+      e.ms = Math.max(350, Math.round((e.ms ?? 900) * scale));
+    }
+    totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
+  }
 
   return {
     winner,
     timeline,
-    stepMs,
+    stepMs: 900,
+    totalMs,
     aEquipment: aEquip,
     bEquipment: bEquip,
     aDisabled,

@@ -3,7 +3,7 @@
 import { motion, type Variants } from "framer-motion";
 import type { FighterView } from "@/lib/game/types";
 
-export type Pose = "idle" | "attack" | "hit" | "dodge" | "dead" | "victory";
+export type Pose = "idle" | "windup" | "attack" | "hit" | "dodge" | "dead" | "victory";
 
 const COLORS = ["#818cf8", "#f472b6", "#34d399", "#fbbf24", "#60a5fa", "#fb7185", "#a78bfa", "#4ade80"];
 
@@ -28,7 +28,15 @@ export default function Fighter({ fighter, facing, pose }: Props) {
 
   const variants: Variants = {
     idle: { x: 0, y: [0, -5, 0], rotate: 0, opacity: 1, transition: { y: { repeat: Infinity, duration: 1.6, ease: "easeInOut" } } },
-    attack: { x: dir * 70, y: -8, rotate: dir * 12, opacity: 1, transition: { duration: 0.28, ease: "easeOut" } },
+    windup: {
+      x: dir * -20,
+      y: [0, -3, 0],
+      rotate: dir * -10,
+      scale: 1.06,
+      opacity: 1,
+      transition: { x: { duration: 0.4 }, rotate: { duration: 0.4 }, y: { repeat: Infinity, duration: 0.35 } }
+    },
+    attack: { x: dir * 70, y: -8, rotate: dir * 12, scale: 1, opacity: 1, transition: { duration: 0.28, ease: "easeOut" } },
     hit: { x: dir * -18, y: 0, rotate: dir * -8, opacity: 1, transition: { duration: 0.2 } },
     dodge: { x: dir * -45, y: -25, rotate: dir * -15, opacity: 1, transition: { duration: 0.25 } },
     dead: { x: 0, y: 26, rotate: dir * 90, opacity: 0.35, transition: { duration: 0.7, ease: "easeIn" } },
@@ -63,7 +71,13 @@ export default function Fighter({ fighter, facing, pose }: Props) {
       )}
       {eq.weapon && (
         <motion.div
-          animate={pose === "attack" ? { rotate: dir * 55, scale: 1.35 } : { rotate: 0, scale: 1 }}
+          animate={
+            pose === "attack"
+              ? { rotate: dir * 55, scale: 1.35 }
+              : pose === "windup"
+                ? { rotate: dir * -50, scale: 1.2 }
+                : { rotate: 0, scale: 1 }
+          }
           transition={{ duration: 0.25 }}
           className={`absolute top-[44%] text-4xl ${facing === "right" ? "-right-4" : "-left-4"} ${itemCls(eq.weapon.id)}`}
         >
