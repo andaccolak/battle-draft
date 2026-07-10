@@ -4,7 +4,7 @@ This document briefs an AI assistant (or a new developer) taking over work on th
 
 ---
 
-# PART I — Session handover (updated 2026-07-10)
+# PART I — Session handover (updated 2026-07-11)
 
 Written for a session with zero context. Read Part II afterward for the game rules and architecture — everything there still applies.
 
@@ -16,6 +16,10 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 
 ## What has been completed
 
+- **WEAPONS IN HANDS (2026-07-11)**: KayKit weapon models (CC0, fetched from the KayKit-Game-Assets GitHub repos, Adventurers 1.0 + Skeletons 1.0) live in `public/models3d/kaykit/weapons/` as `.gltf`+`.bin`+shared textures (~500 KB total; GLTFLoader resolves the relative uris). `WEAPON_MODELS` in items.ts maps every weapon item id to a model (+optional offhand: Twin Blades dual-wields daggers) and a `WeaponVisualKind` (`blade|heavy|dual|crossbow|magic|fists`) that picks Arena3D animation pools (dualwield attacks, 1H/2H shoot for crossbows, magic raise/shoot for staves/wands). `attachWeapons()` in characterAssets clones the weapon into the rig's `handslot.r`/`handslot.l` bones (GLTFLoader sanitizes the names to `handslotr`/`handslotl` — the lookup regex handles both). Weapons render correctly at native scale, verified in real matches via puppeteer screenshots.
+- **ITEM ROSTER ALIGNED TO MODELS (2026-07-11)**: weapons whose model didn't exist were renamed (en+tr both updated): Wooden Club→Tavern Mug 🍺 (mug_full), Longbow→Hand Crossbow (crossbow_1handed), War Hammer→Giant's Greatsword (sword_2handed_color), Spiked Flail→Spiked Shield (shield_spikes), Vampire Scythe→Blood Wand (wand, now ranged), Storm Spear→Storm Staff (staff, now ranged); Void Reaper kept its name but is now a ranged dark staff (Skeleton_Staff). Ids unchanged, stats unchanged, only names/emoji/tags/models. HEAVY_WEAPON_IDS shrank accordingly.
+- **3D PORTRAITS EVERYWHERE (2026-07-11)**: `avatarThumb()` (`src/lib/three/avatarThumbs.ts`) renders any avatar (optionally holding its weapon) to a cached PNG dataURL using ONE shared offscreen WebGL context — no context-cap problem. `AvatarPortrait` (component) shows it with a CharacterSprite fallback while loading. Used in: lobby picker (non-selected tiles; selected keeps the live turntable Avatar3DThumb) and player list, battle intro VS, gear showcase, draft/luck waiting chips, bracket rows (Bracket now takes a `players` prop to map nicknames→avatars), champion podium + standings. The 2D `CharacterSprite` remains only as the loading/no-model fallback.
+- **SCALE FIXED (2026-07-11)**: characters towered over the arena for two stacked reasons — `measureHeight` bone-spread under-measured KayKit models (native mesh height ~2.4-2.7 units, bone spread much less → over-scaling), and the arena GLB was normalized too small. `measureHeight` now takes the mesh bbox when it's plausible (≥ bone spread and < 3× it; Meshy's lying-tiny bboxes still lose to bone spread), arena target width went 11→55, fog 7/22→10/44, camera framing tightened (baseZ half-height 2.15→1.8, min 5→4.4). Verified: fighters read correctly against the arena at ~430px portrait.
 - **CHARACTER PIPELINE PIVOTED TO KAYKIT (2026-07-11, owner decision)**: the game now uses KayKit's CC0 low-poly packs (Adventurers 2.0 FREE, Skeletons 1.1 FREE, Character Animations 1.1) instead of Meshy-generated characters. All KayKit characters share ONE rig (`Rig_Medium`, bones `hand.l`/`spine`/`handslot.r`/…), so a single shared animation library retargets onto every character by bone name. Total asset weight: **9.3 MB for all 12 avatars + ~90 animation clips** (vs ~190 MB for one Meshy character).
 - **Layout**: `public/models3d/kaykit/characters/<Model>.glb` (10 models, textures embedded) and `public/models3d/kaykit/anims/Rig_Medium_<Lib>.glb` (7 libraries: General, MovementBasic, MovementAdvanced, CombatMelee, CombatRanged, Special, Simulation). `KAYKIT_MODELS` in `src/lib/game/avatars.ts` maps every avatar id to a model (all 12 mapped; valkyrie/blaze share Knight, monk/viking share Barbarian). `loadAnimLibrary()` in characterAssets merges all libraries into one clip Map (root motion stripped), loaded once and shared.
 - **3D battle arena is live** (`src/components/Arena3D.tsx`): pose logic picks KayKit clips by name — attack pools per `weaponKindFor()` kind (blade: 4 one-hand variants, heavy: 3 two-hand, ranged: bow release/magic shoot, fists: punch/kick; crit: spinning/jump-chop), Hit_A/Hit_B reactions, Melee_Block_Hit, Dodge_Left/Right (QTE: Dodge_Backward), Skeletons_Taunt idles/interludes, Skeletons_Death_Resurrect for revives, Death_A/B, Cheering victory, Walking_A menacing melee windup, Running_A attack approach, Ranged_Magic_Raise ranged windup. Fighters without models still render as block placeholders.
@@ -37,19 +41,18 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 
 ## Where we are currently stuck / open problems
 
-1. **KayKit pipeline untested in a real match** — retargeting, scale (normalized to 1.75 via bone spread), and facing are assumed correct but not visually verified. If characters face AWAY from each other, the fix is adding `Math.PI` to `group.rotation.y` in `makeRig`. Clip-name choices (Idle_B as combat stance, Hit_B as stun/knockdown) may need taste-tuning after the owner watches a match.
-2. **Items are not visible on 3D characters** — but KayKit rigs have dedicated `handslot.l`/`handslot.r` bones designed exactly for weapon attachment, and the Adventurers/Skeletons packs ship weapon/prop GLBs (in the zips' `Assets/gltf` folders, not yet copied into the project). This is now much easier than the old Meshy plan.
-3. Only the base arena exists (no per-theme arenas). Two avatar pairs share a model (valkyrie=Knight, monk=Barbarian) — differentiating them (e.g. material tint) would help.
+1. **Pipeline now visually verified in real matches** (2026-07-11, puppeteer screenshots): facing, scale, weapons, portraits all correct. Clip-name taste choices (Idle_B stance, Hit_B stun) still await the owner's eye.
+2. **Only the weapon slot renders in 3D** — helmets/armor/boots/accessories have no models (KayKit character meshes bake their own headgear). Helmet→`head` bone attachment would need helmet prop models we don't have yet.
+3. Only the base arena exists (no per-theme arenas). Two avatar pairs share a model (valkyrie=Knight, monk=Barbarian) — differentiating them (e.g. material tint) would help; the pairs can also end up visually identical in a bracket.
 4. **Meshy leftovers** (`public/models3d/characters/blaze/`, ~190 MB) sit unused in the repo — owner to decide on deletion.
 5. Parked: iOS draft-pick bug (see `ios_handoff.md` on the `ios` branch) — data layer was proven innocent; suspected silent join failure.
 
 ## Next plan, in order
 
-1. Owner verifies the KayKit pipeline in a real match (facing, scale, clip choices).
-2. Item attachments: copy KayKit weapon/prop GLBs from the zips' `Assets/gltf` folders and attach to the rigs' `handslot.r`/`handslot.l` bones (weapon first — highest payoff), then helmet → `head`, accessory orbit.
-3. Differentiate the two shared-model avatar pairs (material tint or different KayKit models when more packs are bought).
-4. Arena GLBs per event theme with base/cylinder fallback.
-5. Delete Meshy character leftovers (owner decision); then sound design for 3D beats; then camera drama (slow-mo death blows, orbit on finisher).
+1. Owner sanity-checks a real match on a phone (clip taste, camera framing, weapon look).
+2. Differentiate the two shared-model avatar pairs (material tint or different KayKit models when more packs are bought).
+3. Arena GLBs per event theme with base/cylinder fallback.
+4. Delete Meshy character leftovers (owner decision); then sound design for 3D beats; then camera drama (slow-mo death blows, orbit on finisher).
 
 ## Pitfalls we hit — do NOT fall into these again
 

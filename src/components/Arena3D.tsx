@@ -5,8 +5,9 @@ import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
-import { weaponKindFor } from "@/lib/game/items";
-import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize } from "@/lib/three/characterAssets";
+import { weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/items";
+import type { Item } from "@/lib/game/types";
+import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize, attachWeapons } from "@/lib/three/characterAssets";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -31,23 +32,30 @@ const ARENA_COLORS: Record<string, ArenaColors> = {
   overcast: { bg: 0x1f2937, floor: 0x374151, ring: 0x9ca3af, fog: 0x1f2937 }
 };
 
-type FighterKind = "blade" | "heavy" | "ranged" | "fists";
+type FighterKind = WeaponVisualKind;
 
 const IDLE_CLIP = "Idle_B";
 
 const ATTACK_POOLS: Record<FighterKind, string[]> = {
   blade: ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Chop", "Melee_1H_Attack_Stab"],
   heavy: ["Melee_2H_Attack_Chop", "Melee_2H_Attack_Slice", "Melee_2H_Attack_Stab"],
-  ranged: ["Ranged_Bow_Release", "Ranged_Magic_Shoot"],
+  dual: ["Melee_Dualwield_Attack_Chop", "Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Stab"],
+  crossbow: ["Ranged_2H_Shoot", "Ranged_1H_Shoot"],
+  magic: ["Ranged_Magic_Shoot"],
   fists: ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick"]
 };
 
 const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_1H_Attack_Jump_Chop"];
+const MELEE_KINDS = new Set<FighterKind>(["blade", "heavy", "dual", "fists"]);
+
+function activeWeapon(fighter: FighterView): Item | undefined {
+  const weapon = fighter.equipment.weapon;
+  if (!weapon || fighter.disabledItems.includes(weapon.id)) return undefined;
+  return weapon;
+}
 
 function fighterKind(fighter: FighterView): FighterKind {
-  const weapon = fighter.equipment.weapon;
-  if (!weapon || fighter.disabledItems.includes(weapon.id)) return "fists";
-  return weaponKindFor(weapon);
+  return weaponVisualKindFor(activeWeapon(fighter));
 }
 
 const arenaCache = new Map<string, Promise<THREE.Group | null>>();
@@ -81,7 +89,7 @@ function prepareArena(template: THREE.Group): THREE.Group {
   const box = new THREE.Box3().setFromObject(arena);
   const width = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
   if (width > 0.0001) {
-    const scale = 11 / width;
+    const scale = 55 / width;
     arena.scale.setScalar(scale);
     const center = box.getCenter(new THREE.Vector3());
     arena.position.set(-center.x * scale, 0, -center.z * scale);
@@ -294,7 +302,7 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   };
 }
 
-async function attachModel(rig: Rig, avatarId: string): Promise<void> {
+async function attachModel(rig: Rig, avatarId: string, weapon: Item | undefined): Promise<void> {
   const [base, library] = await Promise.all([loadBase(avatarId), loadAnimLibrary()]);
   if (!base) {
     const placeholder = buildPlaceholder(avatarId);
@@ -309,6 +317,7 @@ async function attachModel(rig: Rig, avatarId: string): Promise<void> {
     }
   });
   normalizeSize(instance, 1.75);
+  await attachWeapons(instance, weapon);
   rig.group.add(instance);
   rig.placeholder = false;
   rig.mixer = new THREE.AnimationMixer(instance);
@@ -403,9 +412,12 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       playAction(rig, ["Skeletons_Taunt", IDLE_CLIP], { once: true, backToIdle: true });
       break;
     case "windup":
-      if (kind === "ranged") {
+      if (kind === "magic") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
         playAction(rig, ["Ranged_Magic_Raise", IDLE_CLIP], { once: true, backToIdle: true });
+      } else if (kind === "crossbow") {
+        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
+        playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
       } else if (rig.clips?.has("Walking_A")) {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 0.35);
         playAction(rig, ["Walking_A"]);
@@ -415,10 +427,13 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       }
       break;
     case "attack": {
-      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.15);
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.15 : 0.2);
       const pool = ATTACK_POOLS[kind];
-      const strike = crit ? (pickAvailable(rig, CRIT_POOL, true) ?? pickAvailable(rig, pool, true)) : pickAvailable(rig, pool, true);
-      if (strike && rig.clips?.has("Running_A")) {
+      const strike =
+        crit && MELEE_KINDS.has(kind)
+          ? (pickAvailable(rig, CRIT_POOL, true) ?? pickAvailable(rig, pool, true))
+          : pickAvailable(rig, pool, true);
+      if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
         playAction(rig, ["Running_A"]);
         rig.actionTimer = setTimeout(() => playAction(rig, [strike], { once: true, backToIdle: true }), 320);
       } else if (strike) {
@@ -573,8 +588,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     attachMarker(rigB, 0xf87171);
     attachNameSprite(rigA, a.nickname, "#a5b4fc");
     attachNameSprite(rigB, b.nickname, "#fca5a5");
-    void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
-    void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
+    void attachModel(rigA, avatarById(a.avatar).id, activeWeapon(a)).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
+    void attachModel(rigB, avatarById(b.avatar).id, activeWeapon(b)).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
 
     const dom = renderer.domElement;
     dom.style.touchAction = "none";
@@ -656,7 +671,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(21)) * camera.aspect);
-      baseZ.current = Math.min(12, Math.max(5, 2.15 / Math.tan(halfH)));
+      baseZ.current = Math.min(12, Math.max(4.4, 1.8 / Math.tan(halfH)));
       retargetCamera();
     };
     resize();
@@ -684,14 +699,14 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [a.avatar, b.avatar]);
+  }, [a.avatar, b.avatar, a.equipment.weapon?.id, b.equipment.weapon?.id]);
 
   useEffect(() => {
     const scene = sceneRef.current;
     const colors = ARENA_COLORS[fx] ?? ARENA_COLORS.none;
     if (!scene || !colors) return;
     scene.background = new THREE.Color(colors.bg);
-    scene.fog = new THREE.Fog(colors.fog, 7, 22);
+    scene.fog = new THREE.Fog(colors.fog, 10, 44);
     const floorMat = floorRef.current?.material as THREE.MeshStandardMaterial | undefined;
     if (floorMat) floorMat.color.set(colors.floor);
     const ringMat = ringRef.current?.material as THREE.MeshStandardMaterial | undefined;

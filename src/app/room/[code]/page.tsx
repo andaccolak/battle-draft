@@ -142,7 +142,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
                 <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} playerId={game.playerId} onReact={game.reactBattle} />
               </div>
             ) : (
-              snapshot.bracket && <Bracket rounds={snapshot.bracket} />
+              snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />
             ))}
           {snapshot.phase === "champion" && <Champion snapshot={snapshot} playerId={game.playerId} onPlayAgain={game.playAgain} />}
         </motion.div>

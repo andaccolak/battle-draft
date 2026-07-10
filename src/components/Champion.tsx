@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
+import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 
 interface Props {
@@ -28,9 +29,12 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
         initial={{ scale: 0 }}
         animate={{ scale: 1, rotate: [0, -8, 8, 0] }}
         transition={{ type: "spring", damping: 8 }}
-        className="text-8xl"
+        className="flex flex-col items-center"
       >
-        👑
+        <div className="text-6xl">👑</div>
+        {champion && (
+          <AvatarPortrait avatarId={champion.avatar} weapon={champion.equipment.weapon} className="h-44 w-32 drop-shadow-2xl" />
+        )}
       </motion.div>
       <div>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-bold uppercase tracking-[0.3em] text-amber-400">
@@ -58,7 +62,8 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
             .sort((a, b) => Number(a.eliminated) - Number(b.eliminated) || b.wins - a.wins)
             .map((p, i) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
-                <span className="font-semibold">
+                <span className="flex items-center gap-2 font-semibold">
+                  <AvatarPortrait avatarId={p.avatar} className="h-9 w-7" />
                   {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.isBot ? "🤖 " : ""}{p.nickname}
                 </span>
                 <span className="text-xs text-slate-400">{p.wins} {p.wins === 1 ? t("win") : t("wins")}</span>

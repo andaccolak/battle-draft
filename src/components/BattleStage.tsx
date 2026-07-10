@@ -5,9 +5,8 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import type { BattlePayload, FighterView, Rarity, TimelineEntry } from "@/lib/game/types";
 import { SLOTS } from "@/lib/game/types";
-import { avatarById } from "@/lib/game/avatars";
 import { type Pose } from "./Fighter";
-import CharacterSprite from "./CharacterSprite";
+import AvatarPortrait from "./AvatarPortrait";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
 
@@ -329,7 +328,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               className="absolute inset-0 z-10 flex items-center justify-center gap-3 bg-slate-950/85 px-4"
             >
               <motion.div initial={{ x: -120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
-                <CharacterSprite avatar={avatarById(battle.a.avatar)} equipment={battle.a.equipment} className="h-32 w-24" />
+                <AvatarPortrait avatarId={battle.a.avatar} weapon={battle.a.equipment.weapon} className="h-32 w-24" />
                 <div className="font-display max-w-[8rem] truncate text-xl font-black text-indigo-300">{battle.a.nickname}</div>
               </motion.div>
               <motion.div
@@ -341,9 +340,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
                 VS
               </motion.div>
               <motion.div initial={{ x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
-                <div style={{ transform: "scaleX(-1)" }}>
-                  <CharacterSprite avatar={avatarById(battle.b.avatar)} equipment={battle.b.equipment} className="h-32 w-24" />
-                </div>
+                <AvatarPortrait avatarId={battle.b.avatar} weapon={battle.b.equipment.weapon} flip className="h-32 w-24" />
                 <div className="font-display max-w-[8rem] truncate text-xl font-black text-fuchsia-300">{battle.b.nickname}</div>
               </motion.div>
             </motion.div>
@@ -463,9 +460,7 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
           transition={{ type: "spring", damping: 14 }}
           className="shrink-0"
         >
-          <div style={{ transform: side === "right" ? "scaleX(-1)" : undefined }}>
-            <CharacterSprite avatar={avatarById(fighter.avatar)} equipment={fighter.equipment} disabledItems={fighter.disabledItems} className="h-40 w-28 drop-shadow-2xl" />
-          </div>
+          <AvatarPortrait avatarId={fighter.avatar} weapon={fighter.equipment.weapon} flip={side === "right"} className="h-40 w-28 drop-shadow-2xl" />
         </motion.div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {items.length === 0 && (

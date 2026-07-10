@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { KAYKIT_MODELS } from "@/lib/game/avatars";
+import { weaponModelFor } from "@/lib/game/items";
+import type { Item } from "@/lib/game/types";
 
 export const gltfLoader = new GLTFLoader();
 
@@ -61,6 +63,52 @@ export function loadAnimLibrary(): Promise<Map<string, THREE.AnimationClip>> {
   return libraryPromise;
 }
 
+const weaponCache = new Map<string, Promise<THREE.Group | null>>();
+
+export function loadWeaponModel(name: string): Promise<THREE.Group | null> {
+  const cached = weaponCache.get(name);
+  if (cached) return cached;
+  const promise = gltfLoader
+    .loadAsync(`/models3d/kaykit/weapons/${name}.gltf`)
+    .then((gltf) => gltf.scene as THREE.Group)
+    .catch(() => null);
+  weaponCache.set(name, promise);
+  return promise;
+}
+
+function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D | null {
+  const pattern = new RegExp(`^handslot[._]?${side}$`, "i");
+  let found: THREE.Object3D | null = null;
+  instance.traverse((child) => {
+    if (!found && pattern.test(child.name)) found = child;
+  });
+  return found;
+}
+
+function mountWeapon(slot: THREE.Object3D, template: THREE.Group): void {
+  const weapon = template.clone(true);
+  weapon.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      child.castShadow = true;
+      child.frustumCulled = false;
+    }
+  });
+  slot.add(weapon);
+}
+
+export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined): Promise<void> {
+  const def = weaponModelFor(weapon);
+  if (!def) return;
+  const [main, off] = await Promise.all([
+    loadWeaponModel(def.model),
+    def.offhand ? loadWeaponModel(def.offhand) : Promise.resolve(null)
+  ]);
+  const right = findHandSlot(instance, "r");
+  const left = findHandSlot(instance, "l");
+  if (main && right) mountWeapon(right, main);
+  if (off && left) mountWeapon(left, off);
+}
+
 export function measureHeight(object: THREE.Object3D): { height: number; minY: number } {
   object.updateMatrixWorld(true);
   const box = new THREE.Box3();
@@ -72,8 +120,14 @@ export function measureHeight(object: THREE.Object3D): { height: number; minY: n
       box.expandByPoint(child.getWorldPosition(point));
     }
   });
-  if (bones < 3) box.setFromObject(object);
-  return { height: box.max.y - box.min.y, minY: box.min.y };
+  const boneHeight = bones >= 3 ? box.max.y - box.min.y : 0;
+  const meshBox = new THREE.Box3().setFromObject(object);
+  const meshHeight = meshBox.max.y - meshBox.min.y;
+  if (meshHeight >= boneHeight && meshHeight < boneHeight * 3) {
+    return { height: meshHeight, minY: meshBox.min.y };
+  }
+  if (boneHeight > 0) return { height: boneHeight, minY: box.min.y };
+  return { height: meshHeight, minY: meshBox.min.y };
 }
 
 export function normalizeSize(object: THREE.Object3D, targetHeight: number): void {

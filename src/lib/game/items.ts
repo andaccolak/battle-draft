@@ -2,21 +2,21 @@ import type { Item } from "./types";
 
 export const ITEMS: Item[] = [
   { id: "w_rusty_sword", name: "Rusty Sword", emoji: "🗡️", slot: "weapon", rarity: "common", stats: { attack: 14 } },
-  { id: "w_wooden_club", name: "Wooden Club", emoji: "🏏", slot: "weapon", rarity: "common", stats: { attack: 16, defense: 4 } },
+  { id: "w_wooden_club", name: "Tavern Mug", emoji: "🍺", slot: "weapon", rarity: "common", stats: { attack: 16, defense: 4 } },
   { id: "w_battle_axe", name: "Battle Axe", emoji: "🪓", slot: "weapon", rarity: "common", stats: { attack: 30, accuracy: -15 } },
   { id: "w_dagger", name: "Sly Dagger", emoji: "🔪", slot: "weapon", rarity: "common", stats: { attack: 10, speed: 14, critChance: 12 } },
   { id: "w_rapier", name: "Rapier", emoji: "🤺", slot: "weapon", rarity: "uncommon", stats: { attack: 18 }, passive: { type: "firstStrike", value: 1, label: "Always attacks first" } },
-  { id: "w_bow", name: "Longbow", emoji: "🏹", slot: "weapon", rarity: "uncommon", stats: { attack: 20, critChance: 20 }, tags: ["ranged"] },
-  { id: "w_war_hammer", name: "War Hammer", emoji: "🔨", slot: "weapon", rarity: "uncommon", stats: { attack: 42, accuracy: -35 } },
-  { id: "w_spiked_flail", name: "Spiked Flail", emoji: "⛓️", slot: "weapon", rarity: "uncommon", stats: { attack: 24, accuracy: -10, critChance: 8 } },
+  { id: "w_bow", name: "Hand Crossbow", emoji: "🏹", slot: "weapon", rarity: "uncommon", stats: { attack: 20, critChance: 20 }, tags: ["ranged"] },
+  { id: "w_war_hammer", name: "Giant's Greatsword", emoji: "🗡️", slot: "weapon", rarity: "uncommon", stats: { attack: 42, accuracy: -35 } },
+  { id: "w_spiked_flail", name: "Spiked Shield", emoji: "🛡️", slot: "weapon", rarity: "uncommon", stats: { attack: 24, accuracy: -10, critChance: 8 } },
   { id: "w_twin_blades", name: "Twin Blades", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 17 }, passive: { type: "extraAttack", value: 35, label: "35% chance to attack twice" } },
   { id: "w_poison_fang", name: "Poison Fang", emoji: "🐍", slot: "weapon", rarity: "rare", stats: { attack: 15 }, passive: { type: "poisonOnHit", value: 6, label: "Hits poison for 6 dmg per turn" } },
   { id: "w_crossbow", name: "Heavy Crossbow", emoji: "🎯", slot: "weapon", rarity: "rare", stats: { attack: 27, critChance: 12, speed: -8 }, tags: ["ranged"] },
   { id: "w_executioner", name: "Executioner Axe", emoji: "🪓", slot: "weapon", rarity: "epic", stats: { attack: 25 }, passive: { type: "executioner", value: 60, label: "+60% dmg vs targets below 35% HP" } },
-  { id: "w_vampire_scythe", name: "Vampire Scythe", emoji: "🌙", slot: "weapon", rarity: "epic", stats: { attack: 23 }, passive: { type: "lifesteal", value: 25, label: "Heals 25% of damage dealt" } },
-  { id: "w_storm_spear", name: "Storm Spear", emoji: "⚡", slot: "weapon", rarity: "epic", stats: { attack: 28, initiative: 12 }, passive: { type: "stunChance", value: 15, label: "15% chance to stun on hit" } },
+  { id: "w_vampire_scythe", name: "Blood Wand", emoji: "🩸", slot: "weapon", rarity: "epic", stats: { attack: 23 }, passive: { type: "lifesteal", value: 25, label: "Heals 25% of damage dealt" }, tags: ["ranged"] },
+  { id: "w_storm_spear", name: "Storm Staff", emoji: "⚡", slot: "weapon", rarity: "epic", stats: { attack: 28, initiative: 12 }, passive: { type: "stunChance", value: 15, label: "15% chance to stun on hit" }, tags: ["ranged"] },
   { id: "w_dragonfang", name: "Dragonfang Greatsword", emoji: "🐉", slot: "weapon", rarity: "legendary", stats: { attack: 36, critDamage: 40 }, passive: { type: "berserk", value: 50, label: "+50% attack below 40% HP" } },
-  { id: "w_void_reaper", name: "Void Reaper", emoji: "💀", slot: "weapon", rarity: "legendary", stats: { attack: 32, accuracy: -10 }, passive: { type: "ignoreDefense", value: 60, label: "Ignores 60% of enemy defense" } },
+  { id: "w_void_reaper", name: "Void Reaper", emoji: "💀", slot: "weapon", rarity: "legendary", stats: { attack: 32, accuracy: -10 }, passive: { type: "ignoreDefense", value: 60, label: "Ignores 60% of enemy defense" }, tags: ["ranged"] },
   { id: "h_old_helmet", name: "Old Helmet", emoji: "🪖", slot: "helmet", rarity: "common", stats: { defense: 7 } },
   { id: "h_leather_cap", name: "Leather Cap", emoji: "🧢", slot: "helmet", rarity: "common", stats: { defense: 5, speed: 6 } },
   { id: "h_bucket", name: "Bucket Helm", emoji: "🪣", slot: "helmet", rarity: "common", stats: { defense: 13, accuracy: -12 } },
@@ -79,10 +79,55 @@ export function itemById(id: string): Item | undefined {
 
 export type WeaponKind = "ranged" | "heavy" | "blade";
 
-const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_wooden_club", "w_spiked_flail", "w_dragonfang"]);
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang"]);
+
+function baseWeaponId(item: Item): string {
+  return item.id.replace(/_(forged|gambled)$/, "");
+}
 
 export function weaponKindFor(item: Item): WeaponKind {
   if ((item.tags ?? []).includes("ranged")) return "ranged";
-  if (HEAVY_WEAPON_IDS.has(item.id.replace(/_(forged|gambled)$/, ""))) return "heavy";
+  if (HEAVY_WEAPON_IDS.has(baseWeaponId(item))) return "heavy";
   return "blade";
+}
+
+export type WeaponVisualKind = "blade" | "heavy" | "dual" | "crossbow" | "magic" | "fists";
+
+export interface WeaponModelDef {
+  model: string;
+  offhand?: string;
+  kind: WeaponVisualKind;
+}
+
+export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
+  w_rusty_sword: { model: "Skeleton_Blade", kind: "blade" },
+  w_wooden_club: { model: "mug_full", kind: "blade" },
+  w_battle_axe: { model: "axe_2handed", kind: "heavy" },
+  w_dagger: { model: "dagger", kind: "blade" },
+  w_rapier: { model: "sword_1handed", kind: "blade" },
+  w_bow: { model: "crossbow_1handed", kind: "crossbow" },
+  w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
+  w_spiked_flail: { model: "shield_spikes", kind: "blade" },
+  w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },
+  w_poison_fang: { model: "dagger", kind: "blade" },
+  w_crossbow: { model: "crossbow_2handed", kind: "crossbow" },
+  w_executioner: { model: "Skeleton_Axe", kind: "heavy" },
+  w_vampire_scythe: { model: "wand", kind: "magic" },
+  w_storm_spear: { model: "staff", kind: "magic" },
+  w_dragonfang: { model: "sword_2handed", kind: "heavy" },
+  w_void_reaper: { model: "Skeleton_Staff", kind: "magic" }
+};
+
+export function weaponModelFor(item: Item | undefined): WeaponModelDef | undefined {
+  if (!item) return undefined;
+  return WEAPON_MODELS[baseWeaponId(item)];
+}
+
+export function weaponVisualKindFor(item: Item | undefined): WeaponVisualKind {
+  if (!item) return "fists";
+  const def = weaponModelFor(item);
+  if (def) return def.kind;
+  const kind = weaponKindFor(item);
+  if (kind === "ranged") return "crossbow";
+  return kind;
 }

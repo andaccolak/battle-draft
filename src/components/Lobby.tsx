@@ -3,8 +3,8 @@
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
-import { AVATARS, MODELED_AVATARS, avatarById } from "@/lib/game/avatars";
-import CharacterSprite from "./CharacterSprite";
+import { AVATARS, MODELED_AVATARS } from "@/lib/game/avatars";
+import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 
 const Avatar3DThumb = dynamic(() => import("./Avatar3DThumb"), { ssr: false });
@@ -47,7 +47,7 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) 
                 {selected && MODELED_AVATARS.has(av.id) ? (
                   <Avatar3DThumb avatarId={av.id} className="h-16 w-12" />
                 ) : (
-                  <CharacterSprite avatar={av} className="h-16 w-12" />
+                  <AvatarPortrait avatarId={av.id} className="h-16 w-12" />
                 )}
                 <span className={`mt-0.5 text-[10px] font-bold ${selected ? "text-indigo-300" : "text-slate-400"}`}>
                   {t(`avatar_${av.id}`)}
@@ -72,7 +72,7 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) 
               transition={{ delay: i * 0.05 }}
               className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2"
             >
-              <CharacterSprite avatar={avatarById(p.avatar)} className="h-12 w-9" />
+              <AvatarPortrait avatarId={p.avatar} className="h-12 w-9" />
               <span className="flex-1 font-semibold">
                 {p.isBot ? "🤖 " : p.isHost ? "👑 " : ""}
                 {p.nickname}

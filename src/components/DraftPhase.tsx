@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import type { DraftOffer, RoomSnapshot } from "@/lib/game/types";
 import { DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
 import ItemCard from "./ItemCard";
+import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 import TimerBar from "./TimerBar";
 import { sfx } from "@/lib/sound";
@@ -92,10 +93,11 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
               {snapshot.players.map((p) => (
                 <span
                   key={p.id}
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
+                  className={`flex items-center gap-1.5 rounded-full py-1 pl-1.5 pr-3 text-xs font-bold ${
                     p.hasPicked ? "bg-emerald-500/20 text-emerald-300" : "bg-white/10 text-slate-400"
                   }`}
                 >
+                  <AvatarPortrait avatarId={p.avatar} className="h-7 w-5" />
                   {p.hasPicked ? "✓" : "…"} {p.nickname}
                 </span>
               ))}
