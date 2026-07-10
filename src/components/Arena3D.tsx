@@ -103,6 +103,98 @@ function prepareArena(template: THREE.Group): THREE.Group {
   return arena;
 }
 
+interface Weather {
+  group: THREE.Group;
+  update: (delta: number) => void;
+}
+
+function makeParticles(count: number, color: number, size: number, opacity: number, spawn: (i: number) => [number, number, number]): { points: THREE.Points; positions: Float32Array } {
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    const [x, y, z] = spawn(i);
+    positions[i * 3] = x;
+    positions[i * 3 + 1] = y;
+    positions[i * 3 + 2] = z;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({ color, size, transparent: true, opacity, depthWrite: false });
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  return { points, positions };
+}
+
+function buildWeather(fx: string): Weather | null {
+  const group = new THREE.Group();
+  const spread = () => (Math.random() - 0.5) * 13;
+  if (fx === "rain" || fx === "storm") {
+    const { points, positions } = makeParticles(380, 0x9ec5ff, 0.055, 0.65, () => [spread(), Math.random() * 7, spread()]);
+    group.add(points);
+    const flash = new THREE.AmbientLight(0xd6e4ff, 0);
+    if (fx === "storm") group.add(flash);
+    let flashTimer = 2 + Math.random() * 4;
+    const update = (delta: number) => {
+      for (let i = 1; i < positions.length; i += 3) {
+        const y = (positions[i] ?? 0) - 15 * delta;
+        positions[i] = y < 0 ? y + 7 : y;
+      }
+      (points.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
+      if (fx === "storm") {
+        flashTimer -= delta;
+        if (flashTimer <= 0) {
+          flash.intensity = 5;
+          flashTimer = 2.5 + Math.random() * 5;
+        }
+        flash.intensity = Math.max(0, flash.intensity - 18 * delta);
+      }
+    };
+    return { group, update };
+  }
+  if (fx === "snow") {
+    const { points, positions } = makeParticles(260, 0xffffff, 0.085, 0.85, () => [spread(), Math.random() * 6.5, spread()]);
+    group.add(points);
+    let time = 0;
+    const update = (delta: number) => {
+      time += delta;
+      for (let i = 0; i < positions.length; i += 3) {
+        const y = (positions[i + 1] ?? 0) - 1.1 * delta;
+        positions[i + 1] = y < 0 ? y + 6.5 : y;
+        positions[i] = (positions[i] ?? 0) + Math.sin(time * 1.4 + i) * 0.25 * delta;
+      }
+      (points.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
+    };
+    return { group, update };
+  }
+  if (fx === "wind") {
+    const { points, positions } = makeParticles(220, 0x9beef7, 0.06, 0.5, () => [spread(), 0.2 + Math.random() * 3.4, spread()]);
+    group.add(points);
+    const update = (delta: number) => {
+      for (let i = 0; i < positions.length; i += 3) {
+        const x = (positions[i] ?? 0) + 9 * delta;
+        positions[i] = x > 7 ? x - 14 : x;
+      }
+      (points.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
+    };
+    return { group, update };
+  }
+  if (fx === "poison") {
+    const { points, positions } = makeParticles(160, 0x4ade80, 0.09, 0.55, () => [spread() * 0.6, Math.random() * 2.8, spread() * 0.6]);
+    group.add(points);
+    let time = 0;
+    const update = (delta: number) => {
+      time += delta;
+      for (let i = 0; i < positions.length; i += 3) {
+        const y = (positions[i + 1] ?? 0) + 0.55 * delta;
+        positions[i + 1] = y > 2.8 ? y - 2.8 : y;
+        positions[i] = (positions[i] ?? 0) + Math.sin(time + i) * 0.14 * delta;
+      }
+      (points.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
+    };
+    return { group, update };
+  }
+  return null;
+}
+
 function hexNum(hex: string): number {
   return parseInt(hex.slice(1), 16);
 }
@@ -148,6 +240,37 @@ interface Rig {
   targetTilt: number;
   returnTimer: ReturnType<typeof setTimeout> | null;
   placeholder: boolean;
+  marker: THREE.MeshBasicMaterial | null;
+}
+
+function attachMarker(rig: Rig, color: number): void {
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.58, 32), mat);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.y = 0.03;
+  rig.group.add(ring);
+  rig.marker = mat;
+}
+
+function attachNameSprite(rig: Rig, name: string, color: string): void {
+  const canvas = document.createElement("canvas");
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  ctx.font = "bold 32px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.shadowColor = "rgba(0,0,0,0.9)";
+  ctx.shadowBlur = 10;
+  ctx.fillStyle = color;
+  ctx.fillText(name.slice(0, 12), 128, 32);
+  const texture = new THREE.CanvasTexture(canvas);
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
+  sprite.scale.set(1.5, 0.375, 1);
+  sprite.position.y = 2.15;
+  sprite.renderOrder = 5;
+  rig.group.add(sprite);
 }
 
 function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
@@ -165,7 +288,8 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     targetPos: position.clone(),
     targetTilt: 0,
     returnTimer: null,
-    placeholder: true
+    placeholder: true,
+    marker: null
   };
 }
 
@@ -221,6 +345,7 @@ function playAction(
   if (!pick) return;
   const target = rig.actions[pick];
   if (!target) return;
+  if (!opts.once && rig.current === target && target.isRunning()) return;
   const fade = 0.22;
   target.reset();
   if (opts.once) {
@@ -361,6 +486,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
   const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
   const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
   const azimuthTarget = useRef(0);
+  const elevTarget = useRef(3);
+  const userZoom = useRef(1);
+  const weatherRef = useRef<Weather | null>(null);
   kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
 
   const retargetCamera = () => {
@@ -427,37 +555,64 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
     scene.add(rigB.group);
     rigARef.current = rigA;
     rigBRef.current = rigB;
+    attachMarker(rigA, 0x818cf8);
+    attachMarker(rigB, 0xf87171);
+    attachNameSprite(rigA, a.nickname, "#a5b4fc");
+    attachNameSprite(rigB, b.nickname, "#fca5a5");
     void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
     void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
 
     const dom = renderer.domElement;
     dom.style.touchAction = "none";
-    let dragging = false;
-    let lastX = 0;
+    const pointers = new Map<number, { x: number; y: number }>();
+    let pinchDist = 0;
+    const clampZoom = (v: number) => Math.min(1.6, Math.max(0.55, v));
     const onPointerDown = (e: PointerEvent) => {
-      dragging = true;
-      lastX = e.clientX;
+      pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dom.setPointerCapture(e.pointerId);
+      if (pointers.size === 2) {
+        const [p1, p2] = [...pointers.values()];
+        if (p1 && p2) pinchDist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      }
     };
     const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return;
-      azimuthTarget.current -= (e.clientX - lastX) * 0.008;
-      lastX = e.clientX;
+      const p = pointers.get(e.pointerId);
+      if (!p) return;
+      if (pointers.size === 1) {
+        azimuthTarget.current -= (e.clientX - p.x) * 0.008;
+        elevTarget.current = Math.min(6.5, Math.max(1.2, elevTarget.current + (e.clientY - p.y) * 0.015));
+      }
+      p.x = e.clientX;
+      p.y = e.clientY;
+      if (pointers.size === 2) {
+        const [p1, p2] = [...pointers.values()];
+        if (p1 && p2) {
+          const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+          if (pinchDist > 0 && d > 0) userZoom.current = clampZoom(userZoom.current * (pinchDist / d));
+          pinchDist = d;
+        }
+      }
     };
     const onPointerUp = (e: PointerEvent) => {
-      dragging = false;
+      pointers.delete(e.pointerId);
+      pinchDist = 0;
       if (dom.hasPointerCapture(e.pointerId)) dom.releasePointerCapture(e.pointerId);
+    };
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      userZoom.current = clampZoom(userZoom.current * (1 + e.deltaY * 0.001));
     };
     const onContextMenu = (e: Event) => e.preventDefault();
     dom.addEventListener("pointerdown", onPointerDown);
     dom.addEventListener("pointermove", onPointerMove);
     dom.addEventListener("pointerup", onPointerUp);
     dom.addEventListener("pointercancel", onPointerUp);
+    dom.addEventListener("wheel", onWheel, { passive: false });
     dom.addEventListener("contextmenu", onContextMenu);
 
     const clock = new THREE.Clock();
     let frame = 0;
-    const orbit = { azimuth: 0, dist: 8, lookX: 0 };
+    const orbit = { azimuth: 0, dist: 8, lookX: 0, elev: 3 };
     const lookAt = new THREE.Vector3(0, 0.95, 0);
     const animate = () => {
       frame = requestAnimationFrame(animate);
@@ -468,10 +623,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
         rig.group.position.lerp(rig.targetPos, damp * 0.9);
         rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
       }
+      weatherRef.current?.update(delta);
       orbit.azimuth += (azimuthTarget.current - orbit.azimuth) * damp * 0.9;
-      orbit.dist += (camTarget.current.z - orbit.dist) * damp * 0.6;
+      orbit.elev += (elevTarget.current - orbit.elev) * damp * 0.9;
+      orbit.dist += (camTarget.current.z * userZoom.current - orbit.dist) * damp * 0.6;
       orbit.lookX += (camTarget.current.x - orbit.lookX) * damp * 0.6;
-      camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, 3, Math.cos(orbit.azimuth) * orbit.dist);
+      camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
       lookAt.set(orbit.lookX, 0.95, 0);
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
@@ -500,7 +657,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       dom.removeEventListener("pointermove", onPointerMove);
       dom.removeEventListener("pointerup", onPointerUp);
       dom.removeEventListener("pointercancel", onPointerUp);
+      dom.removeEventListener("wheel", onWheel);
       dom.removeEventListener("contextmenu", onContextMenu);
+      weatherRef.current?.group.removeFromParent();
+      weatherRef.current = null;
       if (rigA.returnTimer) clearTimeout(rigA.returnTimer);
       if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
       arenaRef.current?.removeFromParent();
@@ -523,6 +683,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       ringMat.color.set(colors.ring);
       ringMat.emissive.set(colors.ring);
     }
+    weatherRef.current?.group.removeFromParent();
+    const weather = buildWeather(fx);
+    weatherRef.current = weather;
+    if (weather) scene.add(weather.group);
     let cancelled = false;
     void loadArenaModel(fx).then((template) => {
       if (cancelled || !template || !sceneRef.current) return;
@@ -545,6 +709,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
   useEffect(() => {
     zoomState.current = { focus, zoom };
     retargetCamera();
+    const markerA = rigARef.current?.marker;
+    const markerB = rigBRef.current?.marker;
+    if (markerA) markerA.opacity = focus === "a" ? 0.85 : 0.15;
+    if (markerB) markerB.opacity = focus === "b" ? 0.85 : 0.15;
   });
 
   return <div ref={containerRef} className="absolute inset-0" />;

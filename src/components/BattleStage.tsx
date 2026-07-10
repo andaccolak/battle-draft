@@ -93,7 +93,10 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     return entry.actor === "a" ? { a: "windup", b: "idle" } : { a: "idle", b: "windup" };
   }
   if (entry.t === "attack") {
-    const reaction: Pose = entry.blocked ? "block" : entry.crit ? "knockdown" : "hit";
+    const defenderHp = entry.actor === "a" ? entry.hpB : entry.hpA;
+    const dmg = entry.dmg ?? 0;
+    const bigHit = defenderHp > 0 && dmg >= 0.6 * (defenderHp + dmg);
+    const reaction: Pose = entry.blocked ? "block" : entry.crit || bigHit ? "knockdown" : "hit";
     return entry.actor === "a" ? { a: "attack", b: reaction } : { a: reaction, b: "attack" };
   }
   if (entry.t === "miss") {
@@ -294,142 +297,41 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
         </AnimatePresence>
 
         <AnimatePresence mode="wait">
-          {current && current.t === "windup" && (
-            <motion.div
-              key={`windup-${index}`}
-              initial={{ opacity: 0, y: 24, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.05 }}
-              className="pointer-events-none absolute inset-x-4 top-1/3 z-20 -translate-y-1/2 text-center"
-            >
-              <div className="mx-auto max-w-sm rounded-2xl bg-slate-950/80 px-5 py-4 text-lg font-bold italic text-amber-200 shadow-2xl backdrop-blur-sm">
-                {logLine(current)}
-                <motion.span
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ repeat: Infinity, duration: 0.8 }}
-                  className="ml-1"
-                >
-                  ●●●
-                </motion.span>
-              </div>
-            </motion.div>
-          )}
-
           {current && current.t === "attack" && (
             <motion.div
               key={`hit-${index}`}
-              initial={{ opacity: 0, scale: 2.6 }}
+              initial={{ opacity: 0, scale: 2 }}
               animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, y: -30 }}
+              exit={{ opacity: 0, y: -24 }}
               transition={{ type: "spring", damping: 14, stiffness: 300 }}
               className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
             >
               {current.crit && (
-                <motion.div
-                  animate={{ scale: [1, 1.15, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.5 }}
-                  className="font-display mb-1 text-xl font-black tracking-wider text-orange-400 drop-shadow-[0_0_18px_rgba(251,146,60,0.8)]"
-                >
+                <div className="font-display mb-0.5 text-sm font-black tracking-wider text-orange-400 drop-shadow-[0_0_14px_rgba(251,146,60,0.8)]">
                   💥 {t("bigCrit")}
-                </motion.div>
+                </div>
               )}
               <div
                 className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
-                  current.crit ? "text-5xl text-orange-300" : "text-4xl text-rose-400"
+                  current.crit ? "text-4xl text-orange-300" : "text-3xl text-rose-400"
                 }`}
               >
                 -{current.dmg ?? 0}
               </div>
-              <div className="mt-1 text-[10px] font-black uppercase tracking-[0.3em] text-slate-300">{t("bigDamage")}</div>
-              {current.blocked && (
-                <div className="mt-1 text-sm font-black tracking-wider text-sky-300 drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-                  🛡️ {t("bigBlocked")}
-                </div>
-              )}
             </motion.div>
           )}
 
-          {current && current.t === "miss" && (
+          {current && current.t === "quirk" && current.dmg !== undefined && current.dmg > 0 && (
             <motion.div
-              key={`miss-${index}`}
-              initial={{ opacity: 0, scale: 2.2, rotate: -8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: "spring", damping: 12 }}
-              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
+              key={`quirkdmg-${index}`}
+              initial={{ opacity: 0, scale: 1.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, y: -24 }}
+              transition={{ type: "spring", damping: 14, stiffness: 300 }}
+              className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
             >
-              <div className="font-display text-4xl font-black text-slate-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
-                💨 {t("bigMiss")}
-              </div>
-            </motion.div>
-          )}
-
-          {current && current.t === "dodge" && (
-            <motion.div
-              key={`dodge-${index}`}
-              initial={{ opacity: 0, scale: 2.2, rotate: 8 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: "spring", damping: 12 }}
-              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
-            >
-              <div
-                className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
-                  current.key === "qteDodge" ? "text-3xl text-emerald-300 sm:text-4xl" : "text-4xl text-cyan-300"
-                }`}
-              >
-                🌀 {current.key === "qteDodge" ? t("qtePerfect") : t("bigDodge")}
-              </div>
-            </motion.div>
-          )}
-
-          {current && current.t === "quirk" && (
-            <motion.div
-              key={`quirk-${index}`}
-              initial={{ opacity: 0, scale: 0.6, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ type: "spring", damping: 13, stiffness: 260 }}
-              className="pointer-events-none absolute inset-x-4 top-[28%] z-20 text-center"
-            >
-              <div className="mx-auto max-w-sm rounded-2xl border border-lime-400/30 bg-slate-950/85 px-5 py-4 shadow-2xl backdrop-blur-sm">
-                <div className="text-xl font-black leading-snug text-lime-300">{logLine(current)}</div>
-                {current.dmg !== undefined && current.dmg > 0 && (
-                  <div className="font-display mt-1 text-3xl font-black text-rose-400">-{current.dmg}</div>
-                )}
-                {current.heal !== undefined && current.heal > 0 && (
-                  <div className="font-display mt-1 text-3xl font-black text-emerald-400">+{current.heal}</div>
-                )}
-              </div>
-            </motion.div>
-          )}
-
-          {current && current.t === "passive" && (current.key === "stunApplied" || current.key === "stunSkip") && (
-            <motion.div
-              key={`stun-${index}`}
-              initial={{ opacity: 0, scale: 1.8, rotate: -4 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ type: "spring", damping: 12 }}
-              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
-            >
-              <div className="font-display text-4xl font-black text-amber-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
-                💫 {t("bigStunned")}
-              </div>
-            </motion.div>
-          )}
-
-          {current && current.t === "passive" && current.key === "revive" && (
-            <motion.div
-              key={`revive-${index}`}
-              initial={{ opacity: 0, scale: 0.5, y: 30 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ type: "spring", damping: 12 }}
-              className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
-            >
-              <div className="font-display text-4xl font-black text-orange-400 drop-shadow-[0_0_20px_rgba(251,146,60,0.7)]">
-                🔥 {t("bigRevived")}
+              <div className="font-display text-3xl font-black text-rose-400 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
+                -{current.dmg}
               </div>
             </motion.div>
           )}
@@ -517,9 +419,45 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
         <AnimatePresence>{current && current.t === "victory" && <Confetti />}</AnimatePresence>
       </motion.div>
 
+      <div className="mt-2 flex min-h-[3.25rem] shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2 text-center">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`ticker-${index}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.15 }}
+            className={`text-sm font-bold leading-snug ${
+              current?.t === "victory"
+                ? "text-amber-300"
+                : current?.t === "death"
+                  ? "text-rose-400"
+                  : current?.t === "windup"
+                    ? "italic text-amber-200"
+                    : current?.t === "quirk"
+                      ? "text-lime-300"
+                      : current?.crit
+                        ? "text-orange-300"
+                        : current?.t === "dodge" || current?.t === "miss"
+                          ? "text-cyan-300"
+                          : current?.t === "card" || current?.t === "event" || current?.t === "showcase"
+                            ? "text-amber-200"
+                            : "text-slate-200"
+            }`}
+          >
+            {current ? logLine(current) : ""}
+            {current?.t === "windup" && (
+              <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="ml-1">
+                ●●●
+              </motion.span>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
       <div
         ref={logRef}
-        className="mt-3 h-32 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-2 h-24 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div
@@ -690,45 +628,7 @@ function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
 }
 
 function ArenaFX({ fx }: { fx: FxKind }) {
-  if (fx === "rain" || fx === "storm") {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
-        {Array.from({ length: 26 }, (_, i) => (
-          <motion.div
-            key={i}
-            initial={{ top: "-8%" }}
-            animate={{ top: "108%" }}
-            transition={{ repeat: Infinity, duration: 0.55 + (i % 5) * 0.12, delay: (i * 0.13) % 1.4, ease: "linear" }}
-            className="absolute h-7 w-px rotate-12 bg-sky-300/50"
-            style={{ left: `${(i * 137) % 100}%` }}
-          />
-        ))}
-        {fx === "storm" && (
-          <motion.div
-            animate={{ opacity: [0, 0, 0, 0.55, 0, 0.25, 0] }}
-            transition={{ repeat: Infinity, duration: 4.2 }}
-            className="absolute inset-0 bg-indigo-100"
-          />
-        )}
-      </div>
-    );
-  }
-  if (fx === "snow") {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
-        {Array.from({ length: 22 }, (_, i) => (
-          <motion.div
-            key={i}
-            initial={{ top: "-5%" }}
-            animate={{ top: "108%", x: [0, 12, -10, 0] }}
-            transition={{ repeat: Infinity, duration: 4 + (i % 5), delay: (i * 0.4) % 4, ease: "linear" }}
-            className="absolute h-1.5 w-1.5 rounded-full bg-white/80"
-            style={{ left: `${(i * 149) % 100}%` }}
-          />
-        ))}
-      </div>
-    );
-  }
+  if (fx === "rain" || fx === "storm" || fx === "snow" || fx === "poison" || fx === "wind") return null;
   if (fx === "fog") {
     return (
       <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
@@ -739,39 +639,6 @@ function ArenaFX({ fx }: { fx: FxKind }) {
             transition={{ repeat: Infinity, duration: 9 + i * 3, ease: "easeInOut" }}
             className="absolute h-16 w-[75%] rounded-full bg-slate-300/15 blur-xl"
             style={{ top: `${25 + i * 22}%`, left: `${(i * 20) % 40}%` }}
-          />
-        ))}
-      </div>
-    );
-  }
-  if (fx === "poison") {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
-        {Array.from({ length: 12 }, (_, i) => (
-          <motion.div
-            key={i}
-            initial={{ y: 0, opacity: 0 }}
-            animate={{ y: -90, opacity: [0, 0.7, 0] }}
-            transition={{ repeat: Infinity, duration: 2.6 + (i % 4) * 0.5, delay: (i * 0.5) % 3 }}
-            className="absolute bottom-[8%] h-2.5 w-2.5 rounded-full bg-green-400/50"
-            style={{ left: `${(i * 157) % 100}%` }}
-          />
-        ))}
-        <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-green-500/20 to-transparent" />
-      </div>
-    );
-  }
-  if (fx === "wind") {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
-        {Array.from({ length: 10 }, (_, i) => (
-          <motion.div
-            key={i}
-            initial={{ left: "-12%" }}
-            animate={{ left: "112%" }}
-            transition={{ repeat: Infinity, duration: 1.3 + (i % 4) * 0.35, delay: (i * 0.3) % 2, ease: "linear" }}
-            className="absolute h-px w-20 bg-white/30"
-            style={{ top: `${(i * 173) % 90}%` }}
           />
         ))}
       </div>
