@@ -284,18 +284,6 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
 
         <ArenaFX fx={fx} />
 
-        <AnimatePresence>
-          {suspense && (
-            <motion.div
-              key={`dim-${index}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute inset-0 bg-slate-950/45"
-            />
-          )}
-        </AnimatePresence>
-
         <AnimatePresence mode="wait">
           {current && current.t === "attack" && (
             <motion.div
@@ -306,11 +294,6 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               transition={{ type: "spring", damping: 14, stiffness: 300 }}
               className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
             >
-              {current.crit && (
-                <div className="font-display mb-0.5 text-sm font-black tracking-wider text-orange-400 drop-shadow-[0_0_14px_rgba(251,146,60,0.8)]">
-                  💥 {t("bigCrit")}
-                </div>
-              )}
               <div
                 className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
                   current.crit ? "text-4xl text-orange-300" : "text-3xl text-rose-400"
@@ -379,40 +362,6 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
         </AnimatePresence>
 
         <AnimatePresence>
-          {current && (current.t === "event" || current.t === "card") && (
-            <motion.div
-              key={`banner-${index}`}
-              initial={{ y: -60, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 30, opacity: 0 }}
-              className="pointer-events-none absolute inset-x-3 top-3 z-10 rounded-2xl border border-amber-400/40 bg-slate-950/90 p-3 text-center text-sm font-bold text-amber-200 shadow-xl"
-            >
-              {logLine(current)}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {atPause && !qteMine && pending && (
-            <motion.div
-              key={`spectate-${entries.length}`}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="pointer-events-none absolute inset-x-4 top-[58%] z-20 text-center"
-            >
-              <motion.div
-                animate={{ scale: [1, 1.05, 1] }}
-                transition={{ repeat: Infinity, duration: 0.7 }}
-                className="mx-auto inline-block rounded-full bg-cyan-500/20 px-5 py-2 text-sm font-bold text-cyan-200 backdrop-blur-sm"
-              >
-                {t("qteWaiting", { p: pending.nickname })}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
           {qteMine && <QteChallenge key={`qte-${entries.length}`} onResult={onReact} />}
         </AnimatePresence>
 
@@ -422,7 +371,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
       <div className="mt-2 flex min-h-[3.25rem] shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-2 text-center">
         <AnimatePresence mode="wait">
           <motion.div
-            key={`ticker-${index}`}
+            key={atPause && !qteMine ? "ticker-pause" : `ticker-${index}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
@@ -445,8 +394,8 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
                             : "text-slate-200"
             }`}
           >
-            {current ? logLine(current) : ""}
-            {current?.t === "windup" && (
+            {atPause && !qteMine && pending ? t("qteWaiting", { p: pending.nickname }) : current ? logLine(current) : ""}
+            {(current?.t === "windup" || (atPause && !qteMine)) && (
               <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="ml-1">
                 ●●●
               </motion.span>

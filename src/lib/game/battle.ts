@@ -118,31 +118,31 @@ function windupKeyFor(item: Item): string {
 function entryMs(e: Omit<TimelineEntry, "hpA" | "hpB">): number {
   switch (e.t) {
     case "intro":
-      return 1300;
+      return 1600;
     case "showcase":
       return 2600;
     case "event":
-      return 2100;
+      return 2400;
     case "card":
-      return 1500;
+      return 1800;
     case "windup":
-      return 1300;
+      return 1800;
     case "attack":
-      return e.crit ? 1500 : 1050;
+      return e.crit ? 2000 : 1500;
     case "miss":
     case "dodge":
-      return 1150;
-    case "quirk":
       return 1500;
+    case "quirk":
+      return 1900;
     case "passive":
     case "poison":
-      return 650;
+      return 950;
     case "death":
-      return 1200;
+      return 1700;
     case "victory":
-      return 2400;
+      return 2600;
     default:
-      return 900;
+      return 1200;
   }
 }
 
@@ -1143,7 +1143,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   }
 
   let totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
-  const MAX_BATTLE_MS = 44000;
+  const MAX_BATTLE_MS = 58000;
   if (!aCanReact && !bCanReact && pendingSide === null && totalMs > MAX_BATTLE_MS) {
     const scale = MAX_BATTLE_MS / totalMs;
     for (const e of timeline) {
