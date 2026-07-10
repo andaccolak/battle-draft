@@ -1,6 +1,57 @@
 # Battle Draft — Claude Handoff Document
 
-This document briefs an AI assistant (or a new developer) taking over work on this codebase. Read it fully before making changes.
+This document briefs an AI assistant (or a new developer) taking over work on this codebase. Read it fully before making changes. Part I is the live session handover (current mission, status, pitfalls); Part II is the stable project spec.
+
+---
+
+# PART I — Session handover (updated 2026-07-10)
+
+Written for a session with zero context. Read Part II afterward for the game rules and architecture — everything there still applies.
+
+## What we are doing
+
+Battle Draft is a mobile-first multiplayer web party game (Next.js on Vercel, serverless, polling — see Part II). The current mission: turn the battle phase into an **action-RPG-grade 3D presentation** using AI-generated assets from **Meshy** (the owner has a paid Meshy subscription; API and web app share the same credit pool). The owner (Rıdvan) drives Meshy generation by hand; Claude integrates. A second human developer works on this same branch in parallel (he built the QTE dodge and battle quirks) — his territory is game logic/server, ours right now is 3D presentation.
+
+An earlier native iOS client was built and then **deliberately parked**: it lives complete on the `ios` branch (with its own `ios_handoff.md`), was reverted off this branch, and `/ios/` is gitignored here. Do not resurrect it unless the owner asks.
+
+## What has been completed
+
+- **3D battle arena is live** (`src/components/Arena3D.tsx`, three.js via `next/dynamic`): rigged GLB characters play timeline-driven animation clips (idle/attack/hit/dodge/death/victory chosen by clip-name keywords in `CLIP_KEYWORDS`), event-themed arena colors/fog, shadows, aspect-aware camera with attacker focus and crit punch-in. Fighters without models render as block placeholders — the game never breaks on missing assets.
+- **First character shipped**: `public/models3d/blaze.glb` (16 MB, 30k tris, 13 clips). Verified in real matches via automated Chrome screenshots.
+- Earlier this cycle (also live): 12 selectable avatars, pre-battle gear showcase (`showcase` timeline entries), event-themed weather overlays, and the teammate's QTE reaction dodge + comedy quirks (`quirk` entries, growing timelines).
+- **`MESHY_ASSETS.md`** (repo root): the complete generation spec — 12 character prompts, the 20-animation set with required clip-name keywords, 48 item prompts with export/orientation rules, the item-attachment design (bones/offsets), and arena prompts per event theme. This is the contract between Meshy output and the code.
+
+## Where we are currently stuck / open problems
+
+1. **Animation variety is poor** — with only ~6 mapped clip types and one attack clip, fighters visibly repeat one move. Fix is spec'd: the 20-clip set in MESHY_ASSETS.md §2 plus code to (a) extend `CLIP_KEYWORDS`, (b) pick attack clips by `weaponKindFor()` (blade/heavy/ranged/fists), (c) randomize among variants per beat, (d) map block/stun/knockdown/revive entries.
+2. **Items are not visible on 3D characters** — attachment system designed (MESHY_ASSETS.md §4) but not implemented; needs bone-name discovery per Meshy rig.
+3. Only 1 of 12 characters has a model; arenas still use the plain cylinder floor.
+4. `blaze.glb` is 16 MB — needs Draco/meshopt compression or smaller textures once the pipeline settles.
+5. Parked: iOS draft-pick bug (see `ios_handoff.md` on the `ios` branch) — data layer was proven innocent; suspected silent join failure.
+
+## Next plan, in order
+
+1. Owner generates the remaining 11 characters + the 20-clip animation set (start with 2–3 characters to validate the richer clip keywords).
+2. Implement the animation-variety code (item 1 above) as soon as the first 20-clip GLB exists.
+3. Implement item attachments (weapon → hand bone first; it has the highest visual payoff), then helmet, armor shell, accessory orbit.
+4. Arena GLBs per event theme with cylinder fallback.
+5. Compression pass on all GLBs; then sound design for 3D beats; then camera drama (slow-mo death blows, orbit on finisher).
+
+## Pitfalls we hit — do NOT fall into these again
+
+- **Meshy GLB mesh bounds LIE**: bind-space geometry bbox read 1.8 cm for a 1.75 m character. Scale is normalized from **skeleton bone spread** (`measureHeight` in Arena3D). Never "fix" it back to `Box3.setFromObject`.
+- **Portrait camera math**: with vertical-FOV cameras, phones crop horizontally — fighters were fully off-screen. Camera distance is computed from viewport aspect (`baseZ` in resize). Test every 3D change in a ~430px-wide viewport, not desktop.
+- **framer-motion `%` transforms are relative to the element's own size** — rain "fell" 6 pixels. Animate `top`/`left` (layout) for cross-container travel, not `x`/`y` percentages.
+- **React strict-mode double-mounts Arena3D in dev** — effects/cleanup must be idempotent (they are; keep them that way).
+- **macOS is case-insensitive**: `HANDOFF.md` and `handoff.md` are the SAME file. Never create files differing only by case.
+- **`git add -A` grabs strays**: it once committed Xcode user-state into this branch. Check `git status` before committing; `/ios/` and `/models/` (raw Meshy exports) are gitignored on purpose — shippable models go in `public/models3d/`.
+- **Two humans, one branch**: `git pull` before every work block. The teammate's QTE means battle timelines GROW mid-battle and `elapsedMs` pauses — any playback client must handle `timeline.length` changes (web does; keep it).
+- **Verification pattern that works**: no test framework — drive full matches over the HTTP API with a Node script, and screenshot real gameplay with puppeteer-core + installed Chrome (`--enable-unsafe-swiftshader` for WebGL headless). Scripts live in the session scratchpad, recreate as needed.
+- **Sacred product rules** (Part II, enforce always): draft randomness must never be biased; Vercel-serverless only (no websockets/timers); every new item/event/card needs TR+EN entries (4-step checklist in §5); absolutely no code comments; `npm run typecheck` && `npm run build` before every commit.
+
+---
+
+# PART II — Project spec
 
 ## 1. What this project is
 
