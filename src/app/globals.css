@@ -16,6 +16,16 @@ body {
   background-image: radial-gradient(ellipse at top, rgba(99, 102, 241, 0.15), transparent 60%),
     radial-gradient(ellipse at bottom, rgba(217, 70, 239, 0.08), transparent 60%);
   background-attachment: fixed;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .font-display {

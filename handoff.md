@@ -47,7 +47,8 @@ An earlier native iOS client was built and then **deliberately parked**: it live
 
 ## Pitfalls we hit — do NOT fall into these again
 
-- **Meshy GLB mesh bounds LIE**: bind-space geometry bbox read 1.8 cm for a 1.75 m character. Scale is normalized from **skeleton bone spread** (`measureHeight` in Arena3D). Never "fix" it back to `Box3.setFromObject`.
+- **Meshy GLB mesh bounds LIE**: bind-space geometry bbox read 1.8 cm for a 1.75 m character. Scale is normalized from **skeleton bone spread** (`measureHeight` in characterAssets). Never "fix" it back to `Box3.setFromObject`.
+- **Meshy clips bake horizontal root motion**: rolls/runs/attacks travel inside the clip, which doubles with the rig's group-position lerp and makes the character pop back when the clip blends out. All clips are pinned in place at load (`stripRootMotion` in characterAssets — X/Z position keys frozen to frame 0, Y kept for jumps/crouches). Don't remove it.
 - **Portrait camera math**: with vertical-FOV cameras, phones crop horizontally — fighters were fully off-screen. Camera distance is computed from viewport aspect (`baseZ` in resize). Test every 3D change in a ~430px-wide viewport, not desktop.
 - **framer-motion `%` transforms are relative to the element's own size** — rain "fell" 6 pixels. Animate `top`/`left` (layout) for cross-container travel, not `x`/`y` percentages.
 - **React strict-mode double-mounts Arena3D in dev** — effects/cleanup must be idempotent (they are; keep them that way).

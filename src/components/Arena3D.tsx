@@ -274,7 +274,8 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       break;
     case "windup":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-      playAction(rig, ["charge_up", "idle_stance"]);
+      if (rig.actions.charge_up) playAction(rig, ["charge_up"], { once: true });
+      else playAction(rig, ["idle_stance"]);
       break;
     case "attack": {
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.15);
@@ -447,10 +448,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       dragging = false;
       if (dom.hasPointerCapture(e.pointerId)) dom.releasePointerCapture(e.pointerId);
     };
+    const onContextMenu = (e: Event) => e.preventDefault();
     dom.addEventListener("pointerdown", onPointerDown);
     dom.addEventListener("pointermove", onPointerMove);
     dom.addEventListener("pointerup", onPointerUp);
     dom.addEventListener("pointercancel", onPointerUp);
+    dom.addEventListener("contextmenu", onContextMenu);
 
     const clock = new THREE.Clock();
     let frame = 0;
@@ -497,6 +500,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom, cri
       dom.removeEventListener("pointermove", onPointerMove);
       dom.removeEventListener("pointerup", onPointerUp);
       dom.removeEventListener("pointercancel", onPointerUp);
+      dom.removeEventListener("contextmenu", onContextMenu);
       if (rigA.returnTimer) clearTimeout(rigA.returnTimer);
       if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
       arenaRef.current?.removeFromParent();

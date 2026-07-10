@@ -300,7 +300,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               initial={{ opacity: 0, y: 24, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, scale: 1.05 }}
-              className="absolute inset-x-4 top-1/3 z-20 -translate-y-1/2 text-center"
+              className="pointer-events-none absolute inset-x-4 top-1/3 z-20 -translate-y-1/2 text-center"
             >
               <div className="mx-auto max-w-sm rounded-2xl bg-slate-950/80 px-5 py-4 text-lg font-bold italic text-amber-200 shadow-2xl backdrop-blur-sm">
                 {logLine(current)}
@@ -483,7 +483,7 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
               initial={{ y: -60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 30, opacity: 0 }}
-              className="absolute inset-x-3 top-3 z-10 rounded-2xl border border-amber-400/40 bg-slate-950/90 p-3 text-center text-sm font-bold text-amber-200 shadow-xl"
+              className="pointer-events-none absolute inset-x-3 top-3 z-10 rounded-2xl border border-amber-400/40 bg-slate-950/90 p-3 text-center text-sm font-bold text-amber-200 shadow-xl"
             >
               {logLine(current)}
             </motion.div>

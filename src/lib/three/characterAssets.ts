@@ -69,10 +69,25 @@ export const LEGACY_KEYWORDS: Record<AnimKey, string[]> = {
   anim_victory: ["victory", "cheer", "win"]
 };
 
+export function stripRootMotion(clip: THREE.AnimationClip): THREE.AnimationClip {
+  for (const track of clip.tracks) {
+    if (!track.name.endsWith(".position")) continue;
+    const values = track.values;
+    if (values.length < 3) continue;
+    const x0 = values[0] ?? 0;
+    const z0 = values[2] ?? 0;
+    for (let i = 0; i + 2 < values.length; i += 3) {
+      values[i] = x0;
+      values[i + 2] = z0;
+    }
+  }
+  return clip;
+}
+
 export function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.AnimationClip | null {
   for (const key of keys) {
     const found = clips.find((c) => c.name.toLowerCase().includes(key));
-    if (found) return found;
+    if (found) return stripRootMotion(found);
   }
   return null;
 }
@@ -100,7 +115,10 @@ export function loadAnimClip(avatarId: string, key: AnimKey): Promise<THREE.Anim
   if (cached) return cached;
   const promise = gltfLoader
     .loadAsync(`/models3d/characters/${avatarId}/${avatarId}_${key}.glb`)
-    .then((gltf) => gltf.animations[0] ?? null)
+    .then((gltf) => {
+      const clip = gltf.animations[0];
+      return clip ? stripRootMotion(clip) : null;
+    })
     .catch(() => null);
   clipCache.set(cacheKey, promise);
   return promise;
