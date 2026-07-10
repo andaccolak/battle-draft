@@ -1,5 +1,7 @@
 # Meshy Asset Bible — Battle Draft 3D
 
+> **SUPERSEDED (2026-07-11) for characters and animations**: the game now uses KayKit CC0 packs (see handoff.md Part I — `public/models3d/kaykit/`, `KAYKIT_MODELS` in avatars.ts). Sections 1–4 below are kept for reference only. Section 5 (arenas) still applies — the shipped `arena_base.glb` is Meshy-generated.
+
 Everything needed to produce the full 3D asset set with Meshy. Follow the export rules exactly — the game loads assets by naming convention with automatic fallbacks, so files drop in with zero code edits (except where marked CODE).
 
 Universal character style suffix (append to every character prompt):

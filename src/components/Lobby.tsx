@@ -44,7 +44,7 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar }: Props) 
                   selected ? "border-indigo-400 bg-indigo-500/20" : "border-white/10 bg-white/5"
                 }`}
               >
-                {MODELED_AVATARS.has(av.id) ? (
+                {selected && MODELED_AVATARS.has(av.id) ? (
                   <Avatar3DThumb avatarId={av.id} className="h-16 w-12" />
                 ) : (
                   <CharacterSprite avatar={av} className="h-16 w-12" />

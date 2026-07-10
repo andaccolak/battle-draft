@@ -6,16 +6,7 @@ import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.j
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
 import { weaponKindFor } from "@/lib/game/items";
-import {
-  type AnimKey,
-  ANIM_KEYS,
-  LEGACY_KEYWORDS,
-  pickClip,
-  gltfLoader,
-  loadBase,
-  loadAnimClip,
-  normalizeSize
-} from "@/lib/three/characterAssets";
+import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize } from "@/lib/three/characterAssets";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -42,12 +33,16 @@ const ARENA_COLORS: Record<string, ArenaColors> = {
 
 type FighterKind = "blade" | "heavy" | "ranged" | "fists";
 
-const ATTACK_POOLS: Record<FighterKind, AnimKey[]> = {
-  blade: ["atk_slash", "atk_heavy"],
-  heavy: ["atk_heavy", "atk_slash"],
-  ranged: ["atk_shoot", "atk_slash"],
-  fists: ["atk_punch", "atk_kick"]
+const IDLE_CLIP = "Idle_B";
+
+const ATTACK_POOLS: Record<FighterKind, string[]> = {
+  blade: ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Chop", "Melee_1H_Attack_Stab"],
+  heavy: ["Melee_2H_Attack_Chop", "Melee_2H_Attack_Slice", "Melee_2H_Attack_Stab"],
+  ranged: ["Ranged_Bow_Release", "Ranged_Magic_Shoot"],
+  fists: ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick"]
 };
+
+const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_1H_Attack_Jump_Chop"];
 
 function fighterKind(fighter: FighterView): FighterKind {
   const weapon = fighter.equipment.weapon;
@@ -231,7 +226,8 @@ function buildPlaceholder(avatarId: string): THREE.Group {
 interface Rig {
   group: THREE.Group;
   mixer: THREE.AnimationMixer | null;
-  actions: Partial<Record<AnimKey, THREE.AnimationAction>>;
+  clips: Map<string, THREE.AnimationClip> | null;
+  actions: Record<string, THREE.AnimationAction>;
   current: THREE.AnimationAction | null;
   base: THREE.Vector3;
   dir: THREE.Vector3;
@@ -283,6 +279,7 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   return {
     group,
     mixer: null,
+    clips: null,
     actions: {},
     current: null,
     base: position.clone(),
@@ -297,20 +294,8 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   };
 }
 
-function registerClip(rig: Rig, key: AnimKey, clip: THREE.AnimationClip): void {
-  if (!rig.mixer || rig.actions[key]) return;
-  rig.actions[key] = rig.mixer.clipAction(clip);
-  if (key === "idle_stance" && !rig.current) {
-    const idle = rig.actions[key];
-    if (idle) {
-      idle.play();
-      rig.current = idle;
-    }
-  }
-}
-
 async function attachModel(rig: Rig, avatarId: string): Promise<void> {
-  const base = await loadBase(avatarId);
+  const [base, library] = await Promise.all([loadBase(avatarId), loadAnimLibrary()]);
   if (!base) {
     const placeholder = buildPlaceholder(avatarId);
     rig.group.add(placeholder);
@@ -327,19 +312,25 @@ async function attachModel(rig: Rig, avatarId: string): Promise<void> {
   rig.group.add(instance);
   rig.placeholder = false;
   rig.mixer = new THREE.AnimationMixer(instance);
-  for (const key of ANIM_KEYS) {
-    const clip = pickClip(base.clips, LEGACY_KEYWORDS[key]);
-    if (clip) registerClip(rig, key, clip);
-  }
-  for (const key of ANIM_KEYS) {
-    void loadAnimClip(avatarId, key).then((clip) => {
-      if (clip) registerClip(rig, key, clip);
-    });
+  rig.clips = new Map(library);
+  for (const clip of base.clips) {
+    if (!rig.clips.has(clip.name)) rig.clips.set(clip.name, clip);
   }
 }
 
-function pickAvailable(rig: Rig, candidates: AnimKey[], random: boolean): AnimKey | null {
-  const available = candidates.filter((key) => rig.actions[key]);
+function getAction(rig: Rig, name: string): THREE.AnimationAction | null {
+  const existing = rig.actions[name];
+  if (existing) return existing;
+  if (!rig.mixer || !rig.clips) return null;
+  const clip = rig.clips.get(name);
+  if (!clip) return null;
+  const action = rig.mixer.clipAction(clip);
+  rig.actions[name] = action;
+  return action;
+}
+
+function pickAvailable(rig: Rig, candidates: string[], random: boolean): string | null {
+  const available = candidates.filter((name) => rig.clips?.has(name));
   if (available.length === 0) return null;
   const pick = random && available.length > 1 ? available[Math.floor(Math.random() * available.length)] : available[0];
   return pick ?? null;
@@ -347,13 +338,13 @@ function pickAvailable(rig: Rig, candidates: AnimKey[], random: boolean): AnimKe
 
 function playAction(
   rig: Rig,
-  candidates: AnimKey[],
+  candidates: string[],
   opts: { once?: boolean; backToIdle?: boolean; random?: boolean } = {}
 ): void {
   if (!rig.mixer) return;
   const pick = pickAvailable(rig, candidates, !!opts.random);
   if (!pick) return;
-  const target = rig.actions[pick];
+  const target = getAction(rig, pick);
   if (!target) return;
   if (!opts.once && rig.current === target && target.isRunning()) return;
   const fade = 0.22;
@@ -372,7 +363,7 @@ function playAction(
     const onFinished = (e: { action: THREE.AnimationAction }) => {
       if (e.action !== target) return;
       mixer.removeEventListener("finished", onFinished as never);
-      const idle = rig.actions.idle_stance;
+      const idle = getAction(rig, IDLE_CLIP);
       if (idle && rig.current === target) {
         idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
         target.fadeOut(0.3);
@@ -404,28 +395,31 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
   switch (pose) {
     case "idle":
       rig.targetPos.copy(rig.base);
-      if (Math.random() < 0.18) playAction(rig, ["idle_taunt"], { once: true, backToIdle: true });
-      else playAction(rig, ["idle_stance"]);
+      if (Math.random() < 0.18) playAction(rig, ["Skeletons_Taunt"], { once: true, backToIdle: true });
+      else playAction(rig, [IDLE_CLIP]);
       break;
     case "taunt":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["idle_taunt", "idle_stance"], { once: true, backToIdle: true });
+      playAction(rig, ["Skeletons_Taunt", IDLE_CLIP], { once: true, backToIdle: true });
       break;
     case "windup":
-      if (kind !== "ranged" && rig.actions.walk_fwd) {
+      if (kind === "ranged") {
+        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
+        playAction(rig, ["Ranged_Magic_Raise", IDLE_CLIP], { once: true, backToIdle: true });
+      } else if (rig.clips?.has("Walking_A")) {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 0.35);
-        playAction(rig, ["walk_fwd"]);
+        playAction(rig, ["Walking_A"]);
       } else {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["charge_up", "idle_stance"], { once: true, backToIdle: true });
+        playAction(rig, [IDLE_CLIP]);
       }
       break;
     case "attack": {
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.15);
       const pool = ATTACK_POOLS[kind];
-      const strike = crit ? pickAvailable(rig, ["atk_combo", ...pool], false) : pickAvailable(rig, pool, kind === "fists");
-      if (strike && rig.actions.run_fwd) {
-        playAction(rig, ["run_fwd"]);
+      const strike = crit ? (pickAvailable(rig, CRIT_POOL, true) ?? pickAvailable(rig, pool, true)) : pickAvailable(rig, pool, true);
+      if (strike && rig.clips?.has("Running_A")) {
+        playAction(rig, ["Running_A"]);
         rig.actionTimer = setTimeout(() => playAction(rig, [strike], { once: true, backToIdle: true }), 320);
       } else if (strike) {
         playAction(rig, [strike], { once: true, backToIdle: true });
@@ -436,49 +430,49 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
     case "hit":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.35);
       if (rig.placeholder) rig.targetTilt = -0.25;
-      playAction(rig, ["hit_light"], { once: true, backToIdle: true });
+      playAction(rig, ["Hit_A"], { once: true, backToIdle: true });
       scheduleReturn(rig, 500);
       break;
     case "knockdown":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.6);
       if (rig.placeholder) rig.targetTilt = -0.45;
-      playAction(rig, ["hit_knock", "hit_light"], { once: true, backToIdle: true });
+      playAction(rig, ["Hit_B", "Hit_A"], { once: true, backToIdle: true });
       scheduleReturn(rig, 800);
       break;
     case "block":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.15);
       if (rig.placeholder) rig.targetTilt = -0.12;
-      playAction(rig, ["guard_block", "hit_light"], { once: true, backToIdle: true });
+      playAction(rig, ["Melee_Block_Hit", "Hit_A"], { once: true, backToIdle: true });
       scheduleReturn(rig, 500);
       break;
     case "dodge":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 0.7);
-      playAction(rig, ["dodge_step", "dodge_roll"], { once: true, backToIdle: true, random: true });
+      playAction(rig, ["Dodge_Left", "Dodge_Right"], { once: true, backToIdle: true, random: true });
       scheduleReturn(rig, 600);
       break;
     case "roll":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 1);
-      playAction(rig, ["dodge_roll", "dodge_step"], { once: true, backToIdle: true });
+      playAction(rig, ["Dodge_Backward", "Dodge_Left"], { once: true, backToIdle: true });
       scheduleReturn(rig, 700);
       break;
     case "stun":
       rig.targetPos.copy(rig.base);
       if (rig.placeholder) rig.targetTilt = 0.2;
-      playAction(rig, ["status_stun", "hit_light"], { once: true, backToIdle: true });
+      playAction(rig, ["Hit_B", "Hit_A"], { once: true, backToIdle: true });
       scheduleReturn(rig, 900);
       break;
     case "revive":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["idle_taunt", "idle_stance"], { once: true, backToIdle: true });
+      playAction(rig, ["Skeletons_Death_Resurrect", "Skeletons_Taunt"], { once: true, backToIdle: true });
       break;
     case "dead":
       rig.targetPos.copy(rig.base);
       if (rig.placeholder) rig.targetTilt = Math.PI / 2;
-      playAction(rig, ["death_fwd", "death_bwd"], { once: true, random: true });
+      playAction(rig, ["Death_A", "Death_B"], { once: true, random: true });
       break;
     case "victory":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["anim_victory"]);
+      playAction(rig, ["Cheering"]);
       break;
   }
 }

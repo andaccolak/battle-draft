@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { LEGACY_KEYWORDS, pickClip, loadBase, loadAnimClip, normalizeSize } from "@/lib/three/characterAssets";
+import { loadBase, loadAnimLibrary, normalizeSize } from "@/lib/three/characterAssets";
 
 interface Props {
   avatarId: string;
@@ -37,7 +37,7 @@ export default function Avatar3DThumb({ avatarId, className }: Props) {
     scene.add(holder);
     let mixer: THREE.AnimationMixer | null = null;
 
-    void loadBase(avatarId).then((base) => {
+    void Promise.all([loadBase(avatarId), loadAnimLibrary()]).then(([base, library]) => {
       if (!base || disposed) return;
       const instance = cloneSkeleton(base.scene) as THREE.Group;
       instance.traverse((child) => {
@@ -46,17 +46,8 @@ export default function Avatar3DThumb({ avatarId, className }: Props) {
       normalizeSize(instance, 1.75);
       holder.add(instance);
       mixer = new THREE.AnimationMixer(instance);
-      const startIdle = (clip: THREE.AnimationClip) => {
-        if (disposed || !mixer) return;
-        mixer.clipAction(clip).setLoop(THREE.LoopRepeat, Infinity).play();
-      };
-      void loadAnimClip(avatarId, "idle_stance").then((clip) => {
-        if (clip) startIdle(clip);
-        else {
-          const legacy = pickClip(base.clips, LEGACY_KEYWORDS.idle_stance);
-          if (legacy) startIdle(legacy);
-        }
-      });
+      const clip = library.get("Idle_B") ?? base.clips[0];
+      if (clip) mixer.clipAction(clip).setLoop(THREE.LoopRepeat, Infinity).play();
     });
 
     const clock = new THREE.Clock();

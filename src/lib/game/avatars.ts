@@ -37,7 +37,22 @@ export const AVATARS: AvatarDef[] = [
 
 export const AVATAR_IDS = AVATARS.map((a) => a.id);
 
-export const MODELED_AVATARS = new Set(["blaze"]);
+export const KAYKIT_MODELS: Record<string, string> = {
+  blaze: "Knight",
+  shadow: "Rogue_Hooded",
+  viking: "Barbarian",
+  ronin: "Rogue",
+  corsair: "Ranger",
+  mystic: "Mage",
+  golem: "Skeleton_Warrior",
+  punk: "Skeleton_Rogue",
+  valkyrie: "Knight",
+  monk: "Barbarian",
+  frost: "Skeleton_Mage",
+  minotaur: "Skeleton_Minion"
+};
+
+export const MODELED_AVATARS = new Set(Object.keys(KAYKIT_MODELS));
 
 export function avatarById(id: string | undefined): AvatarDef {
   return AVATARS.find((a) => a.id === id) ?? (AVATARS[0] as AvatarDef);

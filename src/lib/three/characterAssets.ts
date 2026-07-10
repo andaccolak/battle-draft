@@ -1,73 +1,10 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { KAYKIT_MODELS } from "@/lib/game/avatars";
 
-export type AnimKey =
-  | "idle_stance"
-  | "idle_taunt"
-  | "walk_fwd"
-  | "run_fwd"
-  | "atk_slash"
-  | "atk_heavy"
-  | "atk_combo"
-  | "atk_punch"
-  | "atk_kick"
-  | "atk_shoot"
-  | "charge_up"
-  | "hit_light"
-  | "hit_knock"
-  | "dodge_step"
-  | "dodge_roll"
-  | "guard_block"
-  | "status_stun"
-  | "death_fwd"
-  | "death_bwd"
-  | "anim_victory";
+export const gltfLoader = new GLTFLoader();
 
-export const ANIM_KEYS: AnimKey[] = [
-  "idle_stance",
-  "idle_taunt",
-  "walk_fwd",
-  "run_fwd",
-  "atk_slash",
-  "atk_heavy",
-  "atk_combo",
-  "atk_punch",
-  "atk_kick",
-  "atk_shoot",
-  "charge_up",
-  "hit_light",
-  "hit_knock",
-  "dodge_step",
-  "dodge_roll",
-  "guard_block",
-  "status_stun",
-  "death_fwd",
-  "death_bwd",
-  "anim_victory"
-];
-
-export const LEGACY_KEYWORDS: Record<AnimKey, string[]> = {
-  idle_stance: ["combat_stance", "stance", "idle", "breathing"],
-  idle_taunt: ["taunt", "flex"],
-  walk_fwd: ["walk"],
-  run_fwd: ["run"],
-  atk_slash: ["slash", "sword", "judgment", "attack", "swing"],
-  atk_heavy: ["overhead", "heavy"],
-  atk_combo: ["combo"],
-  atk_punch: ["punch"],
-  atk_kick: ["kick"],
-  atk_shoot: ["shoot", "bow", "archery"],
-  charge_up: ["charge", "power", "cast"],
-  hit_light: ["hit", "reaction"],
-  hit_knock: ["knockdown", "knock"],
-  dodge_step: ["sidestep", "dodge", "step"],
-  dodge_roll: ["roll"],
-  guard_block: ["block", "parry", "guard"],
-  status_stun: ["stun", "dizzy"],
-  death_fwd: ["fall_dead", "death", "dead", "dying"],
-  death_bwd: ["death_back"],
-  anim_victory: ["victory", "cheer", "win"]
-};
+const ANIM_LIBS = ["General", "MovementBasic", "MovementAdvanced", "CombatMelee", "CombatRanged", "Special", "Simulation"];
 
 export function stripRootMotion(clip: THREE.AnimationClip): THREE.AnimationClip {
   for (const track of clip.tracks) {
@@ -84,24 +21,16 @@ export function stripRootMotion(clip: THREE.AnimationClip): THREE.AnimationClip 
   return clip;
 }
 
-export function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.AnimationClip | null {
-  for (const key of keys) {
-    const found = clips.find((c) => c.name.toLowerCase().includes(key));
-    if (found) return stripRootMotion(found);
-  }
-  return null;
-}
-
-export const gltfLoader = new GLTFLoader();
-
 const baseCache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null>>();
-const clipCache = new Map<string, Promise<THREE.AnimationClip | null>>();
 
 export function loadBase(avatarId: string): Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null> {
   const cached = baseCache.get(avatarId);
   if (cached) return cached;
-  const promise = gltfLoader
-    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}.glb`)
+  const model = KAYKIT_MODELS[avatarId];
+  const first = model
+    ? gltfLoader.loadAsync(`/models3d/kaykit/characters/${model}.glb`)
+    : gltfLoader.loadAsync(`/models3d/characters/${avatarId}/${avatarId}.glb`);
+  const promise = first
     .catch(() => gltfLoader.loadAsync(`/models3d/${avatarId}.glb`))
     .then((gltf) => ({ scene: gltf.scene as THREE.Group, clips: gltf.animations }))
     .catch(() => null);
@@ -109,19 +38,27 @@ export function loadBase(avatarId: string): Promise<{ scene: THREE.Group; clips:
   return promise;
 }
 
-export function loadAnimClip(avatarId: string, key: AnimKey): Promise<THREE.AnimationClip | null> {
-  const cacheKey = `${avatarId}/${key}`;
-  const cached = clipCache.get(cacheKey);
-  if (cached) return cached;
-  const promise = gltfLoader
-    .loadAsync(`/models3d/characters/${avatarId}/${avatarId}_${key}.glb`)
-    .then((gltf) => {
-      const clip = gltf.animations[0];
-      return clip ? stripRootMotion(clip) : null;
-    })
-    .catch(() => null);
-  clipCache.set(cacheKey, promise);
-  return promise;
+let libraryPromise: Promise<Map<string, THREE.AnimationClip>> | null = null;
+
+export function loadAnimLibrary(): Promise<Map<string, THREE.AnimationClip>> {
+  if (libraryPromise) return libraryPromise;
+  libraryPromise = Promise.all(
+    ANIM_LIBS.map((lib) =>
+      gltfLoader
+        .loadAsync(`/models3d/kaykit/anims/Rig_Medium_${lib}.glb`)
+        .then((gltf) => gltf.animations)
+        .catch(() => [] as THREE.AnimationClip[])
+    )
+  ).then((groups) => {
+    const map = new Map<string, THREE.AnimationClip>();
+    for (const clips of groups) {
+      for (const clip of clips) {
+        if (!map.has(clip.name)) map.set(clip.name, stripRootMotion(clip));
+      }
+    }
+    return map;
+  });
+  return libraryPromise;
 }
 
 export function measureHeight(object: THREE.Object3D): { height: number; minY: number } {
