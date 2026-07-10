@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
 import type { BattlePayload, FighterView, Rarity, TimelineEntry } from "@/lib/game/types";
 import { SLOTS } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
-import Fighter, { type Pose } from "./Fighter";
+import { type Pose } from "./Fighter";
 import CharacterSprite from "./CharacterSprite";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
+
+const Arena3D = dynamic(() => import("./Arena3D"), { ssr: false });
 
 interface FloatingNumber {
   id: number;
@@ -197,7 +200,6 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
   const qteMine = atPause && pending !== null && pending.playerId === playerId;
   const suspense = current?.t === "windup" || atPause;
   const actor = current?.actor ?? "none";
-  const cameraX = suspense || current?.t === "attack" ? (actor === "a" ? 14 : actor === "b" ? -14 : 0) : 0;
 
   return (
     <div className="flex h-full flex-col">
@@ -243,36 +245,22 @@ export default function BattleStage({ battle, eventId, playerId, onReact }: Batt
           />
         )}
 
-        <motion.div
-          animate={{ scale: zoom ? 1.12 : suspense ? 1.05 : 1, x: cameraX }}
-          transition={{ duration: suspense ? 1.1 : 0.4 }}
-          className="absolute inset-0"
-        >
-          <div className="absolute inset-x-0 bottom-0 h-[68%]" style={{ perspective: "640px" }}>
-            <div
-              className="absolute left-1/2 top-[4%] aspect-square w-[135%] rounded-[26px]"
-              style={{
-                transform: "translateX(-50%) rotateX(57deg) rotateZ(45deg)",
-                background: theme.floor,
-                backgroundImage: `repeating-linear-gradient(0deg, ${theme.grid} 0 1.5px, transparent 1.5px 36px), repeating-linear-gradient(90deg, ${theme.grid} 0 1.5px, transparent 1.5px 36px)`,
-                boxShadow: "inset 0 0 80px rgba(0,0,0,0.55), 0 0 40px rgba(0,0,0,0.4)"
-              }}
-            />
-          </div>
-
-          <div className="absolute bottom-[30%] right-[9%] scale-90">
-            <div className="relative">
-              <Fighter fighter={battle.b} facing="left" pose={poses.b} depth="far" />
-              <FloatLayer floats={floats.filter((f) => f.side === "b")} />
-            </div>
-          </div>
-          <div className="absolute bottom-[4%] left-[9%] scale-105">
-            <div className="relative">
-              <Fighter fighter={battle.a} facing="right" pose={poses.a} depth="near" />
-              <FloatLayer floats={floats.filter((f) => f.side === "a")} />
-            </div>
-          </div>
-        </motion.div>
+        <Arena3D
+          a={battle.a}
+          b={battle.b}
+          poseA={poses.a}
+          poseB={poses.b}
+          beat={index}
+          fx={fx}
+          focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
+          zoom={zoom}
+        />
+        <div className="pointer-events-none absolute bottom-[42%] left-[16%]">
+          <FloatLayer floats={floats.filter((f) => f.side === "a")} />
+        </div>
+        <div className="pointer-events-none absolute bottom-[42%] right-[16%]">
+          <FloatLayer floats={floats.filter((f) => f.side === "b")} />
+        </div>
 
         <ArenaFX fx={fx} />
 
@@ -656,8 +644,8 @@ function ArenaFX({ fx }: { fx: FxKind }) {
         {Array.from({ length: 26 }, (_, i) => (
           <motion.div
             key={i}
-            initial={{ y: "-10%" }}
-            animate={{ y: "110%" }}
+            initial={{ top: "-8%" }}
+            animate={{ top: "108%" }}
             transition={{ repeat: Infinity, duration: 0.55 + (i % 5) * 0.12, delay: (i * 0.13) % 1.4, ease: "linear" }}
             className="absolute h-7 w-px rotate-12 bg-sky-300/50"
             style={{ left: `${(i * 137) % 100}%` }}
@@ -679,8 +667,8 @@ function ArenaFX({ fx }: { fx: FxKind }) {
         {Array.from({ length: 22 }, (_, i) => (
           <motion.div
             key={i}
-            initial={{ y: "-5%" }}
-            animate={{ y: "110%", x: [0, 12, -10, 0] }}
+            initial={{ top: "-5%" }}
+            animate={{ top: "108%", x: [0, 12, -10, 0] }}
             transition={{ repeat: Infinity, duration: 4 + (i % 5), delay: (i * 0.4) % 4, ease: "linear" }}
             className="absolute h-1.5 w-1.5 rounded-full bg-white/80"
             style={{ left: `${(i * 149) % 100}%` }}
@@ -727,8 +715,8 @@ function ArenaFX({ fx }: { fx: FxKind }) {
         {Array.from({ length: 10 }, (_, i) => (
           <motion.div
             key={i}
-            initial={{ x: "-15%" }}
-            animate={{ x: "115%" }}
+            initial={{ left: "-12%" }}
+            animate={{ left: "112%" }}
             transition={{ repeat: Infinity, duration: 1.3 + (i % 4) * 0.35, delay: (i * 0.3) % 2, ease: "linear" }}
             className="absolute h-px w-20 bg-white/30"
             style={{ top: `${(i * 173) % 90}%` }}

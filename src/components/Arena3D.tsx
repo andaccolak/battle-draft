@@ -1,0 +1,424 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
+import type { FighterView } from "@/lib/game/types";
+import { avatarById } from "@/lib/game/avatars";
+import type { Pose } from "./Fighter";
+
+interface ArenaColors {
+  bg: number;
+  floor: number;
+  ring: number;
+  fog: number;
+}
+
+const ARENA_COLORS: Record<string, ArenaColors> = {
+  none: { bg: 0x151238, floor: 0x312e81, ring: 0x818cf8, fog: 0x0f172a },
+  rain: { bg: 0x0c1929, floor: 0x1e3a5f, ring: 0x60a5fa, fog: 0x0c1929 },
+  storm: { bg: 0x0b1220, floor: 0x1e1b4b, ring: 0xa78bfa, fog: 0x0b1220 },
+  snow: { bg: 0x334155, floor: 0x7d8ba1, ring: 0xe2e8f0, fog: 0x475569 },
+  fog: { bg: 0x2b3646, floor: 0x475569, ring: 0x94a3b8, fog: 0x64748b },
+  sun: { bg: 0x7c2d12, floor: 0xb45309, ring: 0xfbbf24, fog: 0x9a3412 },
+  night: { bg: 0x020617, floor: 0x1e293b, ring: 0x94a3b8, fog: 0x020617 },
+  bloodmoon: { bg: 0x1c0a0a, floor: 0x4a0d0d, ring: 0xef4444, fog: 0x1c0a0a },
+  poison: { bg: 0x052e16, floor: 0x14532d, ring: 0x4ade80, fog: 0x052e16 },
+  wind: { bg: 0x164e63, floor: 0x155e75, ring: 0x67e8f9, fog: 0x164e63 },
+  quake: { bg: 0x292524, floor: 0x44403c, ring: 0xd6d3d1, fog: 0x292524 },
+  overcast: { bg: 0x1f2937, floor: 0x374151, ring: 0x9ca3af, fog: 0x1f2937 }
+};
+
+const CLIP_KEYWORDS: Record<string, string[]> = {
+  idle: ["combat_stance", "stance", "idle", "breathing"],
+  attack: ["judgment", "combo", "attack", "sword", "slash", "punch", "swing"],
+  hit: ["hit", "reaction"],
+  dodge: ["dodge", "roll", "step"],
+  death: ["fall_dead", "dying", "death", "dead", "knock_down"],
+  victory: ["victory", "cheer", "win"]
+};
+
+function pickClip(clips: THREE.AnimationClip[], keys: string[]): THREE.AnimationClip | null {
+  for (const key of keys) {
+    const found = clips.find((c) => c.name.toLowerCase().includes(key));
+    if (found) return found;
+  }
+  return null;
+}
+
+const templateCache = new Map<string, Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null>>();
+
+function loadTemplate(avatarId: string): Promise<{ scene: THREE.Group; clips: THREE.AnimationClip[] } | null> {
+  const cached = templateCache.get(avatarId);
+  if (cached) return cached;
+  const loader = new GLTFLoader();
+  const promise = loader
+    .loadAsync(`/models3d/${avatarId}.glb`)
+    .then((gltf) => ({ scene: gltf.scene as THREE.Group, clips: gltf.animations }))
+    .catch(() => null);
+  templateCache.set(avatarId, promise);
+  return promise;
+}
+
+function hexNum(hex: string): number {
+  return parseInt(hex.slice(1), 16);
+}
+
+function buildPlaceholder(avatarId: string): THREE.Group {
+  const avatar = avatarById(avatarId);
+  const outfit = new THREE.MeshStandardMaterial({ color: hexNum(avatar.outfit), roughness: 0.7 });
+  const skin = new THREE.MeshStandardMaterial({ color: hexNum(avatar.skin), roughness: 0.8 });
+  const trim = new THREE.MeshStandardMaterial({ color: hexNum(avatar.trim), roughness: 0.4, metalness: 0.5 });
+  const group = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.85, 0.3), outfit);
+  body.position.y = 0.78;
+  group.add(body);
+  const belt = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.1, 0.32), trim);
+  belt.position.y = 0.5;
+  group.add(belt);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 20, 16), skin);
+  head.position.y = 1.44;
+  group.add(head);
+  const helm = new THREE.Mesh(new THREE.SphereGeometry(0.24, 20, 12, 0, Math.PI * 2, 0, 1.2), trim);
+  helm.position.y = 1.5;
+  group.add(helm);
+  for (const side of [-1, 1]) {
+    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.42, 0.18), outfit);
+    leg.position.set(side * 0.14, 0.21, 0);
+    group.add(leg);
+    const fist = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), skin);
+    fist.position.set(side * 0.2, 1.1 + (side > 0 ? 0.1 : 0), 0.3);
+    group.add(fist);
+  }
+  return group;
+}
+
+interface Rig {
+  group: THREE.Group;
+  mixer: THREE.AnimationMixer | null;
+  actions: Partial<Record<string, THREE.AnimationAction>>;
+  current: THREE.AnimationAction | null;
+  base: THREE.Vector3;
+  dir: THREE.Vector3;
+  side: THREE.Vector3;
+  targetPos: THREE.Vector3;
+  targetTilt: number;
+  returnTimer: ReturnType<typeof setTimeout> | null;
+  placeholder: boolean;
+}
+
+function measureHeight(object: THREE.Object3D): { height: number; minY: number } {
+  object.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  const point = new THREE.Vector3();
+  let bones = 0;
+  object.traverse((child) => {
+    if ((child as THREE.Bone).isBone) {
+      bones++;
+      box.expandByPoint(child.getWorldPosition(point));
+    }
+  });
+  if (bones < 3) box.setFromObject(object);
+  return { height: box.max.y - box.min.y, minY: box.min.y };
+}
+
+function normalizeSize(object: THREE.Object3D, targetHeight: number): void {
+  const measured = measureHeight(object);
+  if (measured.height > 0.0001) {
+    const scale = targetHeight / measured.height;
+    object.scale.setScalar(scale);
+    object.position.y -= measured.minY * scale;
+  }
+}
+
+function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
+  const group = new THREE.Group();
+  group.position.copy(position);
+  group.rotation.y = Math.atan2(facing.x, facing.z);
+  return {
+    group,
+    mixer: null,
+    actions: {},
+    current: null,
+    base: position.clone(),
+    dir: facing.clone(),
+    side: new THREE.Vector3().crossVectors(facing, new THREE.Vector3(0, 1, 0)),
+    targetPos: position.clone(),
+    targetTilt: 0,
+    returnTimer: null,
+    placeholder: true
+  };
+}
+
+async function attachModel(rig: Rig, avatarId: string): Promise<void> {
+  const template = await loadTemplate(avatarId);
+  if (!template) {
+    const placeholder = buildPlaceholder(avatarId);
+    rig.group.add(placeholder);
+    return;
+  }
+  const instance = cloneSkeleton(template.scene) as THREE.Group;
+  instance.traverse((child) => {
+    if ((child as THREE.Mesh).isMesh) {
+      child.castShadow = true;
+      child.frustumCulled = false;
+    }
+  });
+  normalizeSize(instance, 1.75);
+  rig.group.add(instance);
+  rig.placeholder = false;
+  rig.mixer = new THREE.AnimationMixer(instance);
+  for (const [name, keywords] of Object.entries(CLIP_KEYWORDS)) {
+    const clip = pickClip(template.clips, keywords);
+    if (clip) rig.actions[name] = rig.mixer.clipAction(clip);
+  }
+  const idle = rig.actions.idle;
+  if (idle) {
+    idle.play();
+    rig.current = idle;
+  }
+}
+
+function playAction(rig: Rig, name: string, opts: { once?: boolean; clamp?: boolean; backToIdle?: boolean } = {}): void {
+  const target = rig.actions[name];
+  if (!target || !rig.mixer) return;
+  const fade = 0.22;
+  target.reset();
+  if (opts.once) {
+    target.setLoop(THREE.LoopOnce, 1);
+    target.clampWhenFinished = true;
+  } else {
+    target.setLoop(THREE.LoopRepeat, Infinity);
+  }
+  if (rig.current && rig.current !== target) rig.current.fadeOut(fade);
+  target.fadeIn(fade).play();
+  rig.current = target;
+  if (opts.once && opts.backToIdle) {
+    const mixer = rig.mixer;
+    const onFinished = (e: { action: THREE.AnimationAction }) => {
+      if (e.action !== target) return;
+      mixer.removeEventListener("finished", onFinished as never);
+      const idle = rig.actions.idle;
+      if (idle && rig.current === target) {
+        idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
+        target.fadeOut(0.3);
+        rig.current = idle;
+      }
+    };
+    mixer.addEventListener("finished", onFinished as never);
+  }
+}
+
+function scheduleReturn(rig: Rig, ms: number): void {
+  if (rig.returnTimer) clearTimeout(rig.returnTimer);
+  rig.returnTimer = setTimeout(() => {
+    rig.targetPos.copy(rig.base);
+    rig.targetTilt = 0;
+  }, ms);
+}
+
+function applyPose(rig: Rig, pose: Pose): void {
+  if (rig.returnTimer) {
+    clearTimeout(rig.returnTimer);
+    rig.returnTimer = null;
+  }
+  rig.targetTilt = 0;
+  switch (pose) {
+    case "idle":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, "idle");
+      break;
+    case "windup":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
+      playAction(rig, "idle");
+      break;
+    case "attack":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.15);
+      playAction(rig, "attack", { once: true, backToIdle: true });
+      scheduleReturn(rig, 900);
+      break;
+    case "hit":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.35);
+      if (rig.placeholder) rig.targetTilt = -0.25;
+      playAction(rig, "hit", { once: true, backToIdle: true });
+      scheduleReturn(rig, 500);
+      break;
+    case "dodge":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.side, 0.7);
+      playAction(rig, "dodge", { once: true, backToIdle: true });
+      scheduleReturn(rig, 600);
+      break;
+    case "dead":
+      rig.targetPos.copy(rig.base);
+      if (rig.placeholder) rig.targetTilt = Math.PI / 2;
+      playAction(rig, "death", { once: true });
+      break;
+    case "victory":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, "victory");
+      break;
+  }
+}
+
+interface Props {
+  a: FighterView;
+  b: FighterView;
+  poseA: Pose;
+  poseB: Pose;
+  beat: number;
+  fx: string;
+  focus: "a" | "b" | "none";
+  zoom: boolean;
+}
+
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, focus, zoom }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const rigARef = useRef<Rig | null>(null);
+  const rigBRef = useRef<Rig | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const floorRef = useRef<THREE.Mesh | null>(null);
+  const ringRef = useRef<THREE.Mesh | null>(null);
+  const camTarget = useRef({ x: 0, z: 6 });
+  const baseZ = useRef(6);
+  const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
+
+  const retargetCamera = () => {
+    const { focus: f, zoom: z } = zoomState.current;
+    camTarget.current.x = f === "a" ? -0.45 : f === "b" ? 0.45 : 0;
+    camTarget.current.z = baseZ.current - (z ? 1.2 : f !== "none" ? 0.6 : 0);
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const scene = new THREE.Scene();
+    sceneRef.current = scene;
+
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 60);
+    camera.position.set(0, 3, 8);
+    cameraRef.current = camera;
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.1);
+    scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xffffff, 2.2);
+    sun.position.set(3, 6, 4);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.camera.left = -6;
+    sun.shadow.camera.right = 6;
+    sun.shadow.camera.top = 6;
+    sun.shadow.camera.bottom = -6;
+    scene.add(sun);
+    const rim = new THREE.PointLight(0x8899ff, 12, 20);
+    rim.position.set(-3, 3, -3);
+    scene.add(rim);
+
+    const floor = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.6, 4.9, 0.28, 48),
+      new THREE.MeshStandardMaterial({ color: 0x312e81, roughness: 0.9 })
+    );
+    floor.position.y = -0.14;
+    floor.receiveShadow = true;
+    scene.add(floor);
+    floorRef.current = floor;
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(4.6, 0.05, 10, 64),
+      new THREE.MeshStandardMaterial({ color: 0x818cf8, emissive: 0x818cf8, emissiveIntensity: 0.6 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 0.02;
+    scene.add(ring);
+    ringRef.current = ring;
+
+    const posA = new THREE.Vector3(-0.72, 0, 1.05);
+    const posB = new THREE.Vector3(0.72, 0, -1.05);
+    const dirAB = posB.clone().sub(posA).normalize();
+    const rigA = makeRig(posA, dirAB);
+    const rigB = makeRig(posB, dirAB.clone().negate());
+    scene.add(rigA.group);
+    scene.add(rigB.group);
+    rigARef.current = rigA;
+    rigBRef.current = rigB;
+    void attachModel(rigA, avatarById(a.avatar).id).then(() => applyPose(rigA, "idle"));
+    void attachModel(rigB, avatarById(b.avatar).id).then(() => applyPose(rigB, "idle"));
+
+    const clock = new THREE.Clock();
+    let frame = 0;
+    const lookAt = new THREE.Vector3(0, 0.95, 0);
+    const animate = () => {
+      frame = requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const damp = 1 - Math.pow(0.0001, delta);
+      for (const rig of [rigA, rigB]) {
+        rig.mixer?.update(delta);
+        rig.group.position.lerp(rig.targetPos, damp * 0.9);
+        rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
+      }
+      camera.position.x += (camTarget.current.x - camera.position.x) * damp * 0.6;
+      camera.position.z += (camTarget.current.z - camera.position.z) * damp * 0.6;
+      camera.lookAt(lookAt);
+      renderer.render(scene, camera);
+    };
+
+    const resize = () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w === 0 || h === 0) return;
+      renderer.setSize(w, h);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(21)) * camera.aspect);
+      baseZ.current = Math.min(12, Math.max(5, 2.15 / Math.tan(halfH)));
+      retargetCamera();
+    };
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(container);
+    animate();
+
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      if (rigA.returnTimer) clearTimeout(rigA.returnTimer);
+      if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
+      renderer.dispose();
+      renderer.domElement.remove();
+    };
+  }, [a.avatar, b.avatar]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    const colors = ARENA_COLORS[fx] ?? ARENA_COLORS.none;
+    if (!scene || !colors) return;
+    scene.background = new THREE.Color(colors.bg);
+    scene.fog = new THREE.Fog(colors.fog, 7, 22);
+    const floorMat = floorRef.current?.material as THREE.MeshStandardMaterial | undefined;
+    if (floorMat) floorMat.color.set(colors.floor);
+    const ringMat = ringRef.current?.material as THREE.MeshStandardMaterial | undefined;
+    if (ringMat) {
+      ringMat.color.set(colors.ring);
+      ringMat.emissive.set(colors.ring);
+    }
+  }, [fx]);
+
+  useEffect(() => {
+    if (rigARef.current) applyPose(rigARef.current, poseA);
+    if (rigBRef.current) applyPose(rigBRef.current, poseB);
+  }, [poseA, poseB, beat]);
+
+  useEffect(() => {
+    zoomState.current = { focus, zoom };
+    retargetCamera();
+  });
+
+  return <div ref={containerRef} className="absolute inset-0" />;
+}

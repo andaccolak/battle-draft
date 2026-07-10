@@ -104,6 +104,17 @@ The UI is fully bilingual with a persistent toggle (`LangToggle`). Turkish is th
 
 Forged/gambled item ids get `_forged`/`_gambled` suffixes; `itemNameById` strips them before lookup.
 
+## 5b. The 3D battle arena (three.js)
+
+`src/components/Arena3D.tsx` renders the battle in WebGL (three.js, loaded client-side via `next/dynamic`). It replaces only the fighters/floor layer of `BattleStage`; every overlay (windup banners, damage reveals, QTE, showcase, weather FX, log) stays DOM.
+
+- **Character models** live in `public/models3d/<avatarId>.glb` — one GLB per avatar id (see `src/lib/game/avatars.ts`), rigged, with all animation clips inside. Missing models automatically fall back to block-figure placeholders, so the game never breaks when only some avatars have models.
+- Clips are matched by name keywords (`CLIP_KEYWORDS`): idle/attack/hit/dodge/death/victory. When adding a character, make sure its clip names contain one of those keywords.
+- Model scale is normalized from **skeleton bone spread**, not mesh bounds (Meshy exports have misleading bind-space geometry bounds).
+- Poses are driven by the same `posesFor(entry)` mapping; camera distance adapts to viewport aspect so portrait phones frame both fighters.
+- Arena colors per event live in `ARENA_COLORS` (keyed by the `EVENT_FX` groups in BattleStage) — keep both in sync when adding events.
+- Asset budget: ≤ ~30k triangles and ≤ ~20 MB per character GLB; raw Meshy exports go in `/models` (gitignored), shippable files in `public/models3d/`.
+
 ## 6. Bots
 
 If the host starts alone, `startGame` adds 3 bots (`Bot Kemal`, `Bot Pala`, ...). Bots have `botPickAt` timestamps; `tick()` executes their random picks when due. Bots are excluded from `PlayerStats` (Hall of Fame) and removed on "play again" so real friends can join the rematch.
