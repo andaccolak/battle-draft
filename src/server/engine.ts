@@ -14,13 +14,14 @@ import { DRAFT_TIME_MS, LUCK_TIME_MS, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/ga
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
-import { simulateBattle } from "@/lib/game/battle";
+import { simulateBattle, type Build } from "@/lib/game/battle";
 
 const EVENT_REVEAL_MS = 7000;
 const BATTLE_GAP_MS = 2500;
 const POST_BATTLE_MS = 5000;
 const HUMAN_AWAY_MS = 20000;
 const LOBBY_PRUNE_MS = 60000;
+const REACT_EXTRA_MS = 6500;
 
 const BOT_NAMES = [
   "Bot Kemal",
@@ -70,6 +71,19 @@ export interface StateBattle extends BattlePayload {
   endsAt: number;
   winnerId: string;
   loserId: string;
+  seed: number;
+  reactions: boolean[];
+  aPlayerId: string;
+  bPlayerId: string;
+  aCanReact: boolean;
+  bCanReact: boolean;
+  aBuild: Build;
+  bBuild: Build;
+  pendingSide: "a" | "b" | null;
+  pendingDeadline: number | null;
+  pausedAtMs: number;
+  waitedMs: number;
+  recorded: boolean;
 }
 
 export interface RoomState {
@@ -377,16 +391,17 @@ function advanceBattles(state: RoomState, now: number): void {
       state.currentMatch++;
       continue;
     }
-    const result = simulateBattle(
-      { nickname: pa.nickname, equipment: pa.equipment, luckCard: pa.luckCard },
-      { nickname: pb.nickname, equipment: pb.equipment, luckCard: pb.luckCard },
-      eventDef(state)
-    );
-    pa.equipment = result.aEquipment;
-    pb.equipment = result.bEquipment;
+    const seed = Math.floor(Math.random() * 2147483647);
+    const aBuild: Build = { nickname: pa.nickname, equipment: pa.equipment, luckCard: pa.luckCard };
+    const bBuild: Build = { nickname: pb.nickname, equipment: pb.equipment, luckCard: pb.luckCard };
+    const result = simulateBattle(aBuild, bBuild, eventDef(state), {
+      seed,
+      reactions: [],
+      aCanReact: !pa.isBot,
+      bCanReact: !pb.isBot
+    });
     const remaining = state.players.filter((p) => !p.eliminated).length;
     const roundKey = remaining <= 2 ? "final" : remaining <= 4 ? "semifinal" : "round";
-    const duration = result.totalMs + POST_BATTLE_MS;
     state.battle = {
       roundIndex: state.currentRound,
       matchIndex: state.currentMatch,
@@ -413,20 +428,84 @@ function advanceBattles(state: RoomState, now: number): void {
       timeline: result.timeline,
       stepMs: result.stepMs,
       startedAt: now,
-      endsAt: now + duration,
+      endsAt: now + result.totalMs + POST_BATTLE_MS,
       winnerId: result.winner === "a" ? pa.id : pb.id,
-      loserId: result.winner === "a" ? pb.id : pa.id
+      loserId: result.winner === "a" ? pb.id : pa.id,
+      seed,
+      reactions: [],
+      aPlayerId: pa.id,
+      bPlayerId: pb.id,
+      aCanReact: !pa.isBot,
+      bCanReact: !pb.isBot,
+      aBuild,
+      bBuild,
+      pendingSide: result.pendingSide,
+      pendingDeadline: result.pendingSide ? now + result.totalMs + REACT_EXTRA_MS : null,
+      pausedAtMs: result.totalMs,
+      waitedMs: 0,
+      recorded: false
     };
-    state.records.push({
-      roundIndex: state.currentRound,
-      playerA: pa.nickname,
-      playerB: pb.nickname,
-      winner: result.winner === "a" ? pa.nickname : pb.nickname,
-      log: result.timeline
-    });
+    if (!result.pendingSide) {
+      pa.equipment = result.aEquipment;
+      pb.equipment = result.bEquipment;
+      finalizeBattleResult(state, result.winner, result.timeline);
+    }
     state.nextBattleAt = null;
     return;
   }
+}
+
+function finalizeBattleResult(state: RoomState, winner: "a" | "b", timeline: TimelineEntry[]): void {
+  const battle = state.battle;
+  if (!battle || battle.recorded) return;
+  battle.winner = winner;
+  battle.winnerId = winner === "a" ? battle.aPlayerId : battle.bPlayerId;
+  battle.loserId = winner === "a" ? battle.bPlayerId : battle.aPlayerId;
+  battle.recorded = true;
+  state.records.push({
+    roundIndex: battle.roundIndex,
+    playerA: battle.a.nickname,
+    playerB: battle.b.nickname,
+    winner: winner === "a" ? battle.a.nickname : battle.b.nickname,
+    log: timeline
+  });
+}
+
+function resolveReaction(state: RoomState, pass: boolean, now: number): void {
+  const battle = state.battle;
+  if (!battle || !battle.pendingSide) return;
+  battle.reactions.push(pass);
+  const result = simulateBattle(battle.aBuild, battle.bBuild, eventDef(state), {
+    seed: battle.seed,
+    reactions: battle.reactions,
+    aCanReact: battle.aCanReact,
+    bCanReact: battle.bCanReact
+  });
+  const arrival = battle.startedAt + battle.waitedMs + battle.pausedAtMs;
+  battle.waitedMs += Math.max(0, now - arrival);
+  battle.timeline = result.timeline;
+  battle.pendingSide = result.pendingSide;
+  battle.pausedAtMs = result.totalMs;
+  if (result.pendingSide) {
+    battle.pendingDeadline = battle.startedAt + battle.waitedMs + result.totalMs + REACT_EXTRA_MS;
+  } else {
+    battle.pendingDeadline = null;
+    battle.endsAt = battle.startedAt + battle.waitedMs + result.totalMs + POST_BATTLE_MS;
+    const pa = findPlayer(state, battle.aPlayerId);
+    const pb = findPlayer(state, battle.bPlayerId);
+    if (pa) pa.equipment = result.aEquipment;
+    if (pb) pb.equipment = result.bEquipment;
+    finalizeBattleResult(state, result.winner, result.timeline);
+  }
+}
+
+export function reactBattle(state: RoomState, playerId: string, pass: boolean, now: number): string | null {
+  const battle = state.battle;
+  if (state.phase !== "battle" || !battle || !battle.pendingSide) return null;
+  const pendingId = battle.pendingSide === "a" ? battle.aPlayerId : battle.bPlayerId;
+  if (pendingId !== playerId) return null;
+  resolveReaction(state, pass, now);
+  return null;
 }
 
 function finishBattle(state: RoomState, now: number): void {
@@ -527,7 +606,11 @@ export function tick(state: RoomState, now: number): boolean {
       advanceBattles(state, now);
       changed = true;
     }
-    if (state.battle && now >= state.battle.endsAt) {
+    if (state.battle && state.battle.pendingSide && state.battle.pendingDeadline !== null && now >= state.battle.pendingDeadline) {
+      resolveReaction(state, false, now);
+      changed = true;
+    }
+    if (state.battle && !state.battle.pendingSide && now >= state.battle.endsAt) {
       finishBattle(state, now);
       changed = true;
       if (state.nextBattleAt !== null && now >= state.nextBattleAt) {
@@ -554,8 +637,41 @@ export function snapshotFor(
       : null;
   let battle: BattlePayload | null = null;
   if (state.battle) {
-    const { startedAt, endsAt, winnerId, loserId, ...payload } = state.battle;
-    battle = { ...payload, elapsedMs: Math.max(0, now - startedAt) };
+    const sb = state.battle;
+    const {
+      startedAt,
+      endsAt,
+      winnerId,
+      loserId,
+      seed,
+      reactions,
+      aPlayerId,
+      bPlayerId,
+      aCanReact,
+      bCanReact,
+      aBuild,
+      bBuild,
+      pendingSide,
+      pendingDeadline,
+      pausedAtMs,
+      waitedMs,
+      recorded,
+      ...payload
+    } = sb;
+    const waited = waitedMs ?? 0;
+    let elapsed = Math.max(0, now - startedAt - waited);
+    if (pendingSide) elapsed = Math.min(elapsed, pausedAtMs ?? elapsed);
+    battle = {
+      ...payload,
+      elapsedMs: elapsed,
+      pending: pendingSide
+        ? {
+            side: pendingSide,
+            playerId: pendingSide === "a" ? aPlayerId : bPlayerId,
+            nickname: pendingSide === "a" ? sb.a.nickname : sb.b.nickname
+          }
+        : null
+    };
   }
   const snapshot: RoomSnapshot = {
     code: state.code,

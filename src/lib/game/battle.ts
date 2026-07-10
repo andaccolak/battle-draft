@@ -9,11 +9,19 @@ export interface Build {
   luckCard: LuckCard | null;
 }
 
+export interface SimOptions {
+  seed?: number;
+  reactions?: boolean[];
+  aCanReact?: boolean;
+  bCanReact?: boolean;
+}
+
 export interface BattleResult {
   winner: "a" | "b";
   timeline: TimelineEntry[];
   stepMs: number;
   totalMs: number;
+  pendingSide: "a" | "b" | null;
   aEquipment: Partial<Record<Slot, Item>>;
   bEquipment: Partial<Record<Slot, Item>>;
   aDisabled: string[];
@@ -56,6 +64,18 @@ interface Combatant {
   weaponName: string;
   weaponId: string;
   windupKey: string;
+  weaponless: boolean;
+  hasBoots: boolean;
+  hasHelmet: boolean;
+  hasArmor: boolean;
+  bootsThrown: boolean;
+  helmetLost: boolean;
+  armorCracks: number;
+  ankleTwisted: boolean;
+  blinded: boolean;
+  catchBuff: boolean;
+  desperationUsed: boolean;
+  challengeUsed: boolean;
 }
 
 interface PreEntry {
@@ -65,8 +85,27 @@ interface PreEntry {
   fx?: string;
 }
 
-const rand = () => Math.random();
-const roll = (pct: number) => Math.random() * 100 < pct;
+class ReactionPause {
+  side: "a" | "b";
+  constructor(side: "a" | "b") {
+    this.side = side;
+  }
+}
+
+function mulberry32(seed: number): () => number {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+let rng: () => number = Math.random;
+const rand = () => rng();
+const roll = (pct: number) => rand() * 100 < pct;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function windupKeyFor(item: Item): string {
@@ -93,6 +132,8 @@ function entryMs(e: Omit<TimelineEntry, "hpA" | "hpB">): number {
     case "miss":
     case "dodge":
       return 1150;
+    case "quirk":
+      return 1500;
     case "passive":
     case "poison":
       return 650;
@@ -174,7 +215,19 @@ function buildCombatant(
     stunned: false,
     weaponName: "fists",
     weaponId: "fists",
-    windupKey: "windupBlade"
+    windupKey: "windupBlade",
+    weaponless: false,
+    hasBoots: false,
+    hasHelmet: false,
+    hasArmor: false,
+    bootsThrown: false,
+    helmetLost: false,
+    armorCracks: 0,
+    ankleTwisted: false,
+    blinded: false,
+    catchBuff: false,
+    desperationUsed: false,
+    challengeUsed: false
   };
 
   for (const slot of SLOTS) {
@@ -185,6 +238,9 @@ function buildCombatant(
       c.weaponId = item.id;
       c.windupKey = windupKeyFor(item);
     }
+    if (slot === "boots") c.hasBoots = true;
+    if (slot === "helmet") c.hasHelmet = true;
+    if (slot === "armor") c.hasArmor = true;
     let atkMult = 1;
     let defMult = 1;
     for (const mod of h.statMods ?? []) {
@@ -287,6 +343,10 @@ function buildCombatant(
   c.dodge = clamp(c.dodge, 0, 60);
   c.critChance = clamp(c.critChance, 0, 90);
   c.hp = c.maxHp;
+  if (c.weaponId === "fists") {
+    c.weaponless = true;
+    c.windupKey = "windupImprov";
+  }
   return c;
 }
 
@@ -296,7 +356,23 @@ function randomEquippedSlot(equipment: Partial<Record<Slot, Item>>): Slot | null
   return filled[Math.floor(rand() * filled.length)] ?? null;
 }
 
-export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): BattleResult {
+function disarm(c: Combatant): void {
+  c.weaponless = true;
+  c.attack = Math.max(5, c.attack * 0.7);
+  c.weaponName = "fists";
+  c.weaponId = "fists";
+  c.windupKey = "windupImprov";
+}
+
+export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, opts?: SimOptions): BattleResult {
+  const seed = opts?.seed ?? Math.floor(Math.random() * 2147483647);
+  const reactions = opts?.reactions ?? [];
+  const aCanReact = opts?.aCanReact ?? false;
+  const bCanReact = opts?.bCanReact ?? false;
+  rng = mulberry32(seed);
+  let reactionIdx = 0;
+  let pendingSide: "a" | "b" | null = null;
+
   const timeline: TimelineEntry[] = [];
   const aEquip: Partial<Record<Slot, Item>> = { ...aBuild.equipment };
   const bEquip: Partial<Record<Slot, Item>> = { ...bBuild.equipment };
@@ -469,8 +545,205 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
   });
   for (const p of pre) push({ t: "card", actor: "none", text: p.text, key: p.key, params: p.params, fx: p.fx });
 
+  const canReact = (c: Combatant) => (c.key === "a" ? aCanReact : bCanReact);
+
+  const rawDamage = (att: Combatant, def: Combatant, mult: number): number => {
+    let dmg = att.attack * (0.85 + rand() * 0.3) * 1.45 * mult;
+    dmg -= def.defense * 0.5;
+    return Math.max(3, Math.round(dmg));
+  };
+
+  const desperation = (att: Combatant, def: Combatant): boolean => {
+    if (att.desperationUsed || att.hp <= 0 || att.hp >= att.maxHp * 0.18 || !roll(30)) return false;
+    att.desperationUsed = true;
+    const r = rand();
+    if (r < 0.34) {
+      const dmg = rawDamage(att, def, 1.6);
+      def.hp -= dmg;
+      att.defense *= 0.5;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `💀 ${att.nickname} played dead... SURPRISE ATTACK! -${dmg}`,
+        key: "quirkDead",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+    } else if (r < 0.67) {
+      if (roll(50)) {
+        const dmg = rawDamage(att, def, 2);
+        def.hp -= dmg;
+        push({
+          t: "quirk",
+          actor: att.key,
+          text: `😤 ${att.nickname} went ALL OUT! -${dmg}!`,
+          key: "quirkAllOutHit",
+          params: { p: att.nickname, d: def.nickname, dmg },
+          dmg
+        });
+      } else {
+        push({
+          t: "quirk",
+          actor: att.key,
+          text: `😤 ${att.nickname} went all out... and MISSED!`,
+          key: "quirkAllOutMiss",
+          params: { p: att.nickname }
+        });
+      }
+    } else {
+      const heal = Math.min(10, att.maxHp - att.hp);
+      att.hp += heal;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🙏 ${att.nickname} prayed. The gods chuckled. +${heal}`,
+        key: "quirkPrayer",
+        params: { p: att.nickname, heal },
+        heal
+      });
+    }
+    return true;
+  };
+
+  const improvAttack = (att: Combatant, def: Combatant) => {
+    const r = rand();
+    if (r < 0.22) {
+      const dmg = rawDamage(att, def, 1);
+      def.hp -= dmg;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🪨 ${att.nickname} threw a rock! -${dmg}`,
+        key: "quirkRock",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+    } else if (r < 0.37) {
+      const dmg = rawDamage(att, def, 0.55);
+      def.hp -= dmg;
+      def.poison = Math.max(def.poison, 6);
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🦷 ${att.nickname} BIT ${def.nickname}! Poisoned!`,
+        key: "quirkBite",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+    } else if (r < 0.47 && att.hasBoots && !att.bootsThrown) {
+      att.bootsThrown = true;
+      att.dodge *= 0.75;
+      const dmg = rawDamage(att, def, 1.4);
+      def.hp -= dmg;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🥾 ${att.nickname} threw a boot! -${dmg}`,
+        key: "quirkBoot",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+    } else if (r < 0.6) {
+      const dmg = rawDamage(att, def, 0.6);
+      def.hp -= dmg;
+      const stun = roll(35);
+      if (stun) def.stunned = true;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🩴 SLAP! ${att.nickname} hit with a slipper! -${dmg}`,
+        key: "quirkSlipper",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+      if (stun) {
+        push({
+          t: "passive",
+          actor: att.key,
+          text: `💫 ${def.nickname} is stunned and will miss a turn!`,
+          key: "stunApplied",
+          params: { d: def.nickname }
+        });
+      }
+    } else if (r < 0.72) {
+      def.blinded = true;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `💨 ${att.nickname} threw sand in ${def.nickname}'s eyes!`,
+        key: "quirkSand",
+        params: { p: att.nickname, d: def.nickname }
+      });
+    } else if (r < 0.84) {
+      def.defense *= 0.88;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🗣️ ${att.nickname} insulted ${def.nickname}! Defense drops!`,
+        key: "quirkInsult",
+        params: { p: att.nickname, d: def.nickname }
+      });
+    } else {
+      const dmg = rawDamage(att, def, 1.1);
+      def.hp -= dmg;
+      att.hp -= 4;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🤕 ${att.nickname} headbutted! Both hurt!`,
+        key: "quirkHeadbutt",
+        params: { p: att.nickname, d: def.nickname, dmg },
+        dmg
+      });
+    }
+  };
+
+  const fumble = (att: Combatant, def: Combatant): void => {
+    if (att.windupKey === "windupRanged" && roll(35)) {
+      disarm(att);
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🏹 ${att.nickname}'s bowstring SNAPPED!`,
+        key: "quirkString",
+        params: { p: att.nickname }
+      });
+      return;
+    }
+    const r = rand();
+    if (r < 0.34) {
+      att.hp -= 5;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🦶 ${att.nickname} dropped the ${att.weaponName} on their foot!`,
+        key: "quirkDropFoot",
+        params: { p: att.nickname, weapon: att.weaponId },
+        dmg: 5
+      });
+    } else if (r < 0.67) {
+      def.catchBuff = true;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `😱 ${def.nickname} CAUGHT ${att.nickname}'s ${att.weaponName}!`,
+        key: "quirkCaught",
+        params: { p: att.nickname, d: def.nickname, weapon: att.weaponId }
+      });
+    } else {
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: `🪤 ${att.nickname}'s ${att.weaponName} is stuck in the ground!`,
+        key: "quirkStuck",
+        params: { p: att.nickname, weapon: att.weaponId }
+      });
+    }
+  };
+
   const attackOnce = (att: Combatant, def: Combatant, extra: boolean) => {
     if (att.hp <= 0 || def.hp <= 0) return;
+    if (!extra && desperation(att, def)) return;
     const prefix = extra ? "⚡ Extra attack! " : "";
     if (!extra) {
       push({
@@ -481,7 +754,38 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
         params: { p: att.nickname, weapon: att.weaponId }
       });
     }
-    const hitChance = clamp(att.accuracy - def.dodge, 15, 100);
+    if (att.weaponless) {
+      improvAttack(att, def);
+      return;
+    }
+    if (!extra && roll(5)) {
+      fumble(att, def);
+      return;
+    }
+    if (!extra && canReact(def) && !def.challengeUsed && roll(55)) {
+      def.challengeUsed = true;
+      const decision = reactions[reactionIdx];
+      reactionIdx++;
+      if (decision === undefined) throw new ReactionPause(def.key);
+      if (decision) {
+        push({
+          t: "dodge",
+          actor: att.key,
+          text: `🌀 ${def.nickname} pulls off a PERFECT DODGE!`,
+          key: "qteDodge",
+          params: { p: att.nickname, d: def.nickname }
+        });
+        return;
+      }
+    }
+    let acc = att.accuracy;
+    if (att.blinded) {
+      att.blinded = false;
+      acc -= 30;
+    }
+    const dodgeUsed = def.ankleTwisted ? 0 : def.dodge;
+    if (def.ankleTwisted) def.ankleTwisted = false;
+    const hitChance = clamp(acc - dodgeUsed, 15, 100);
     if (!roll(hitChance)) {
       if (roll(50)) {
         push({
@@ -492,6 +796,18 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
           params: { p: att.nickname, weapon: att.weaponId },
           extra
         });
+        if (!extra && roll(12)) {
+          att.hp -= 4;
+          def.hp -= 4;
+          push({
+            t: "quirk",
+            actor: "none",
+            text: `🤦 They clashed heads! Both -4`,
+            key: "quirkBump",
+            params: { p: att.nickname, d: def.nickname },
+            dmg: 4
+          });
+        }
       } else {
         push({
           t: "dodge",
@@ -501,12 +817,26 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
           params: { p: att.nickname, d: def.nickname },
           extra
         });
+        if (!extra && roll(12)) {
+          def.ankleTwisted = true;
+          push({
+            t: "quirk",
+            actor: def.key,
+            text: `🦶 ${def.nickname} twisted an ankle dodging!`,
+            key: "quirkAnkle",
+            params: { d: def.nickname }
+          });
+        }
       }
       return;
     }
     let atk = att.attack;
     if (att.berserk > 0 && att.hp < att.maxHp * 0.4) atk *= 1 + att.berserk / 100;
     let dmg = atk * (0.85 + rand() * 0.3) * 1.45;
+    if (att.catchBuff) {
+      att.catchBuff = false;
+      dmg *= 1.4;
+    }
     let isCrit = roll(att.critChance);
     if (att.firstCritReady) {
       isCrit = true;
@@ -548,6 +878,39 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
       absorbed,
       extra
     });
+    if (isCrit && def.hp > 0) {
+      if (!def.weaponless && roll(14)) {
+        disarm(def);
+        push({
+          t: "quirk",
+          actor: att.key,
+          text: `🩸 ${def.nickname}'s arm is hit! Weapon dropped!`,
+          key: "quirkArm",
+          params: { d: def.nickname }
+        });
+      } else if (def.hasHelmet && !def.helmetLost && roll(25)) {
+        def.helmetLost = true;
+        def.defense *= 0.85;
+        push({
+          t: "quirk",
+          actor: att.key,
+          text: `🪖 ${def.nickname}'s helmet flew into the crowd!`,
+          key: "quirkHelmet",
+          params: { d: def.nickname }
+        });
+      }
+    }
+    if (def.hp > 0 && def.hasArmor && def.armorCracks < 2 && dmg - absorbed >= def.maxHp * 0.24) {
+      def.armorCracks++;
+      def.defense *= def.armorCracks === 1 ? 0.8 : 0.7;
+      push({
+        t: "quirk",
+        actor: att.key,
+        text: def.armorCracks === 1 ? `🛡️ ${def.nickname}'s armor cracked!` : `🛡️💥 ${def.nickname}'s armor SHATTERED!`,
+        key: def.armorCracks === 1 ? "quirkCrack" : "quirkShatter",
+        params: { d: def.nickname }
+      });
+    }
     if (att.lifesteal > 0 && !event.hooks.noHealing) {
       const heal = Math.round((dmg * att.lifesteal) / 100);
       if (heal > 0) {
@@ -615,109 +978,164 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     return c.hp > 0;
   };
 
-  let round = 1;
-  const maxRounds = 20;
-  while (a.hp > 0 && b.hp > 0 && round <= maxRounds) {
-    let order: [Combatant, Combatant];
-    if (event.hooks.randomInitiative) {
-      order = roll(50) ? [a, b] : [b, a];
-    } else if (a.firstStrike !== b.firstStrike) {
-      order = a.firstStrike ? [a, b] : [b, a];
+  const interlude = (round: number) => {
+    const r = rand();
+    if (r < 0.3) {
+      push({
+        t: "quirk",
+        actor: "none",
+        text: `🐔 A chicken wandered in. Everyone froze.`,
+        key: "quirkChicken",
+        params: {}
+      });
+    } else if (r < 0.55) {
+      const target = roll(50) ? a : b;
+      target.hp -= 2;
+      push({
+        t: "quirk",
+        actor: target.key,
+        text: `🍅 Tomato from the crowd! ${target.nickname} -2`,
+        key: "quirkTomato",
+        params: { p: target.nickname },
+        dmg: 2
+      });
+      tryRevive(target);
+    } else if (r < 0.8 || round <= 4) {
+      push({
+        t: "quirk",
+        actor: "none",
+        text: `🌧️ It started raining. Dramatic.`,
+        key: "quirkRain",
+        params: {}
+      });
     } else {
-      const ia = a.initiative + a.speed + rand() * 20;
-      const ib = b.initiative + b.speed + rand() * 20;
-      order = ia >= ib ? [a, b] : [b, a];
+      push({
+        t: "quirk",
+        actor: "none",
+        text: `😮‍💨 Both stop to catch their breath...`,
+        key: "quirkBreather",
+        params: {}
+      });
     }
-    for (const att of order) {
-      const def = att === a ? b : a;
-      if (att.hp <= 0 || def.hp <= 0) continue;
-      if (att.stunned) {
-        att.stunned = false;
-        push({
-          t: "passive",
-          actor: att.key,
-          text: `💫 ${att.nickname} is stunned and staggers!`,
-          key: "stunSkip",
-          params: { p: att.nickname }
-        });
-        continue;
-      }
-      attackOnce(att, def, false);
-      if (def.hp > 0 && att.hp > 0 && roll(att.extraAttack)) attackOnce(att, def, true);
-      if (!tryRevive(def)) break;
-      if (!tryRevive(att)) break;
-    }
-    for (const c of [a, b]) {
-      if (c.hp <= 0) continue;
-      const other = c === a ? b : a;
-      if (other.hp <= 0) continue;
-      let dot = c.poison + (event.hooks.poisonAll ?? 0);
-      if (round > 4) dot += (round - 4) * 8;
-      if (dot > 0) {
-        c.hp -= dot;
-        const fatigued = round > 4;
-        push({
-          t: "poison",
-          actor: c.key,
-          text: `${fatigued ? "⏳ Fatigue and poison" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
-          key: fatigued ? "fatigueTick" : "poisonTick",
-          params: { p: c.nickname, dmg: dot },
-          dmg: dot
-        });
-        if (!tryRevive(c)) break;
-      }
-      if (c.healPerTurn > 0 && !event.hooks.noHealing && c.hp > 0 && c.hp < c.maxHp) {
-        const heal = Math.min(c.healPerTurn, c.maxHp - c.hp);
-        c.hp += heal;
-        push({
-          t: "passive",
-          actor: c.key,
-          text: `💚 ${c.nickname} regenerates ${heal} HP.`,
-          key: "regen",
-          params: { p: c.nickname, heal },
-          heal
-        });
-      }
-    }
-    round++;
-  }
+  };
 
-  if (a.hp > 0 && b.hp > 0) {
-    const winnerC = a.hp / a.maxHp >= b.hp / b.maxHp ? a : b;
-    const loserC = winnerC === a ? b : a;
-    loserC.hp = 0;
+  let winner: "a" | "b" = "a";
+  try {
+    let round = 1;
+    let interludes = 0;
+    const maxRounds = 20;
+    while (a.hp > 0 && b.hp > 0 && round <= maxRounds) {
+      if (round >= 2 && interludes < 2 && roll(9)) {
+        interludes++;
+        interlude(round);
+        if (a.hp <= 0 || b.hp <= 0) break;
+      }
+      let order: [Combatant, Combatant];
+      if (event.hooks.randomInitiative) {
+        order = roll(50) ? [a, b] : [b, a];
+      } else if (a.firstStrike !== b.firstStrike) {
+        order = a.firstStrike ? [a, b] : [b, a];
+      } else {
+        const ia = a.initiative + a.speed + rand() * 20;
+        const ib = b.initiative + b.speed + rand() * 20;
+        order = ia >= ib ? [a, b] : [b, a];
+      }
+      for (const att of order) {
+        const def = att === a ? b : a;
+        if (att.hp <= 0 || def.hp <= 0) continue;
+        if (att.stunned) {
+          att.stunned = false;
+          push({
+            t: "passive",
+            actor: att.key,
+            text: `💫 ${att.nickname} is stunned and staggers!`,
+            key: "stunSkip",
+            params: { p: att.nickname }
+          });
+          continue;
+        }
+        attackOnce(att, def, false);
+        if (def.hp > 0 && att.hp > 0 && roll(att.extraAttack)) attackOnce(att, def, true);
+        if (!tryRevive(def)) break;
+        if (!tryRevive(att)) break;
+      }
+      for (const c of [a, b]) {
+        if (c.hp <= 0) continue;
+        const other = c === a ? b : a;
+        if (other.hp <= 0) continue;
+        let dot = c.poison + (event.hooks.poisonAll ?? 0);
+        if (round > 4) dot += (round - 4) * 8;
+        if (dot > 0) {
+          c.hp -= dot;
+          const fatigued = round > 4;
+          push({
+            t: "poison",
+            actor: c.key,
+            text: `${fatigued ? "⏳ Fatigue and poison" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
+            key: fatigued ? "fatigueTick" : "poisonTick",
+            params: { p: c.nickname, dmg: dot },
+            dmg: dot
+          });
+          if (!tryRevive(c)) break;
+        }
+        if (c.healPerTurn > 0 && !event.hooks.noHealing && c.hp > 0 && c.hp < c.maxHp) {
+          const heal = Math.min(c.healPerTurn, c.maxHp - c.hp);
+          c.hp += heal;
+          push({
+            t: "passive",
+            actor: c.key,
+            text: `💚 ${c.nickname} regenerates ${heal} HP.`,
+            key: "regen",
+            params: { p: c.nickname, heal },
+            heal
+          });
+        }
+      }
+      round++;
+    }
+
+    if (a.hp > 0 && b.hp > 0) {
+      const winnerC = a.hp / a.maxHp >= b.hp / b.maxHp ? a : b;
+      const loserC = winnerC === a ? b : a;
+      loserC.hp = 0;
+      push({
+        t: "passive",
+        actor: "none",
+        text: `⏱️ The judges call it! ${winnerC.nickname} takes it on remaining strength!`,
+        key: "judges",
+        params: { p: winnerC.nickname }
+      });
+    }
+
+    winner = a.hp > 0 ? "a" : "b";
+    const winC = winner === "a" ? a : b;
+    const loseC = winner === "a" ? b : a;
     push({
-      t: "passive",
-      actor: "none",
-      text: `⏱️ The judges call it! ${winnerC.nickname} takes it on remaining strength!`,
-      key: "judges",
-      params: { p: winnerC.nickname }
+      t: "death",
+      actor: loseC.key,
+      text: `💀 ${loseC.nickname} has fallen!`,
+      key: "death",
+      params: { p: loseC.nickname },
+      fx: "death"
     });
+    push({
+      t: "victory",
+      actor: winC.key,
+      text: `🏆 ${winC.nickname} WINS!`,
+      key: "victoryLine",
+      params: { p: winC.nickname },
+      fx: "victory"
+    });
+  } catch (e) {
+    if (e instanceof ReactionPause) pendingSide = e.side;
+    else throw e;
+  } finally {
+    rng = Math.random;
   }
-
-  const winner: "a" | "b" = a.hp > 0 ? "a" : "b";
-  const winC = winner === "a" ? a : b;
-  const loseC = winner === "a" ? b : a;
-  push({
-    t: "death",
-    actor: loseC.key,
-    text: `💀 ${loseC.nickname} has fallen!`,
-    key: "death",
-    params: { p: loseC.nickname },
-    fx: "death"
-  });
-  push({
-    t: "victory",
-    actor: winC.key,
-    text: `🏆 ${winC.nickname} WINS!`,
-    key: "victoryLine",
-    params: { p: winC.nickname },
-    fx: "victory"
-  });
 
   let totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
   const MAX_BATTLE_MS = 44000;
-  if (totalMs > MAX_BATTLE_MS) {
+  if (!aCanReact && !bCanReact && pendingSide === null && totalMs > MAX_BATTLE_MS) {
     const scale = MAX_BATTLE_MS / totalMs;
     for (const e of timeline) {
       e.ms = Math.max(350, Math.round((e.ms ?? 900) * scale));
@@ -730,6 +1148,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef): B
     timeline,
     stepMs: 900,
     totalMs,
+    pendingSide,
     aEquipment: aEquip,
     bEquipment: bEquip,
     aDisabled,

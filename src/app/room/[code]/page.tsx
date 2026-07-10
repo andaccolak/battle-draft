@@ -139,7 +139,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
               <div className="h-[calc(100dvh-8rem)] min-h-[540px]">
-                <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} />
+                <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} playerId={game.playerId} onReact={game.reactBattle} />
               </div>
             ) : (
               snapshot.bracket && <Bracket rounds={snapshot.bracket} />

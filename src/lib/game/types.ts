@@ -97,6 +97,7 @@ export type TimelineEntryType =
   | "attack"
   | "miss"
   | "dodge"
+  | "quirk"
   | "passive"
   | "poison"
   | "death"
@@ -129,6 +130,12 @@ export interface FighterView {
   disabledItems: string[];
 }
 
+export interface PendingReaction {
+  side: "a" | "b";
+  playerId: string;
+  nickname: string;
+}
+
 export interface BattlePayload {
   roundIndex: number;
   matchIndex: number;
@@ -136,6 +143,7 @@ export interface BattlePayload {
   roundKey: "final" | "semifinal" | "round";
   roundNumber: number;
   elapsedMs?: number;
+  pending?: PendingReaction | null;
   a: FighterView;
   b: FighterView;
   winner: "a" | "b";

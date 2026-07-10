@@ -82,6 +82,10 @@ Key mechanics inside the simulator:
 
 Playback sync: the server stores `startedAt`/`endsAt` on the battle; snapshots include `elapsedMs` so a client that joins or refreshes mid-battle resumes at the right entry (`indexForElapsed`).
 
+**Comedy quirks (timeline type `quirk`):** battles are littered with rare absurd moments, all pure-sim: crits can sever an arm (weapon lost) or send a helmet flying; weaponless fighters improvise every turn from a random table (rock throw, bite+poison, boot throw, slipper slap+stun, sand in eyes, insult, headbutt); ~5% weapon fumbles (dropped on own foot, opponent catches it, stuck in ground, bowstring snap); round-start interludes (chicken, tomato from the crowd, rain, breather — max 2/battle); sub-18%-HP desperation moves (play dead + surprise attack, all-or-nothing, prayer). Keep the on-screen strings SHORT — they flash for ~1.5s. Every quirk key needs an entry in `LOG_TEMPLATES` (en+tr).
+
+**Player reaction QTE (the one interactive moment):** once per human defender per battle, an incoming attack pauses the simulation after the windup and the defender gets a ~3s timing-bar challenge on their phone (tap in the green zone → guaranteed `qteDodge`). This works serverlessly because the sim is **deterministic**: `simulateBattle` takes `{ seed, reactions, aCanReact, bCanReact }`, uses a seeded mulberry32 RNG, and throws an internal pause when it needs an undecided reaction. The server stores seed + reactions on `StateBattle` and re-runs the sim with the appended decision (timeline prefix is bit-identical, so clients keep playing seamlessly). `tick()` auto-fails a pending reaction after a deadline (`REACT_EXTRA_MS`) so absent players never stall the game; bots never get challenges. The 38s timeline cap is skipped for battles with a human side to preserve determinism across re-runs — do not "fix" that.
+
 ## 5. Localization (TR/EN) — easy to break, read this
 
 The UI is fully bilingual with a persistent toggle (`LangToggle`). Turkish is the default for Turkish-locale browsers.

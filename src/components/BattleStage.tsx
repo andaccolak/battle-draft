@@ -98,6 +98,10 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
   if (entry.t === "dodge") {
     return entry.actor === "a" ? { a: "attack", b: "dodge" } : { a: "dodge", b: "attack" };
   }
+  if (entry.t === "quirk") {
+    if (entry.actor === "none" || !entry.dmg) return { a: "idle", b: "idle" };
+    return entry.actor === "a" ? { a: "attack", b: "hit" } : { a: "hit", b: "attack" };
+  }
   if (entry.t === "death") {
     return entry.actor === "a" ? { a: "dead", b: "idle" } : { a: "idle", b: "dead" };
   }
@@ -113,14 +117,25 @@ function playSound(entry: TimelineEntry): void {
     if (entry.crit) sfx.crit();
     else sfx.hit();
   } else if (entry.t === "miss" || entry.t === "dodge") sfx.miss();
-  else if (entry.t === "event") sfx.event();
+  else if (entry.t === "quirk") {
+    if (entry.dmg) sfx.hit();
+    else if (entry.heal) sfx.heal();
+    else sfx.miss();
+  } else if (entry.t === "event") sfx.event();
   else if (entry.t === "card" || entry.t === "showcase") sfx.legendary();
   else if (entry.t === "victory") sfx.victory();
   else if (entry.t === "death") sfx.death();
   else if (entry.heal) sfx.heal();
 }
 
-export default function BattleStage({ battle, eventId }: { battle: BattlePayload; eventId?: string }) {
+interface BattleStageProps {
+  battle: BattlePayload;
+  eventId?: string;
+  playerId: string;
+  onReact: (pass: boolean) => void;
+}
+
+export default function BattleStage({ battle, eventId, playerId, onReact }: BattleStageProps) {
   const { t, logLine } = useI18n();
   const [index, setIndex] = useState(() => indexForElapsed(battle.timeline, battle.elapsedMs ?? 0));
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
@@ -177,7 +192,10 @@ export default function BattleStage({ battle, eventId }: { battle: BattlePayload
   const hpA = current?.hpA ?? battle.a.maxHp;
   const hpB = current?.hpB ?? battle.b.maxHp;
   const showIntro = current?.t === "intro";
-  const suspense = current?.t === "windup";
+  const pending = battle.pending ?? null;
+  const atPause = pending !== null && index >= entries.length - 1;
+  const qteMine = atPause && pending !== null && pending.playerId === playerId;
+  const suspense = current?.t === "windup" || atPause;
   const actor = current?.actor ?? "none";
   const cameraX = suspense || current?.t === "attack" ? (actor === "a" ? 14 : actor === "b" ? -14 : 0) : 0;
 
@@ -345,8 +363,33 @@ export default function BattleStage({ battle, eventId }: { battle: BattlePayload
               transition={{ type: "spring", damping: 12 }}
               className="pointer-events-none absolute inset-x-0 top-[34%] z-20 text-center"
             >
-              <div className="font-display text-6xl font-black text-cyan-300 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
-                🌀 {t("bigDodge")}
+              <div
+                className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
+                  current.key === "qteDodge" ? "text-5xl text-emerald-300 sm:text-6xl" : "text-6xl text-cyan-300"
+                }`}
+              >
+                🌀 {current.key === "qteDodge" ? t("qtePerfect") : t("bigDodge")}
+              </div>
+            </motion.div>
+          )}
+
+          {current && current.t === "quirk" && (
+            <motion.div
+              key={`quirk-${index}`}
+              initial={{ opacity: 0, scale: 0.6, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ type: "spring", damping: 13, stiffness: 260 }}
+              className="pointer-events-none absolute inset-x-4 top-[28%] z-20 text-center"
+            >
+              <div className="mx-auto max-w-sm rounded-2xl border border-lime-400/30 bg-slate-950/85 px-5 py-4 shadow-2xl backdrop-blur-sm">
+                <div className="text-xl font-black leading-snug text-lime-300">{logLine(current)}</div>
+                {current.dmg !== undefined && current.dmg > 0 && (
+                  <div className="font-display mt-1 text-5xl font-black text-rose-400">-{current.dmg}</div>
+                )}
+                {current.heal !== undefined && current.heal > 0 && (
+                  <div className="font-display mt-1 text-5xl font-black text-emerald-400">+{current.heal}</div>
+                )}
               </div>
             </motion.div>
           )}
@@ -407,6 +450,30 @@ export default function BattleStage({ battle, eventId }: { battle: BattlePayload
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {atPause && !qteMine && pending && (
+            <motion.div
+              key={`spectate-${entries.length}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="pointer-events-none absolute inset-x-4 top-[58%] z-20 text-center"
+            >
+              <motion.div
+                animate={{ scale: [1, 1.05, 1] }}
+                transition={{ repeat: Infinity, duration: 0.7 }}
+                className="mx-auto inline-block rounded-full bg-cyan-500/20 px-5 py-2 text-sm font-bold text-cyan-200 backdrop-blur-sm"
+              >
+                {t("qteWaiting", { p: pending.nickname })}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {qteMine && <QteChallenge key={`qte-${entries.length}`} onResult={onReact} />}
+        </AnimatePresence>
+
         <AnimatePresence>{current && current.t === "victory" && <Confetti />}</AnimatePresence>
       </motion.div>
 
@@ -426,11 +493,13 @@ export default function BattleStage({ battle, eventId }: { battle: BattlePayload
                   ? "font-bold text-rose-400"
                   : entry.t === "windup"
                     ? "italic text-slate-400"
-                    : entry.crit
-                      ? "font-bold text-orange-300"
-                      : entry.t === "card" || entry.t === "event" || entry.t === "showcase"
-                        ? "text-amber-200"
-                        : "text-slate-300"
+                    : entry.t === "quirk"
+                      ? "font-semibold text-lime-300"
+                      : entry.crit
+                        ? "font-bold text-orange-300"
+                        : entry.t === "card" || entry.t === "event" || entry.t === "showcase"
+                          ? "text-amber-200"
+                          : "text-slate-300"
             }
           >
             {logLine(entry)}
@@ -498,6 +567,84 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
           ))}
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
+  const { t } = useI18n();
+  const [pos, setPos] = useState(0);
+  const [result, setResult] = useState<boolean | null>(null);
+  const posRef = useRef(0);
+  const doneRef = useRef(false);
+  const startRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    let raf = 0;
+    const step = (ts: number) => {
+      if (doneRef.current) return;
+      if (startRef.current === null) startRef.current = ts;
+      const el = ts - startRef.current;
+      if (el > 3200) {
+        doneRef.current = true;
+        setResult(false);
+        onResult(false);
+        return;
+      }
+      const phase = (el % 1600) / 1600;
+      const p = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+      posRef.current = p;
+      setPos(p);
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [onResult]);
+
+  const tap = () => {
+    if (doneRef.current) return;
+    doneRef.current = true;
+    const pass = Math.abs(posRef.current - 0.5) <= 0.12;
+    setResult(pass);
+    onResult(pass);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onPointerDown={tap}
+      className="absolute inset-0 z-30 flex cursor-pointer flex-col items-center justify-center bg-slate-950/75 backdrop-blur-sm"
+    >
+      {result === null ? (
+        <>
+          <motion.div
+            animate={{ scale: [1, 1.08, 1] }}
+            transition={{ repeat: Infinity, duration: 0.5 }}
+            className="font-display text-5xl font-black text-cyan-300 drop-shadow-[0_0_20px_rgba(103,232,249,0.7)]"
+          >
+            {t("qteTitle")}
+          </motion.div>
+          <div className="mt-2 text-sm font-bold text-slate-300">{t("qteHint")}</div>
+          <div className="relative mt-5 h-7 w-72 max-w-[85vw] overflow-hidden rounded-full border border-white/20 bg-white/10">
+            <div className="absolute inset-y-0 left-[38%] w-[24%] rounded bg-emerald-500/70" />
+            <div
+              className="absolute inset-y-0 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
+              style={{ left: `${pos * 100}%` }}
+            />
+          </div>
+        </>
+      ) : (
+        <motion.div
+          initial={{ scale: 2.2, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", damping: 12 }}
+          className={`font-display text-5xl font-black ${result ? "text-emerald-300" : "text-rose-400"}`}
+        >
+          {result ? `✅ ${t("qtePerfect")}` : `❌ ${t("qteFailed")}`}
+        </motion.div>
+      )}
     </motion.div>
   );
 }

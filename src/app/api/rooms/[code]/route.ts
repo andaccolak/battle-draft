@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRoom } from "@/server/store";
-import { joinState, leaveState, pickItem, pickLuck, playAgain, setAvatar, snapshotFor, startGame, touch } from "@/server/engine";
+import { joinState, leaveState, pickItem, pickLuck, playAgain, reactBattle, setAvatar, snapshotFor, startGame, touch } from "@/server/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +35,7 @@ interface ActionBody {
   itemId?: string | null;
   cardId?: string;
   avatarId?: string;
+  pass?: boolean;
 }
 
 export async function POST(req: Request, ctx: { params: { code: string } }): Promise<NextResponse> {
@@ -67,6 +68,8 @@ export async function POST(req: Request, ctx: { params: { code: string } }): Pro
         return typeof body.avatarId === "string" ? setAvatar(state, playerId, body.avatarId) : null;
       case "again":
         return playAgain(state, playerId, now);
+      case "react":
+        return reactBattle(state, playerId, body.pass === true, now);
       case "leave":
         leaveState(state, playerId, now);
         return null;
