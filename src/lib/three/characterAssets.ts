@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { KAYKIT_MODELS } from "@/lib/game/avatars";
-import { weaponModelFor } from "@/lib/game/items";
+import { weaponModelFor, type HeadgearDef } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 
 export const gltfLoader = new GLTFLoader();
@@ -85,8 +85,9 @@ function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D
   return found;
 }
 
-function mountWeapon(slot: THREE.Object3D, template: THREE.Group): void {
+function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number): void {
   const weapon = template.clone(true);
+  if (scale) weapon.scale.setScalar(scale);
   weapon.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       child.castShadow = true;
@@ -106,8 +107,66 @@ export async function attachWeapons(instance: THREE.Object3D, weapon: Item | und
   ]);
   const right = findHandSlot(instance, "r");
   const left = findHandSlot(instance, "l");
-  if (main && right) mountWeapon(right, main);
+  if (main && right && def) mountWeapon(right, main, def.scale);
   if (off && left) mountWeapon(left, off);
+}
+
+const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();
+
+function loadCharacterScene(model: string): Promise<THREE.Group | null> {
+  const cached = characterSceneCache.get(model);
+  if (cached) return cached;
+  const promise = gltfLoader
+    .loadAsync(`/models3d/kaykit/characters/${model}.glb`)
+    .then((gltf) => gltf.scene as THREE.Group)
+    .catch(() => null);
+  characterSceneCache.set(model, promise);
+  return promise;
+}
+
+const headgearCache = new Map<string, Promise<THREE.Group | null>>();
+
+function buildHeadgear(def: HeadgearDef): Promise<THREE.Group | null> {
+  const key = `${def.model}|${def.meshes.join(",")}`;
+  const cached = headgearCache.get(key);
+  if (cached) return cached;
+  const promise = loadCharacterScene(def.model).then((scene) => {
+    if (!scene) return null;
+    const group = new THREE.Group();
+    scene.traverse((child) => {
+      const skinned = child as THREE.SkinnedMesh;
+      if (!skinned.isSkinnedMesh || !def.meshes.includes(skinned.name)) return;
+      const headIndex = skinned.skeleton.bones.findIndex((bone) => /^head$/i.test(bone.name));
+      if (headIndex < 0) return;
+      const inverse = skinned.skeleton.boneInverses[headIndex];
+      if (!inverse) return;
+      const mesh = new THREE.Mesh(skinned.geometry, skinned.material);
+      mesh.matrixAutoUpdate = false;
+      mesh.matrix.copy(inverse);
+      mesh.frustumCulled = false;
+      mesh.castShadow = true;
+      group.add(mesh);
+    });
+    return group.children.length > 0 ? group : null;
+  });
+  headgearCache.set(key, promise);
+  return promise;
+}
+
+export async function attachHeadgear(instance: THREE.Object3D, defs: HeadgearDef[]): Promise<void> {
+  if (defs.length === 0) return;
+  let head: THREE.Object3D | null = null;
+  instance.traverse((child) => {
+    if (!head && /^head$/i.test(child.name) && (child as THREE.Bone).isBone) head = child;
+  });
+  if (!head) return;
+  const groups = await Promise.all(defs.map((def) => buildHeadgear(def)));
+  for (const template of groups) {
+    if (!template) continue;
+    const gear = template.clone(true);
+    gear.scale.setScalar(1.06);
+    (head as THREE.Object3D).add(gear);
+  }
 }
 
 export function measureHeight(object: THREE.Object3D): { height: number; minY: number } {

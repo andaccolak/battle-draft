@@ -1,8 +1,8 @@
 import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
-import type { Item } from "@/lib/game/types";
-import { weaponModelFor } from "@/lib/game/items";
-import { loadBase, loadAnimLibrary, normalizeSize, attachWeapons } from "./characterAssets";
+import type { Item, Slot } from "@/lib/game/types";
+import { headgearFor, shieldModelFor, weaponModelFor } from "@/lib/game/items";
+import { loadBase, loadAnimLibrary, normalizeSize, attachWeapons, attachHeadgear } from "./characterAssets";
 
 const THUMB_W = 256;
 const THUMB_H = 340;
@@ -50,9 +50,11 @@ function getStudio(): Studio | null {
 
 const thumbCache = new Map<string, Promise<string | null>>();
 
-export function avatarThumb(avatarId: string, weapon?: Item): Promise<string | null> {
+export function avatarThumb(avatarId: string, weapon?: Item, equipment?: Partial<Record<Slot, Item>>, disabledItems: string[] = []): Promise<string | null> {
   const weaponDef = weaponModelFor(weapon);
-  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") : ""}`;
+  const shield = equipment ? shieldModelFor(equipment, disabledItems) : undefined;
+  const headgear = equipment ? headgearFor(equipment, disabledItems) : [];
+  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") : ""}|${shield ?? ""}|${headgear.map((h) => h.meshes.join("+")).join(",")}`;
   const cached = thumbCache.get(key);
   if (cached) return cached;
   const promise = (async () => {
@@ -65,7 +67,7 @@ export function avatarThumb(avatarId: string, weapon?: Item): Promise<string | n
       if ((child as THREE.Mesh).isMesh) child.frustumCulled = false;
     });
     normalizeSize(instance, 1.75);
-    await attachWeapons(instance, weapon);
+    await Promise.all([attachWeapons(instance, weapon, shield), attachHeadgear(instance, headgear)]);
     instance.rotation.y = -0.45;
     const mixer = new THREE.AnimationMixer(instance);
     const clip = library.get("Idle_B") ?? base.clips[0];

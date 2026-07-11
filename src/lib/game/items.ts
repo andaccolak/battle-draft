@@ -6,7 +6,10 @@ export const ITEMS: Item[] = [
   { id: "w_battle_axe", name: "Battle Axe", emoji: "🪓", slot: "weapon", rarity: "common", stats: { attack: 30, accuracy: -15 } },
   { id: "w_dagger", name: "Sly Dagger", emoji: "🔪", slot: "weapon", rarity: "common", stats: { attack: 10, speed: 14, critChance: 12 } },
   { id: "w_rapier", name: "Rapier", emoji: "🤺", slot: "weapon", rarity: "uncommon", stats: { attack: 18 }, passive: { type: "firstStrike", value: 1, label: "Always attacks first" } },
-  { id: "w_bow", name: "Hand Crossbow", emoji: "🏹", slot: "weapon", rarity: "uncommon", stats: { attack: 20, critChance: 20 }, tags: ["ranged"] },
+  { id: "w_bow", name: "Longbow", emoji: "🏹", slot: "weapon", rarity: "uncommon", stats: { attack: 20, critChance: 20 }, tags: ["ranged"] },
+  { id: "w_twin_axe", name: "Twin-Bladed Axe", emoji: "🪓", slot: "weapon", rarity: "rare", stats: { attack: 28, accuracy: -12, critDamage: 20 } },
+  { id: "w_cursed_bow", name: "Cursed Bow", emoji: "🦇", slot: "weapon", rarity: "epic", stats: { attack: 24, critChance: 10 }, passive: { type: "poisonOnHit", value: 5, label: "Hits poison for 5 dmg per turn" }, tags: ["ranged"] },
+  { id: "w_golden_bow", name: "Golden Bow", emoji: "🌟", slot: "weapon", rarity: "legendary", stats: { attack: 30, critChance: 25, critDamage: 30 }, tags: ["ranged"] },
   { id: "w_war_hammer", name: "Giant's Greatsword", emoji: "🗡️", slot: "weapon", rarity: "uncommon", stats: { attack: 42, accuracy: -35 } },
   { id: "w_spiked_flail", name: "Spiked Shield", emoji: "🛡️", slot: "weapon", rarity: "uncommon", stats: { attack: 24, accuracy: -10, critChance: 8 } },
   { id: "w_twin_blades", name: "Twin Blades", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 17 }, passive: { type: "extraAttack", value: 35, label: "35% chance to attack twice" } },
@@ -79,7 +82,7 @@ export function itemById(id: string): Item | undefined {
 
 export type WeaponKind = "ranged" | "heavy" | "blade";
 
-const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang"]);
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe"]);
 
 function baseWeaponId(item: Item): string {
   return item.id.replace(/_(forged|gambled)$/, "");
@@ -91,12 +94,13 @@ export function weaponKindFor(item: Item): WeaponKind {
   return "blade";
 }
 
-export type WeaponVisualKind = "blade" | "heavy" | "dual" | "crossbow" | "magic" | "fists";
+export type WeaponVisualKind = "blade" | "heavy" | "dual" | "crossbow" | "bow" | "magic" | "fists";
 
 export interface WeaponModelDef {
   model: string;
   offhand?: string;
   kind: WeaponVisualKind;
+  scale?: number;
 }
 
 export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
@@ -105,7 +109,10 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_battle_axe: { model: "axe_2handed", kind: "heavy" },
   w_dagger: { model: "dagger", kind: "blade" },
   w_rapier: { model: "sword_1handed", kind: "blade" },
-  w_bow: { model: "crossbow_1handed", kind: "crossbow" },
+  w_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.28 },
+  w_twin_axe: { model: "Axe_Double", kind: "heavy", scale: 0.27 },
+  w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27 },
+  w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28 },
   w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
   w_spiked_flail: { model: "shield_spikes", kind: "blade" },
   w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },
@@ -127,6 +134,31 @@ const SHIELD_MODELS: Record<string, string> = {
   a_titan: "shield_square",
   c_guardian_charm: "shield_badge"
 };
+
+export interface HeadgearDef {
+  model: string;
+  meshes: string[];
+}
+
+const HEADGEAR_MODELS: Record<string, HeadgearDef> = {
+  h_old_helmet: { model: "Skeleton_Warrior", meshes: ["Skeleton_Warrior_Helmet"] },
+  h_iron_helm: { model: "Knight", meshes: ["Knight_Helmet", "Knight_HelmetVisor"] },
+  h_bascinet: { model: "Knight", meshes: ["Knight_Helmet", "Knight_HelmetVisor"] },
+  h_wizard_hat: { model: "Mage", meshes: ["Mage_Hat"] },
+  h_bone_helm: { model: "Skeleton_Mage", meshes: ["Skeleton_Mage_Hat"] },
+  h_dragon_king: { model: "Barbarian", meshes: ["Barbarian_BearHat"] },
+  c_assassins_mark: { model: "Rogue_Hooded", meshes: ["RogueHooded_Mask"] }
+};
+
+export function headgearFor(equipment: Partial<Record<Slot, Item>>, disabledItems: string[]): HeadgearDef[] {
+  const defs: HeadgearDef[] = [];
+  for (const item of Object.values(equipment)) {
+    if (!item || disabledItems.includes(item.id)) continue;
+    const def = HEADGEAR_MODELS[item.id.replace(/_(forged|gambled)$/, "")];
+    if (def) defs.push(def);
+  }
+  return defs;
+}
 
 export function shieldModelFor(equipment: Partial<Record<Slot, Item>>, disabledItems: string[]): string | undefined {
   for (const item of Object.values(equipment)) {

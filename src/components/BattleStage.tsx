@@ -330,7 +330,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
               className="absolute inset-0 z-10 flex items-center justify-center gap-3 bg-slate-950/85 px-4"
             >
               <motion.div initial={{ x: -120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
-                <AvatarPortrait avatarId={battle.a.avatar} weapon={battle.a.equipment.weapon} className="h-32 w-24" />
+                <AvatarPortrait avatarId={battle.a.avatar} weapon={battle.a.equipment.weapon} equipment={battle.a.equipment} disabledItems={battle.a.disabledItems} className="h-32 w-24" />
                 <div className="font-display max-w-[8rem] truncate text-xl font-black text-indigo-300">{battle.a.nickname}</div>
               </motion.div>
               <motion.div
@@ -342,7 +342,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
                 VS
               </motion.div>
               <motion.div initial={{ x: 120, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="flex flex-col items-center">
-                <AvatarPortrait avatarId={battle.b.avatar} weapon={battle.b.equipment.weapon} flip className="h-32 w-24" />
+                <AvatarPortrait avatarId={battle.b.avatar} weapon={battle.b.equipment.weapon} equipment={battle.b.equipment} disabledItems={battle.b.disabledItems} flip className="h-32 w-24" />
                 <div className="font-display max-w-[8rem] truncate text-xl font-black text-fuchsia-300">{battle.b.nickname}</div>
               </motion.div>
             </motion.div>
@@ -462,7 +462,7 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
           transition={{ type: "spring", damping: 14 }}
           className="shrink-0"
         >
-          <AvatarPortrait avatarId={fighter.avatar} weapon={fighter.equipment.weapon} flip={side === "right"} className="h-40 w-28 drop-shadow-2xl" />
+          <AvatarPortrait avatarId={fighter.avatar} weapon={fighter.equipment.weapon} equipment={fighter.equipment} disabledItems={fighter.disabledItems} flip={side === "right"} className="h-40 w-28 drop-shadow-2xl" />
         </motion.div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {items.length === 0 && (
