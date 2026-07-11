@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
 import { ARENA_MAPS } from "@/lib/game/types";
@@ -14,6 +15,51 @@ const MAP_EMOJI: Record<string, string> = {
   colosseum: "🏟️",
   dungeon: "🏰"
 };
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    area.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+function ShareButton({ label, copiedLabel, icon, getText }: { label: string; copiedLabel: string; icon: string; getText: () => string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      onClick={() => {
+        void copyText(getText()).then((ok) => {
+          if (!ok) return;
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1600);
+        });
+      }}
+      className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-bold transition ${
+        copied ? "border-emerald-400/60 bg-emerald-500/15 text-emerald-300" : "border-white/10 bg-white/5 text-slate-200"
+      }`}
+    >
+      <span>{copied ? "✅" : icon}</span>
+      {copied ? copiedLabel : label}
+      {!copied && <span className="text-xs opacity-60">📋</span>}
+    </motion.button>
+  );
+}
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -35,6 +81,15 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap }: 
         <div className="text-xs font-semibold uppercase tracking-widest text-slate-400">{t("roomCode")}</div>
         <div className="font-display mt-1 text-5xl font-black tracking-[0.25em] text-indigo-300">{snapshot.code}</div>
         <p className="mt-2 text-sm text-slate-400">{t("joinHint")}</p>
+        <div className="mt-4 flex gap-2">
+          <ShareButton
+            label={t("copyLink")}
+            copiedLabel={t("copied")}
+            icon="🔗"
+            getText={() => `${window.location.origin}/room/${snapshot.code}`}
+          />
+          <ShareButton label={t("copyCode")} copiedLabel={t("copied")} icon="🔢" getText={() => snapshot.code} />
+        </div>
       </div>
 
       <div className="card-surface p-5">

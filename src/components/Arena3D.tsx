@@ -599,8 +599,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     camera.position.set(0, 3, 8);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
@@ -790,6 +790,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       arenaRef.current?.removeFromParent();
       arenaRef.current = null;
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [a.avatar, b.avatar, a.equipment.weapon?.id, b.equipment.weapon?.id]);

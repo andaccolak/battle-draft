@@ -1,13 +1,37 @@
-import type { Item, LuckCard, Slot } from "./types";
+import type { Item, LuckCard, Rarity, Slot } from "./types";
 import { SLOTS } from "./types";
 import { ITEMS } from "./items";
 import { LUCK_CARDS } from "./luckCards";
 
-export function rollDraftHand(lockedSlots: Slot[] = []): Item[] {
+const ROUND_RARITY_WEIGHTS: Record<Rarity, number>[] = [
+  { common: 46, uncommon: 30, rare: 16, epic: 6, legendary: 2 },
+  { common: 36, uncommon: 30, rare: 20, epic: 10, legendary: 4 },
+  { common: 28, uncommon: 28, rare: 24, epic: 14, legendary: 6 },
+  { common: 20, uncommon: 26, rare: 26, epic: 18, legendary: 10 },
+  { common: 14, uncommon: 20, rare: 28, epic: 23, legendary: 15 }
+];
+
+function rollRarity(weights: Record<Rarity, number>): Rarity {
+  const entries = Object.entries(weights) as [Rarity, number][];
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+  let roll = Math.random() * total;
+  for (const [rarity, weight] of entries) {
+    roll -= weight;
+    if (roll <= 0) return rarity;
+  }
+  return "common";
+}
+
+export function rollDraftHand(lockedSlots: Slot[] = [], round = 1): Item[] {
+  const weights = ROUND_RARITY_WEIGHTS[Math.min(Math.max(round, 1), ROUND_RARITY_WEIGHTS.length) - 1] ?? ROUND_RARITY_WEIGHTS[0];
   const hand: Item[] = [];
   const used = new Set<string>();
-  while (hand.length < 5) {
-    const item = ITEMS[Math.floor(Math.random() * ITEMS.length)];
+  let guard = 0;
+  while (hand.length < 5 && guard < 200) {
+    guard++;
+    const rarity = weights ? rollRarity(weights) : "common";
+    const pool = ITEMS.filter((item) => item.rarity === rarity && !used.has(item.id));
+    const item = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : ITEMS[Math.floor(Math.random() * ITEMS.length)];
     if (!item || used.has(item.id)) continue;
     used.add(item.id);
     hand.push(item);
@@ -22,6 +46,8 @@ export function rollDraftHand(lockedSlots: Slot[] = []): Item[] {
   return hand;
 }
 
+const SELF_LUCK_CARDS = new Set(["blacksmith", "lucky", "vampire", "barrier", "phoenix", "assassin", "titan"]);
+
 export function rollLuckHand(): LuckCard[] {
   const pool = [...LUCK_CARDS];
   const hand: LuckCard[] = [];
@@ -29,6 +55,11 @@ export function rollLuckHand(): LuckCard[] {
     const idx = Math.floor(Math.random() * pool.length);
     const card = pool.splice(idx, 1)[0];
     if (card) hand.push(card);
+  }
+  if (!hand.some((card) => SELF_LUCK_CARDS.has(card.id))) {
+    const selfPool = LUCK_CARDS.filter((card) => SELF_LUCK_CARDS.has(card.id));
+    const replacement = selfPool[Math.floor(Math.random() * selfPool.length)];
+    if (replacement) hand[Math.floor(Math.random() * hand.length)] = replacement;
   }
   return hand;
 }

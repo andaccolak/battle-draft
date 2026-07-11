@@ -15,6 +15,17 @@ interface Studio {
 }
 
 let studio: Studio | null = null;
+let disposeTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleStudioDisposal(): void {
+  if (disposeTimer) clearTimeout(disposeTimer);
+  disposeTimer = setTimeout(() => {
+    if (!studio) return;
+    studio.renderer.dispose();
+    studio.renderer.forceContextLoss();
+    studio = null;
+  }, 4000);
+}
 
 function getStudio(): Studio | null {
   if (studio) return studio;
@@ -66,6 +77,7 @@ export function avatarThumb(avatarId: string, weapon?: Item): Promise<string | n
     s.renderer.render(s.scene, s.camera);
     const url = s.renderer.domElement.toDataURL("image/png");
     s.stage.remove(instance);
+    scheduleStudioDisposal();
     return url;
   })();
   thumbCache.set(key, promise);

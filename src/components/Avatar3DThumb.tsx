@@ -78,6 +78,7 @@ export default function Avatar3DThumb({ avatarId, className }: Props) {
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.dispose();
+      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [avatarId]);

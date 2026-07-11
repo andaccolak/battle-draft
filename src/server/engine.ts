@@ -105,6 +105,7 @@ export interface RoomState {
   persisted: boolean;
   matchCounter: number;
   arenaMap?: ArenaMap;
+  recentEventIds?: string[];
 }
 
 function makePlayer(id: string, nickname: string, isBot: boolean, now: number): StatePlayer {
@@ -265,7 +266,7 @@ function beginDraftRound(state: RoomState, now: number): void {
   state.draftRound++;
   state.deadline = now + DRAFT_TIME_MS;
   for (const p of state.players) {
-    p.offer = rollDraftHand((Object.keys(p.equipment) as Slot[]).filter((slot) => p.equipment[slot]));
+    p.offer = rollDraftHand((Object.keys(p.equipment) as Slot[]).filter((slot) => p.equipment[slot]), state.draftRound);
     p.offerPicked = false;
     p.botPickAt = p.isBot ? now : null;
   }
@@ -338,8 +339,12 @@ function finishLuckPhase(state: RoomState, now: number): void {
 
 function beginEventPhase(state: RoomState, now: number): void {
   state.phase = "event";
-  const event = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+  const recent = state.recentEventIds ?? [];
+  const pool = EVENTS.filter((e) => !recent.includes(e.id));
+  const candidates = pool.length > 0 ? pool : EVENTS;
+  const event = candidates[Math.floor(Math.random() * candidates.length)];
   state.eventId = event ? event.id : "rain";
+  state.recentEventIds = [...recent, state.eventId].slice(-4);
   state.deadline = now + EVENT_REVEAL_MS;
   const ids = state.players.map((p) => p.id);
   for (let i = ids.length - 1; i > 0; i--) {

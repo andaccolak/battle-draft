@@ -980,7 +980,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
 
   const interlude = (round: number) => {
     const r = rand();
-    if (r < 0.25) {
+    if (r < 0.14) {
       push({
         t: "quirk",
         actor: "none",
@@ -988,7 +988,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         key: "quirkChicken",
         params: {}
       });
-    } else if (r < 0.48) {
+    } else if (r < 0.26) {
       const target = roll(50) ? a : b;
       target.hp -= 2;
       push({
@@ -1000,7 +1000,48 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         dmg: 2
       });
       tryRevive(target);
-    } else if (r < 0.68) {
+    } else if (r < 0.36) {
+      const target = roll(50) ? a : b;
+      target.hp -= 1;
+      push({
+        t: "quirk",
+        actor: target.key,
+        text: `🐦 A pigeon landed on ${target.nickname}'s head!`,
+        key: "quirkPigeon",
+        params: { p: target.nickname },
+        dmg: 1
+      });
+      tryRevive(target);
+    } else if (r < 0.44) {
+      push({
+        t: "quirk",
+        actor: "none",
+        text: `📱 Someone's phone rang. Everyone is judging them.`,
+        key: "quirkPhone",
+        params: {}
+      });
+    } else if (r < 0.52) {
+      const target = roll(50) ? a : b;
+      push({
+        t: "quirk",
+        actor: target.key,
+        text: `🧐 The referee inspects ${target.nickname}'s gear. Legal. Barely.`,
+        key: "quirkReferee",
+        params: { p: target.nickname }
+      });
+    } else if (r < 0.6) {
+      const lucky = roll(50) ? a : b;
+      const heal = 4;
+      lucky.hp = Math.min(lucky.maxHp, lucky.hp + heal);
+      push({
+        t: "quirk",
+        actor: lucky.key,
+        text: `🥨 A vendor tossed ${lucky.nickname} a pretzel! +${heal} HP`,
+        key: "quirkSnack",
+        params: { p: lucky.nickname, n: heal },
+        heal
+      });
+    } else if (r < 0.72) {
       const show = roll(50) ? a : b;
       push({
         t: "quirk",
