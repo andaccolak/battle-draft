@@ -19,7 +19,7 @@ export const ITEM_NAMES_TR: Record<string, string> = {
   w_dragonfang: "Ejder Dişi Kılıcı",
   w_void_reaper: "Hiçlik Orağı",
   h_old_helmet: "Eski Miğfer",
-  h_leather_cap: "Deri Başlık",
+  h_leather_cap: "Deri Kukuleta",
   h_bucket: "Kova Miğfer",
   h_iron_helm: "Demir Miğfer",
   h_wizard_hat: "Büyücü Şapkası",
@@ -123,7 +123,15 @@ export const LUCK_CARDS_TR: Record<string, { name: string; description: string }
   barrier: { name: "Bariyer", description: "Her savaşa 35 canlık büyülü bir kalkanla başlarsın." },
   phoenix: { name: "Anka", description: "İlk ölümünde %40 canla yeniden dirilirsin." },
   assassin: { name: "Suikastçı", description: "Her savaştaki ilk saldırın daima kritik vuruştur." },
-  titan: { name: "Titan", description: "+40 azami can, ama hızın %30 azalır." }
+  titan: { name: "Titan", description: "+40 azami can, ama hızın %30 azalır." },
+  eagle: { name: "Kartal Gözü", description: "İsabetin büyük ölçüde artar. Nadiren ıskalarsın." },
+  turtle: { name: "Kaplumbağa", description: "+%35 savunma, ama -%15 hız." },
+  berserker: { name: "Cinnet", description: "+%30 saldırı, ama -%20 savunma." },
+  ghost: { name: "Hayalet", description: "Saldırılar içinden çok daha sık geçer. +18 kaçınma." },
+  cactus: { name: "Kaktüs", description: "Aldığın tüm hasarın %15'ini saldırana yansıtırsın." },
+  medic: { name: "Sıhhiyeci", description: "Her tur başında 6 can yenilersin." },
+  giant: { name: "Dev", description: "+60 azami can, ama saldırın %18 azalır." },
+  zephyr: { name: "Rüzgar", description: "+%25 hız ve +12 inisiyatif. Önce vur, sık vur." }
 };
 
 export const PASSIVE_TEMPLATES: Record<string, { en: string; tr: string }> = {

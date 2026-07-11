@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
-import { headgearFor, shieldModelFor, weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/items";
+import { headgearFor, shieldModelFor, weaponVisualKindFor, QUIVER_GEAR, type WeaponVisualKind } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize, attachWeapons, attachHeadgear, loadWeaponModel } from "@/lib/three/characterAssets";
 import { buildDungeonArena } from "@/lib/three/arenaKits";
@@ -62,8 +62,15 @@ const IDLE_POOLS: Partial<Record<FighterKind, string[]>> = {
   bow: ["Ranged_Bow_Idle", IDLE_CLIP]
 };
 
-function impactMsFor(kind: FighterKind): number {
-  return MELEE_KINDS.has(kind) ? 700 : 560;
+function meleeRunMs(rig: Rig, opp: Rig | undefined): number {
+  if (!opp) return 320;
+  const dist = Math.max(0, rig.group.position.distanceTo(opp.group.position) - 1.05);
+  return Math.min(480, Math.max(140, (dist / RUN_SPEED) * 1000));
+}
+
+function impactMsFor(kind: FighterKind, rig?: Rig, opp?: Rig): number {
+  if (!MELEE_KINDS.has(kind)) return 560;
+  return (rig ? meleeRunMs(rig, opp) : 320) + 360;
 }
 
 function activeWeapon(fighter: FighterView): Item | undefined {
@@ -282,6 +289,18 @@ interface Projectile {
 
 const cameraState = { azimuth: 0, elev: 3, zoom: 1 };
 
+let sharedRenderer: THREE.WebGLRenderer | null = null;
+
+function acquireRenderer(): THREE.WebGLRenderer {
+  if (!sharedRenderer || sharedRenderer.getContext().isContextLost()) {
+    sharedRenderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    sharedRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+    sharedRenderer.shadowMap.enabled = true;
+    sharedRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  return sharedRenderer;
+}
+
 function attachMarker(rig: Rig, color: number): void {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
   const ring = new THREE.Mesh(new THREE.RingGeometry(0.58, 0.78, 32), mat);
@@ -356,10 +375,10 @@ async function attachModel(rig: Rig, avatarId: string, fighter: FighterView): Pr
     }
   });
   normalizeSize(instance, CHAR_HEIGHT);
-  await Promise.all([
-    attachWeapons(instance, activeWeapon(fighter), shieldModelFor(fighter.equipment, fighter.disabledItems)),
-    attachHeadgear(instance, headgearFor(fighter.equipment, fighter.disabledItems))
-  ]);
+  const weapon = activeWeapon(fighter);
+  const gear = headgearFor(fighter.equipment, fighter.disabledItems);
+  if (weaponVisualKindFor(weapon) === "bow") gear.push(QUIVER_GEAR);
+  await Promise.all([attachWeapons(instance, weapon, shieldModelFor(fighter.equipment, fighter.disabledItems)), attachHeadgear(instance, gear)]);
   rig.group.add(instance);
   rig.placeholder = false;
   rig.mixer = new THREE.AnimationMixer(instance);
@@ -435,6 +454,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
 }
 
 function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig): void {
+  if (pose === "dead" && rig.pose === "dead") return;
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
     rig.returnTimer = null;
@@ -496,7 +516,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
         rig.actionTimer = setTimeout(() => {
           rig.moveSpeed = null;
           playAction(rig, [strike], { once: true, backToIdle: true });
-        }, 320);
+        }, meleeRunMs(rig, opp));
       } else if (strike) {
         playAction(rig, [strike], { once: true, backToIdle: true });
         if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, 320);
@@ -635,10 +655,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     camera.position.set(0, 3, 8);
     cameraRef.current = camera;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    const renderer = acquireRenderer();
     container.appendChild(renderer.domElement);
 
     const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.1);
@@ -879,8 +896,6 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       projectilesRef.current = [];
       arenaRef.current?.removeFromParent();
       arenaRef.current = null;
-      renderer.dispose();
-      renderer.forceContextLoss();
       renderer.domElement.remove();
     };
   }, [a.avatar, b.avatar, a.equipment.weapon?.id, b.equipment.weapon?.id]);
@@ -933,7 +948,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind) => {
       applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender);
       const lead = reaction === "dodge" || reaction === "roll" ? 260 : 0;
-      defender.reactTimer = setTimeout(() => applyPose(defender, reaction, defenderKind, false), Math.max(120, impactMsFor(attackerKind) - lead));
+      defender.reactTimer = setTimeout(
+        () => applyPose(defender, reaction, defenderKind, false),
+        Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead)
+      );
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {
       delayReaction(rigA, kinds.a, rigB, poseB, kinds.b);

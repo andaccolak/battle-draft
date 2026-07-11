@@ -309,6 +309,26 @@ function buildCombatant(
     c.maxHp += 40;
     c.speed *= 0.7;
   }
+  if (card === "eagle") c.accuracy += 30;
+  if (card === "turtle") {
+    c.defense *= 1.35;
+    c.speed *= 0.85;
+  }
+  if (card === "berserker") {
+    c.attack *= 1.3;
+    c.defense *= 0.8;
+  }
+  if (card === "ghost") c.dodge += 18;
+  if (card === "cactus") c.reflect += 15;
+  if (card === "medic") c.healPerTurn += 6;
+  if (card === "giant") {
+    c.maxHp += 60;
+    c.attack *= 0.82;
+  }
+  if (card === "zephyr") {
+    c.speed *= 1.25;
+    c.initiative += 12;
+  }
 
   c.maxHp *= h.hpMultiplier ?? 1;
   c.maxHp += h.flatHp ?? 0;

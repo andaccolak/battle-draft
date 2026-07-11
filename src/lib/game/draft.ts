@@ -46,7 +46,23 @@ export function rollDraftHand(lockedSlots: Slot[] = [], round = 1): Item[] {
   return hand;
 }
 
-const SELF_LUCK_CARDS = new Set(["blacksmith", "lucky", "vampire", "barrier", "phoenix", "assassin", "titan"]);
+const SELF_LUCK_CARDS = new Set([
+  "blacksmith",
+  "lucky",
+  "vampire",
+  "barrier",
+  "phoenix",
+  "assassin",
+  "titan",
+  "eagle",
+  "turtle",
+  "berserker",
+  "ghost",
+  "cactus",
+  "medic",
+  "giant",
+  "zephyr"
+]);
 
 export function rollLuckHand(): LuckCard[] {
   const pool = [...LUCK_CARDS];

@@ -14,7 +14,15 @@ export const LUCK_CARDS: LuckCard[] = [
   { id: "barrier", name: "Barrier", emoji: "🛡️", description: "Start every battle with a 35 HP magical shield." },
   { id: "phoenix", name: "Phoenix", emoji: "🔥", description: "The first time you would die, revive with 40% HP." },
   { id: "assassin", name: "Assassin", emoji: "🗡️", description: "Your first attack each battle is always a critical hit." },
-  { id: "titan", name: "Titan", emoji: "⛰️", description: "+40 max HP, but your speed is reduced by 30%." }
+  { id: "titan", name: "Titan", emoji: "⛰️", description: "+40 max HP, but your speed is reduced by 30%." },
+  { id: "eagle", name: "Eagle Eye", emoji: "🦅", description: "Your accuracy is greatly increased. You rarely miss." },
+  { id: "turtle", name: "Turtle", emoji: "🐢", description: "+35% defense, but -15% speed." },
+  { id: "berserker", name: "Berserker", emoji: "😤", description: "+30% attack, but -20% defense." },
+  { id: "ghost", name: "Ghost", emoji: "👻", description: "Attacks pass through you far more often. +18 dodge." },
+  { id: "cactus", name: "Cactus", emoji: "🌵", description: "Reflects 15% of all damage you take back to the attacker." },
+  { id: "medic", name: "Medic", emoji: "💊", description: "Regenerate 6 HP at the start of every turn." },
+  { id: "giant", name: "Giant", emoji: "🗿", description: "+60 max HP, but your attack is reduced by 18%." },
+  { id: "zephyr", name: "Zephyr", emoji: "💨", description: "+25% speed and +12 initiative. Strike first, strike often." }
 ];
 
 export function luckCardById(id: string): LuckCard | undefined {

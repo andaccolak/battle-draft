@@ -64,12 +64,14 @@ export function loadAnimLibrary(): Promise<Map<string, THREE.AnimationClip>> {
 }
 
 const weaponCache = new Map<string, Promise<THREE.Group | null>>();
+const GLB_WEAPONS = new Set(["Bow_Wooden", "Bow_Golden", "Bow_Evil", "Axe_Double", "Arrow", "Claymore"]);
 
 export function loadWeaponModel(name: string): Promise<THREE.Group | null> {
   const cached = weaponCache.get(name);
   if (cached) return cached;
+  const ext = GLB_WEAPONS.has(name) ? "glb" : "gltf";
   const promise = gltfLoader
-    .loadAsync(`/models3d/kaykit/weapons/${name}.gltf`)
+    .loadAsync(`/models3d/kaykit/weapons/${name}.${ext}`)
     .then((gltf) => gltf.scene as THREE.Group)
     .catch(() => null);
   weaponCache.set(name, promise);
@@ -127,7 +129,8 @@ function loadCharacterScene(model: string): Promise<THREE.Group | null> {
 const headgearCache = new Map<string, Promise<THREE.Group | null>>();
 
 function buildHeadgear(def: HeadgearDef): Promise<THREE.Group | null> {
-  const key = `${def.model}|${def.meshes.join(",")}`;
+  const boneName = def.bone ?? "head";
+  const key = `${def.model}|${def.meshes.join(",")}|${boneName}`;
   const cached = headgearCache.get(key);
   if (cached) return cached;
   const promise = loadCharacterScene(def.model).then((scene) => {
@@ -136,9 +139,9 @@ function buildHeadgear(def: HeadgearDef): Promise<THREE.Group | null> {
     scene.traverse((child) => {
       const skinned = child as THREE.SkinnedMesh;
       if (!skinned.isSkinnedMesh || !def.meshes.includes(skinned.name)) return;
-      const headIndex = skinned.skeleton.bones.findIndex((bone) => /^head$/i.test(bone.name));
-      if (headIndex < 0) return;
-      const inverse = skinned.skeleton.boneInverses[headIndex];
+      const boneIndex = skinned.skeleton.bones.findIndex((bone) => bone.name.toLowerCase() === boneName);
+      if (boneIndex < 0) return;
+      const inverse = skinned.skeleton.boneInverses[boneIndex];
       if (!inverse) return;
       const mesh = new THREE.Mesh(skinned.geometry, skinned.material);
       mesh.matrixAutoUpdate = false;
@@ -153,19 +156,26 @@ function buildHeadgear(def: HeadgearDef): Promise<THREE.Group | null> {
   return promise;
 }
 
+function findBoneByName(instance: THREE.Object3D, boneName: string): THREE.Object3D | null {
+  let found: THREE.Object3D | null = null;
+  instance.traverse((child) => {
+    if (!found && child.name.toLowerCase() === boneName && (child as THREE.Bone).isBone) found = child;
+  });
+  return found;
+}
+
 export async function attachHeadgear(instance: THREE.Object3D, defs: HeadgearDef[]): Promise<void> {
   if (defs.length === 0) return;
-  let head: THREE.Object3D | null = null;
-  instance.traverse((child) => {
-    if (!head && /^head$/i.test(child.name) && (child as THREE.Bone).isBone) head = child;
-  });
-  if (!head) return;
   const groups = await Promise.all(defs.map((def) => buildHeadgear(def)));
-  for (const template of groups) {
-    if (!template) continue;
+  for (let i = 0; i < defs.length; i++) {
+    const template = groups[i];
+    const def = defs[i];
+    if (!template || !def) continue;
+    const bone = findBoneByName(instance, def.bone ?? "head");
+    if (!bone) continue;
     const gear = template.clone(true);
     gear.scale.setScalar(1.06);
-    (head as THREE.Object3D).add(gear);
+    bone.add(gear);
   }
 }
 

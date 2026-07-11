@@ -16,7 +16,7 @@ interface FloatingNumber {
   id: number;
   side: "a" | "b";
   value: string;
-  kind: "dmg" | "heal";
+  kind: "dmg" | "heal" | "note";
 }
 
 type FxKind = "rain" | "storm" | "snow" | "fog" | "sun" | "night" | "bloodmoon" | "poison" | "wind" | "quake" | "overcast" | "none";
@@ -204,6 +204,20 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
     if (entry.t === "poison" && entry.dmg !== undefined) {
       floatId.current++;
       setFloats((f) => [...f, { id: floatId.current, side: entry.actor === "a" ? "a" : "b", value: `-${entry.dmg}`, kind: "dmg" }]);
+    }
+    const pushNote = (side: "a" | "b", text: string, delay: number) => {
+      setTimeout(() => {
+        floatId.current++;
+        setFloats((f) => [...f, { id: floatId.current, side, value: text, kind: "note" }]);
+      }, delay);
+    };
+    const other = entry.actor === "a" ? "b" : "a";
+    if (entry.actor !== "none") {
+      if (entry.t === "miss") pushNote(entry.actor, t("noteMiss"), 620);
+      if (entry.t === "dodge") pushNote(other, t("noteDodge"), 480);
+      if (entry.t === "attack" && entry.blocked) pushNote(other, t("noteBlock"), 620);
+      if (entry.t === "passive" && entry.key === "stunApplied") pushNote(other, t("noteStun"), 120);
+      if (entry.t === "passive" && entry.key === "revive") pushNote(entry.actor, t("noteRevive"), 120);
     }
   }, [index]);
 
@@ -640,8 +654,8 @@ function FloatLayer({ floats }: { floats: FloatingNumber[] }) {
             initial={{ y: 0, opacity: 1 }}
             animate={{ y: -55, opacity: 0 }}
             transition={{ duration: 1.1 }}
-            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-display text-2xl font-black ${
-              f.kind === "heal" ? "text-emerald-400" : "text-rose-400"
+            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-display font-black ${
+              f.kind === "note" ? "text-lg text-cyan-300" : f.kind === "heal" ? "text-2xl text-emerald-400" : "text-2xl text-rose-400"
             }`}
           >
             {f.value}

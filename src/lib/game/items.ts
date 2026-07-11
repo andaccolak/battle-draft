@@ -21,7 +21,7 @@ export const ITEMS: Item[] = [
   { id: "w_dragonfang", name: "Dragonfang Greatsword", emoji: "🐉", slot: "weapon", rarity: "legendary", stats: { attack: 36, critDamage: 40 }, passive: { type: "berserk", value: 50, label: "+50% attack below 40% HP" } },
   { id: "w_void_reaper", name: "Void Reaper", emoji: "💀", slot: "weapon", rarity: "legendary", stats: { attack: 32, accuracy: -10 }, passive: { type: "ignoreDefense", value: 60, label: "Ignores 60% of enemy defense" }, tags: ["ranged"] },
   { id: "h_old_helmet", name: "Old Helmet", emoji: "🪖", slot: "helmet", rarity: "common", stats: { defense: 7 } },
-  { id: "h_leather_cap", name: "Leather Cap", emoji: "🧢", slot: "helmet", rarity: "common", stats: { defense: 5, speed: 6 } },
+  { id: "h_leather_cap", name: "Leather Hood", emoji: "🧢", slot: "helmet", rarity: "common", stats: { defense: 5, speed: 6 } },
   { id: "h_bucket", name: "Bucket Helm", emoji: "🪣", slot: "helmet", rarity: "common", stats: { defense: 13, accuracy: -12 } },
   { id: "h_iron_helm", name: "Iron Helm", emoji: "⛑️", slot: "helmet", rarity: "uncommon", stats: { defense: 11, speed: -4 }, tags: ["heavy"] },
   { id: "h_wizard_hat", name: "Wizard Hat", emoji: "🧙", slot: "helmet", rarity: "uncommon", stats: { defense: 5, critChance: 12 } },
@@ -138,10 +138,14 @@ const SHIELD_MODELS: Record<string, string> = {
 export interface HeadgearDef {
   model: string;
   meshes: string[];
+  bone?: string;
 }
+
+export const QUIVER_GEAR: HeadgearDef = { model: "Ranger", meshes: ["Ranger_Quiver"], bone: "chest" };
 
 const HEADGEAR_MODELS: Record<string, HeadgearDef> = {
   h_old_helmet: { model: "Skeleton_Warrior", meshes: ["Skeleton_Warrior_Helmet"] },
+  h_leather_cap: { model: "Skeleton_Rogue", meshes: ["Skeleton_Rogue_Hood"] },
   h_iron_helm: { model: "Knight", meshes: ["Knight_Helmet", "Knight_HelmetVisor"] },
   h_bascinet: { model: "Knight", meshes: ["Knight_Helmet", "Knight_HelmetVisor"] },
   h_wizard_hat: { model: "Mage", meshes: ["Mage_Hat"] },
