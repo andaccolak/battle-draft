@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import type { Item, Slot } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
 import { avatarThumb } from "@/lib/three/avatarThumbs";
-import CharacterSprite from "./CharacterSprite";
 
 interface Props {
   avatarId: string | undefined;
@@ -30,7 +29,7 @@ export default function AvatarPortrait({ avatarId, weapon, equipment, disabledIt
     };
   }, [avatar.id, weapon, equipment, disabledItems]);
 
-  if (!url) return <CharacterSprite avatar={avatar} className={className} />;
+  if (!url) return <div className={className} />;
   return (
     <img
       src={url}

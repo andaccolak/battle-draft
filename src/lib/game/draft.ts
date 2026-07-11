@@ -37,11 +37,22 @@ export function rollDraftHand(lockedSlots: Slot[] = [], round = 1): Item[] {
     hand.push(item);
   }
   const locked = new Set(lockedSlots);
-  const hasPickable = hand.some((item) => !locked.has(item.slot));
-  if (!hasPickable && locked.size < SLOTS.length) {
-    const options = ITEMS.filter((item) => !locked.has(item.slot) && !used.has(item.id));
-    const replacement = options[Math.floor(Math.random() * options.length)];
-    if (replacement) hand[Math.floor(Math.random() * hand.length)] = replacement;
+  if (locked.size < SLOTS.length) {
+    const minPickable = Math.min(3, 5);
+    let pickable = hand.filter((item) => !locked.has(item.slot)).length;
+    let attempts = 0;
+    while (pickable < minPickable && attempts < 40) {
+      attempts++;
+      const options = ITEMS.filter((item) => !locked.has(item.slot) && !used.has(item.id));
+      const replacement = options[Math.floor(Math.random() * options.length)];
+      if (!replacement) break;
+      const lockedIndexes = hand.map((item, i) => (locked.has(item.slot) ? i : -1)).filter((i) => i >= 0);
+      const swapAt = lockedIndexes[Math.floor(Math.random() * lockedIndexes.length)];
+      if (swapAt === undefined) break;
+      used.add(replacement.id);
+      hand[swapAt] = replacement;
+      pickable++;
+    }
   }
   return hand;
 }
@@ -61,7 +72,16 @@ const SELF_LUCK_CARDS = new Set([
   "cactus",
   "medic",
   "giant",
-  "zephyr"
+  "zephyr",
+  "anchor",
+  "bulwark",
+  "sharpshooter",
+  "sprinter",
+  "flurry",
+  "ironskin",
+  "headsman",
+  "snake",
+  "gladiator"
 ]);
 
 export function rollLuckHand(): LuckCard[] {

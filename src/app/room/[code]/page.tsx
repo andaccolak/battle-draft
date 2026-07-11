@@ -21,12 +21,14 @@ export default function RoomPage() {
   const code = (params?.code ?? "").toUpperCase();
   const [nickname, setNickname] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setNickname(getNickname() || "");
+    setDraft(getNickname() || "");
+    setReady(true);
   }, []);
 
-  if (nickname === null) {
+  if (!ready) {
     return <main className="flex min-h-dvh items-center justify-center text-slate-500">{t("loading")}</main>;
   }
 
@@ -129,7 +131,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
         >
           {snapshot.phase === "lobby" && (
-            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} />
+            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} />
           )}
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />

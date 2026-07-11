@@ -154,7 +154,7 @@ interface BattleStageProps {
   eventId?: string;
   arenaMap?: string;
   playerId: string;
-  onReact: (pass: boolean) => void;
+  onReact: (pass: boolean, score?: number) => void;
 }
 
 export default function BattleStage({ battle, eventId, arenaMap, playerId, onReact }: BattleStageProps) {
@@ -231,7 +231,12 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
   const pending = battle.pending ?? null;
   const atPause = pending !== null && index >= entries.length - 1;
   const qteMine = atPause && pending !== null && pending.playerId === playerId;
+  const qteAttacker = atPause && pending !== null && pending.attackerId === playerId;
   const suspense = current?.t === "windup" || atPause;
+  const weaponLost = {
+    a: visible.some((e) => (e.key === "quirkString" && e.actor === "a") || (e.key === "quirkArm" && e.actor === "b")),
+    b: visible.some((e) => (e.key === "quirkString" && e.actor === "b") || (e.key === "quirkArm" && e.actor === "a"))
+  };
   const actor = current?.actor ?? "none";
 
   return (
@@ -242,7 +247,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
             ? t("grandFinal")
             : battle.roundKey === "semifinal"
               ? t("semifinal")
-              : t("round", { n: battle.roundNumber })}
+              : battle.roundKey === "quarterfinal"
+                ? t("quarterfinal")
+                : t("round", { n: battle.roundNumber })}
+          {battle.legNumber ? ` · ${t("leg", { n: battle.legNumber })}` : ""}
         </span>
       </div>
 
@@ -286,6 +294,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
           beat={index}
           fx={fx}
           map={arenaMap ?? "colosseum"}
+          weaponLostA={weaponLost.a}
+          weaponLostB={weaponLost.b}
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}
@@ -375,7 +385,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
         </AnimatePresence>
 
         <AnimatePresence>
-          {qteMine && <QteChallenge key={`qte-${entries.length}`} onResult={onReact} />}
+          {qteMine && <QteChallenge key={`qte-${entries.length}`} mode="dodge" onResult={onReact} />}
+          {!qteMine && qteAttacker && <QteChallenge key={`qteatk-${entries.length}`} mode="attack" onResult={onReact} />}
         </AnimatePresence>
 
         <AnimatePresence>{current && current.t === "victory" && <Confetti />}</AnimatePresence>
@@ -509,7 +520,7 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
   );
 }
 
-function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
+function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: (pass: boolean, score?: number) => void }) {
   const { t } = useI18n();
   const [pos, setPos] = useState(0);
   const [result, setResult] = useState<boolean | null>(null);
@@ -526,7 +537,7 @@ function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
       if (el > 3200) {
         doneRef.current = true;
         setResult(false);
-        onResult(false);
+        onResult(false, 1);
         return;
       }
       const phase = (el % 1600) / 1600;
@@ -542,9 +553,10 @@ function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
   const tap = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const pass = Math.abs(posRef.current - 0.5) <= 0.12;
+    const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
+    const pass = offset <= 0.24;
     setResult(pass);
-    onResult(pass);
+    onResult(pass, offset);
   };
 
   return (
@@ -560,11 +572,15 @@ function QteChallenge({ onResult }: { onResult: (pass: boolean) => void }) {
           <motion.div
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ repeat: Infinity, duration: 0.5 }}
-            className="font-display text-5xl font-black text-cyan-300 drop-shadow-[0_0_20px_rgba(103,232,249,0.7)]"
+            className={`font-display text-5xl font-black ${
+              mode === "attack"
+                ? "text-amber-300 drop-shadow-[0_0_20px_rgba(252,211,77,0.7)]"
+                : "text-cyan-300 drop-shadow-[0_0_20px_rgba(103,232,249,0.7)]"
+            }`}
           >
-            {t("qteTitle")}
+            {mode === "attack" ? t("qteAttackTitle") : t("qteTitle")}
           </motion.div>
-          <div className="mt-2 text-sm font-bold text-slate-300">{t("qteHint")}</div>
+          <div className="mt-2 text-sm font-bold text-slate-300">{mode === "attack" ? t("qteAttackHint") : t("qteHint")}</div>
           <div className="relative mt-5 h-7 w-72 max-w-[85vw] overflow-hidden rounded-full border border-white/20 bg-white/10">
             <div className="absolute inset-y-0 left-[38%] w-[24%] rounded bg-emerald-500/70" />
             <div

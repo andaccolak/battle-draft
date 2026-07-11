@@ -1,5 +1,6 @@
 import type {
   ArenaMap,
+  MatchMode,
   BattlePayload,
   BracketRound,
   DraftOffer,
@@ -11,7 +12,7 @@ import type {
   Slot,
   TimelineEntry
 } from "@/lib/game/types";
-import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
+import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
@@ -57,6 +58,8 @@ interface StateBracketMatch {
   a: string | null;
   b: string | null;
   winner: string | null;
+  legWinsA?: number;
+  legWinsB?: number;
 }
 
 export interface StateBattleRecord {
@@ -85,6 +88,9 @@ export interface StateBattle extends BattlePayload {
   pausedAtMs: number;
   waitedMs: number;
   recorded: boolean;
+  defScore?: number | null;
+  atkScore?: number | null;
+  defPass?: boolean | null;
 }
 
 export interface RoomState {
@@ -105,6 +111,7 @@ export interface RoomState {
   persisted: boolean;
   matchCounter: number;
   arenaMap?: ArenaMap;
+  matchMode?: MatchMode;
   recentEventIds?: string[];
 }
 
@@ -144,7 +151,8 @@ export function createState(code: string, playerId: string, nickname: string, no
     records: [],
     persisted: false,
     matchCounter: 0,
-    arenaMap: "colosseum"
+    arenaMap: "colosseum",
+    matchMode: "single"
   };
 }
 
@@ -183,6 +191,14 @@ export function setArenaMap(state: RoomState, playerId: string, mapId: string): 
   if (state.hostId !== playerId) return "err_host_start";
   if (!ARENA_MAPS.includes(mapId as ArenaMap)) return null;
   state.arenaMap = mapId as ArenaMap;
+  return null;
+}
+
+export function setMatchMode(state: RoomState, playerId: string, modeId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  if (state.hostId !== playerId) return "err_host_start";
+  if (!MATCH_MODES.includes(modeId as MatchMode)) return null;
+  state.matchMode = modeId as MatchMode;
   return null;
 }
 
@@ -400,10 +416,13 @@ function advanceBattles(state: RoomState, now: number): void {
       state.currentMatch++;
       continue;
     }
-    const pa = findPlayer(state, match.a);
-    const pb = findPlayer(state, match.b);
+    const homeAway = (state.matchMode ?? "single") === "homeAway";
+    const legsPlayed = (match.legWinsA ?? 0) + (match.legWinsB ?? 0);
+    const swapSides = homeAway && legsPlayed % 2 === 1;
+    const pa = findPlayer(state, swapSides ? match.b : match.a);
+    const pb = findPlayer(state, swapSides ? match.a : match.b);
     if (!pa || !pb) {
-      match.winner = pa ? match.a : match.b;
+      match.winner = pa ? (swapSides ? match.b : match.a) : swapSides ? match.a : match.b;
       state.currentMatch++;
       continue;
     }
@@ -416,13 +435,14 @@ function advanceBattles(state: RoomState, now: number): void {
       aCanReact: !pa.isBot,
       bCanReact: !pb.isBot
     });
-    const remaining = state.players.filter((p) => !p.eliminated).length;
-    const roundKey = remaining <= 2 ? "final" : remaining <= 4 ? "semifinal" : "round";
+    const roundSize = round.length;
+    const roundKey = roundSize === 1 ? "final" : roundSize === 2 ? "semifinal" : roundSize <= 4 ? "quarterfinal" : "round";
     state.battle = {
       roundIndex: state.currentRound,
       matchIndex: state.currentMatch,
       roundLabel: roundKey,
       roundKey,
+      legNumber: homeAway ? legsPlayed + 1 : undefined,
       roundNumber: state.currentRound + 1,
       a: {
         nickname: pa.nickname,
@@ -515,12 +535,43 @@ function resolveReaction(state: RoomState, pass: boolean, now: number): void {
   }
 }
 
-export function reactBattle(state: RoomState, playerId: string, pass: boolean, now: number): string | null {
+function maybeResolveDuel(state: RoomState, now: number, force: boolean): void {
+  const battle = state.battle;
+  if (!battle || !battle.pendingSide) return;
+  const attackerHuman = battle.pendingSide === "a" ? battle.bCanReact : battle.aCanReact;
+  const defReady = battle.defScore !== undefined && battle.defScore !== null;
+  const atkReady = !attackerHuman || (battle.atkScore !== undefined && battle.atkScore !== null);
+  if (!force && (!defReady || !atkReady)) return;
+  let dodged = false;
+  if (defReady) {
+    dodged = attackerHuman ? (battle.defScore as number) < (battle.atkScore ?? 0.75) : battle.defPass === true;
+  }
+  battle.defScore = null;
+  battle.atkScore = null;
+  battle.defPass = null;
+  resolveReaction(state, dodged, now);
+}
+
+export function reactBattle(state: RoomState, playerId: string, pass: boolean, now: number, score?: number): string | null {
   const battle = state.battle;
   if (state.phase !== "battle" || !battle || !battle.pendingSide) return null;
-  const pendingId = battle.pendingSide === "a" ? battle.aPlayerId : battle.bPlayerId;
-  if (pendingId !== playerId) return null;
-  resolveReaction(state, pass, now);
+  const defenderId = battle.pendingSide === "a" ? battle.aPlayerId : battle.bPlayerId;
+  const attackerId = battle.pendingSide === "a" ? battle.bPlayerId : battle.aPlayerId;
+  const attackerHuman = battle.pendingSide === "a" ? battle.bCanReact : battle.aCanReact;
+  const clamped = Math.min(1, Math.max(0, score ?? (pass ? 0.05 : 1)));
+  if (playerId === defenderId) {
+    if (battle.defScore === undefined || battle.defScore === null) {
+      battle.defScore = clamped;
+      battle.defPass = pass;
+    }
+  } else if (playerId === attackerId && attackerHuman) {
+    if (battle.atkScore === undefined || battle.atkScore === null) {
+      battle.atkScore = clamped;
+    }
+  } else {
+    return null;
+  }
+  maybeResolveDuel(state, now, false);
   return null;
 }
 
@@ -529,10 +580,30 @@ function finishBattle(state: RoomState, now: number): void {
   if (!battle) return;
   const round = state.bracket[state.currentRound];
   const match = round?.[state.currentMatch];
-  if (match) match.winner = battle.winnerId;
   const winner = findPlayer(state, battle.winnerId);
-  const loser = findPlayer(state, battle.loserId);
   if (winner) winner.wins++;
+  const homeAway = (state.matchMode ?? "single") === "homeAway";
+  if (homeAway && match) {
+    if (battle.winnerId === match.a) match.legWinsA = (match.legWinsA ?? 0) + 1;
+    else match.legWinsB = (match.legWinsB ?? 0) + 1;
+    const winsA = match.legWinsA ?? 0;
+    const winsB = match.legWinsB ?? 0;
+    if (winsA < 2 && winsB < 2) {
+      state.battle = null;
+      state.nextBattleAt = now + BATTLE_GAP_MS;
+      return;
+    }
+    match.winner = winsA >= 2 ? match.a : match.b;
+    const loserId = winsA >= 2 ? match.b : match.a;
+    const loser = loserId ? findPlayer(state, loserId) : undefined;
+    if (loser) loser.eliminated = true;
+    state.battle = null;
+    state.currentMatch++;
+    state.nextBattleAt = now + BATTLE_GAP_MS;
+    return;
+  }
+  if (match) match.winner = battle.winnerId;
+  const loser = findPlayer(state, battle.loserId);
   if (loser) loser.eliminated = true;
   state.battle = null;
   state.currentMatch++;
@@ -623,7 +694,7 @@ export function tick(state: RoomState, now: number): boolean {
       changed = true;
     }
     if (state.battle && state.battle.pendingSide && state.battle.pendingDeadline !== null && now >= state.battle.pendingDeadline) {
-      resolveReaction(state, false, now);
+      maybeResolveDuel(state, now, true);
       changed = true;
     }
     if (state.battle && !state.battle.pendingSide && now >= state.battle.endsAt) {
@@ -672,6 +743,9 @@ export function snapshotFor(
       pausedAtMs,
       waitedMs,
       recorded,
+      defScore,
+      atkScore,
+      defPass,
       ...payload
     } = sb;
     const waited = waitedMs ?? 0;
@@ -684,7 +758,8 @@ export function snapshotFor(
         ? {
             side: pendingSide,
             playerId: pendingSide === "a" ? aPlayerId : bPlayerId,
-            nickname: pendingSide === "a" ? sb.a.nickname : sb.b.nickname
+            nickname: pendingSide === "a" ? sb.a.nickname : sb.b.nickname,
+            attackerId: (pendingSide === "a" ? sb.bCanReact : sb.aCanReact) ? (pendingSide === "a" ? bPlayerId : aPlayerId) : null
           }
         : null
     };
@@ -694,6 +769,7 @@ export function snapshotFor(
     phase: state.phase,
     hostId: state.hostId ?? "",
     arenaMap: state.arenaMap ?? "colosseum",
+    matchMode: state.matchMode ?? "single",
     players: state.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,

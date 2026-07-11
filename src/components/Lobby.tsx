@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
-import { ARENA_MAPS } from "@/lib/game/types";
+import { ARENA_MAPS, MATCH_MODES } from "@/lib/game/types";
 import { AVATARS, MODELED_AVATARS } from "@/lib/game/avatars";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
@@ -89,9 +89,10 @@ interface Props {
   onStart: () => void;
   onAvatar: (avatarId: string) => void;
   onMap: (mapId: string) => void;
+  onMode: (modeId: string) => void;
 }
 
-export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap }: Props) {
+export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode }: Props) {
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const solo = snapshot.players.length === 1;
@@ -159,6 +160,31 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap }: 
               >
                 <span className="text-xl">{MAP_EMOJI[mapId]}</span>
                 {t(`map_${mapId}`)}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">{t("chooseMode")}</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {MATCH_MODES.map((modeId) => {
+            const selected = snapshot.matchMode === modeId;
+            return (
+              <motion.button
+                key={modeId}
+                whileTap={isHost ? { scale: 0.95 } : undefined}
+                disabled={!isHost}
+                onClick={() => onMode(modeId)}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
+                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
+                } ${isHost ? "" : "cursor-default opacity-80"}`}
+              >
+                <span className="text-xl">{modeId === "single" ? "⚔️" : "🔁"}</span>
+                {t(`mode_${modeId}`)}
               </motion.button>
             );
           })}

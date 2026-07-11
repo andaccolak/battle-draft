@@ -582,12 +582,14 @@ interface Props {
   beat: number;
   fx: string;
   map: string;
+  weaponLostA?: boolean;
+  weaponLostB?: boolean;
   focus: "a" | "b" | "none";
   zoom: boolean;
   crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
   const rigBRef = useRef<Rig | null>(null);
@@ -603,7 +605,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
   const weatherRef = useRef<Weather | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const mapRef = useRef(map);
-  kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
+  kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
   mapRef.current = map;
 
   const spawnProjectile = (from: Rig, to: Rig, kind: FighterKind) => {
@@ -663,7 +665,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     const sun = new THREE.DirectionalLight(0xffffff, 2.2);
     sun.position.set(3, 6, 4);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024);
+    sun.shadow.mapSize.set(512, 512);
     sun.shadow.camera.left = -6;
     sun.shadow.camera.right = 6;
     sun.shadow.camera.top = 6;
@@ -842,6 +844,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
         p.elapsed += delta;
         const t = Math.min(1, p.elapsed / p.duration);
         p.mesh.position.lerpVectors(p.from, p.to, t);
+        p.mesh.position.y += Math.sin(t * Math.PI) * 0.32;
         if (t >= 1) {
           p.mesh.removeFromParent();
           projectiles.splice(i, 1);
@@ -964,6 +967,27 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       else applyPose(rigB, poseB, kinds.b, crit);
     }
   }, [poseA, poseB, beat, crit]);
+
+  useEffect(() => {
+    const dropWeapon = (rig: Rig | null, lost: boolean | undefined) => {
+      if (!rig || !lost) return;
+      const weapon = rig.group.getObjectByName("weapon_main");
+      const scene = sceneRef.current;
+      if (!weapon || !scene) return;
+      const pos = new THREE.Vector3();
+      const scale = new THREE.Vector3();
+      weapon.getWorldPosition(pos);
+      weapon.getWorldScale(scale);
+      weapon.removeFromParent();
+      weapon.name = "weapon_dropped";
+      weapon.position.set(pos.x, 0.06, pos.z);
+      weapon.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+      weapon.scale.copy(scale);
+      scene.add(weapon);
+    };
+    dropWeapon(rigARef.current, weaponLostA);
+    dropWeapon(rigBRef.current, weaponLostB);
+  }, [weaponLostA, weaponLostB]);
 
   useEffect(() => {
     zoomState.current = { focus, zoom };

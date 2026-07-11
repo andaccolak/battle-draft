@@ -87,9 +87,11 @@ function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D
   return found;
 }
 
-function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number): void {
+function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number, rotateY?: number, name = "weapon_main"): void {
   const weapon = template.clone(true);
+  weapon.name = name;
   if (scale) weapon.scale.setScalar(scale);
+  if (rotateY) weapon.rotation.y = rotateY;
   weapon.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       child.castShadow = true;
@@ -109,8 +111,8 @@ export async function attachWeapons(instance: THREE.Object3D, weapon: Item | und
   ]);
   const right = findHandSlot(instance, "r");
   const left = findHandSlot(instance, "l");
-  if (main && right && def) mountWeapon(right, main, def.scale);
-  if (off && left) mountWeapon(left, off);
+  if (main && right && def) mountWeapon(right, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0);
+  if (off && left) mountWeapon(left, off, undefined, 0, "weapon_off");
 }
 
 const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();

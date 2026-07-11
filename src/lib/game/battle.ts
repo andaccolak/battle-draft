@@ -61,6 +61,7 @@ interface Combatant {
   firstCritReady: boolean;
   poison: number;
   stunned: boolean;
+  stunImmune: boolean;
   weaponName: string;
   weaponId: string;
   windupKey: string;
@@ -213,6 +214,7 @@ function buildCombatant(
     firstCritReady: false,
     poison: 0,
     stunned: false,
+    stunImmune: false,
     weaponName: "fists",
     weaponId: "fists",
     windupKey: "windupBlade",
@@ -329,6 +331,18 @@ function buildCombatant(
     c.speed *= 1.25;
     c.initiative += 12;
   }
+  if (card === "anchor") c.stunImmune = true;
+  if (card === "bulwark") c.block += 20;
+  if (card === "sharpshooter") {
+    c.critChance += 15;
+    c.accuracy += 15;
+  }
+  if (card === "sprinter") c.firstStrike = true;
+  if (card === "flurry") c.extraAttack += 15;
+  if (card === "ironskin") c.critResist += 40;
+  if (card === "headsman") c.executioner += 40;
+  if (card === "snake") c.poisonOnHit += 5;
+  if (card === "gladiator") c.critDamage += 40;
 
   c.maxHp *= h.hpMultiplier ?? 1;
   c.maxHp += h.flatHp ?? 0;
@@ -442,19 +456,6 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         });
       }
     }
-    if (card === "curse") {
-      const id = strongestItemId(otherEquip, otherDisabled);
-      if (id) {
-        otherDisabled.push(id);
-        const item = SLOTS.map((s) => otherEquip[s]).find((i) => i?.id === id);
-        pre.push({
-          text: `💀 ${selfName}'s Curse disables ${otherName}'s ${item?.emoji ?? ""} ${item?.name ?? "item"}!`,
-          key: "curse",
-          params: { p: selfName, o: otherName, item: item?.id ?? "", emoji: item?.emoji ?? "" },
-          fx: "curse"
-        });
-      }
-    }
     if (card === "magnet") {
       const weapon = otherEquip.weapon;
       if (weapon && !otherDisabled.includes(weapon.id)) {
@@ -493,6 +494,16 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
 
   const applyBattleStartCards = (self: Combatant, selfBuild: Build, other: Combatant) => {
     const card = selfBuild.luckCard?.id;
+    if (card === "curse") {
+      other.attack *= 0.85;
+      other.defense *= 0.88;
+      pre.push({
+        text: `💀 ${self.nickname}'s Curse saps ${other.nickname}'s strength!`,
+        key: "curse",
+        params: { p: self.nickname, o: other.nickname },
+        fx: "curse"
+      });
+    }
     if (card === "lightning") {
       other.maxHp = Math.round(other.maxHp * 0.75);
       other.hp = other.maxHp;
@@ -666,7 +677,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     } else if (r < 0.6) {
       const dmg = rawDamage(att, def, 0.6);
       def.hp -= dmg;
-      const stun = roll(35);
+      const stun = roll(35) && !def.stunImmune;
       if (stun) def.stunned = true;
       push({
         t: "quirk",
@@ -969,7 +980,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         params: { d: def.nickname }
       });
     }
-    if (att.stunChance > 0 && def.hp > 0 && roll(att.stunChance)) {
+    if (att.stunChance > 0 && def.hp > 0 && roll(att.stunChance) && !def.stunImmune) {
       def.stunned = true;
       push({
         t: "passive",
@@ -1061,7 +1072,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         params: { p: lucky.nickname, n: heal },
         heal
       });
-    } else if (r < 0.72) {
+    } else if (r < 0.66) {
       const show = roll(50) ? a : b;
       push({
         t: "quirk",
@@ -1070,7 +1081,28 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         key: "quirkTaunt",
         params: { p: show.nickname }
       });
-    } else if (r < 0.86 || round <= 4) {
+    } else if (r < 0.74) {
+      const clumsy = roll(50) ? a : b;
+      clumsy.hp -= 2;
+      push({
+        t: "quirk",
+        actor: clumsy.key,
+        text: `🤧 ${clumsy.nickname} sneezed mid-stance! Embarrassing AND painful.`,
+        key: "quirkSneeze",
+        params: { p: clumsy.nickname },
+        dmg: 2
+      });
+      tryRevive(clumsy);
+    } else if (r < 0.8) {
+      const tripper = roll(50) ? a : b;
+      push({
+        t: "quirk",
+        actor: tripper.key,
+        text: `🪢 ${tripper.nickname} tripped over their own bootlaces!`,
+        key: "quirkTrip",
+        params: { p: tripper.nickname }
+      });
+    } else if (r < 0.9 || round <= 4) {
       push({
         t: "quirk",
         actor: "none",

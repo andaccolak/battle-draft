@@ -134,13 +134,15 @@ export interface PendingReaction {
   side: "a" | "b";
   playerId: string;
   nickname: string;
+  attackerId: string | null;
 }
 
 export interface BattlePayload {
   roundIndex: number;
   matchIndex: number;
   roundLabel: string;
-  roundKey: "final" | "semifinal" | "round";
+  roundKey: "final" | "semifinal" | "quarterfinal" | "round";
+  legNumber?: number;
   roundNumber: number;
   elapsedMs?: number;
   pending?: PendingReaction | null;
@@ -154,11 +156,15 @@ export interface BattlePayload {
 export const ARENA_MAPS = ["colosseum", "dungeon"] as const;
 export type ArenaMap = (typeof ARENA_MAPS)[number];
 
+export const MATCH_MODES = ["single", "homeAway"] as const;
+export type MatchMode = (typeof MATCH_MODES)[number];
+
 export interface RoomSnapshot {
   code: string;
   phase: Phase;
   hostId: string;
   arenaMap: ArenaMap;
+  matchMode: MatchMode;
   players: PublicPlayer[];
   draftRound: number;
   totalDraftRounds: number;
