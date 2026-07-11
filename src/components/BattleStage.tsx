@@ -16,7 +16,7 @@ interface FloatingNumber {
   id: number;
   side: "a" | "b";
   value: string;
-  kind: "dmg" | "heal" | "note";
+  kind: "dmg" | "heal" | "note" | "crit";
 }
 
 type FxKind = "rain" | "storm" | "snow" | "fog" | "sun" | "night" | "bloodmoon" | "poison" | "wind" | "quake" | "overcast" | "none";
@@ -149,15 +149,23 @@ function playSound(entry: TimelineEntry): void {
   else if (entry.heal) sfx.heal();
 }
 
+interface MatchResult {
+  a: string;
+  b: string;
+  winner: string;
+}
+
 interface BattleStageProps {
   battle: BattlePayload;
   eventId?: string;
   arenaMap?: string;
   playerId: string;
+  spectators?: { nickname: string; eliminated: boolean }[];
+  results?: MatchResult[];
   onReact: (pass: boolean, score?: number) => void;
 }
 
-export default function BattleStage({ battle, eventId, arenaMap, playerId, onReact }: BattleStageProps) {
+export default function BattleStage({ battle, eventId, arenaMap, playerId, spectators, results, onReact }: BattleStageProps) {
   const { t, logLine } = useI18n();
   const [index, setIndex] = useState(() => indexForElapsed(battle.timeline, battle.elapsedMs ?? 0));
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
@@ -205,10 +213,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
       floatId.current++;
       setFloats((f) => [...f, { id: floatId.current, side: entry.actor === "a" ? "a" : "b", value: `-${entry.dmg}`, kind: "dmg" }]);
     }
-    const pushNote = (side: "a" | "b", text: string, delay: number) => {
+    const pushNote = (side: "a" | "b", text: string, delay: number, kind: "note" | "crit" = "note") => {
       setTimeout(() => {
         floatId.current++;
-        setFloats((f) => [...f, { id: floatId.current, side, value: text, kind: "note" }]);
+        setFloats((f) => [...f, { id: floatId.current, side, value: text, kind }]);
       }, delay);
     };
     const other = entry.actor === "a" ? "b" : "a";
@@ -216,6 +224,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
       if (entry.t === "miss") pushNote(entry.actor, t("noteMiss"), 620);
       if (entry.t === "dodge") pushNote(other, t("noteDodge"), 480);
       if (entry.t === "attack" && entry.blocked) pushNote(other, t("noteBlock"), 620);
+      if (entry.t === "attack" && entry.crit) pushNote(other, t("noteCrit"), 620, "crit");
       if (entry.t === "passive" && entry.key === "stunApplied") pushNote(other, t("noteStun"), 120);
       if (entry.t === "passive" && entry.key === "revive") pushNote(entry.actor, t("noteRevive"), 120);
     }
@@ -457,6 +466,34 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, onRea
           </motion.div>
         ))}
       </div>
+
+      {((spectators && spectators.length > 0) || (results && results.length > 0)) && (
+        <div className="mt-2 shrink-0 space-y-1 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-snug">
+          {spectators && spectators.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-400">
+              <span className="font-bold uppercase tracking-wider text-slate-500">👀 {t("spectators")}:</span>
+              {spectators.map((s) => (
+                <span key={s.nickname} className={s.eliminated ? "line-through opacity-60" : ""}>
+                  {s.eliminated ? "💀 " : ""}
+                  {s.nickname}
+                </span>
+              ))}
+            </div>
+          )}
+          {results && results.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-400">
+              <span className="font-bold uppercase tracking-wider text-slate-500">🏁 {t("results")}:</span>
+              {results.slice(-5).map((r, i) => (
+                <span key={i}>
+                  <span className={r.winner === r.a ? "font-bold text-emerald-300" : ""}>{r.a}</span>
+                  {" – "}
+                  <span className={r.winner === r.b ? "font-bold text-emerald-300" : ""}>{r.b}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -554,7 +591,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
     if (doneRef.current) return;
     doneRef.current = true;
     const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
-    const pass = offset <= 0.24;
+    const pass = offset <= 0.14;
     setResult(pass);
     onResult(pass, offset);
   };
@@ -572,7 +609,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           <motion.div
             animate={{ scale: [1, 1.08, 1] }}
             transition={{ repeat: Infinity, duration: 0.5 }}
-            className={`font-display text-5xl font-black ${
+            className={`font-display text-4xl font-black ${
               mode === "attack"
                 ? "text-amber-300 drop-shadow-[0_0_20px_rgba(252,211,77,0.7)]"
                 : "text-cyan-300 drop-shadow-[0_0_20px_rgba(103,232,249,0.7)]"
@@ -582,7 +619,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           </motion.div>
           <div className="mt-2 text-sm font-bold text-slate-300">{mode === "attack" ? t("qteAttackHint") : t("qteHint")}</div>
           <div className="relative mt-5 h-7 w-72 max-w-[85vw] overflow-hidden rounded-full border border-white/20 bg-white/10">
-            <div className="absolute inset-y-0 left-[38%] w-[24%] rounded bg-emerald-500/70" />
+            <div className={`absolute inset-y-0 left-[43%] w-[14%] rounded ${mode === "attack" ? "bg-amber-500/80" : "bg-emerald-500/70"}`} />
             <div
               className="absolute inset-y-0 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
               style={{ left: `${pos * 100}%` }}
@@ -594,7 +631,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           initial={{ scale: 2.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 12 }}
-          className={`font-display text-5xl font-black ${result ? "text-emerald-300" : "text-rose-400"}`}
+          className={`font-display text-2xl font-black ${result ? "text-emerald-300" : "text-rose-400"}`}
         >
           {result ? `✅ ${t("qtePerfect")}` : `❌ ${t("qteFailed")}`}
         </motion.div>
@@ -671,7 +708,13 @@ function FloatLayer({ floats }: { floats: FloatingNumber[] }) {
             animate={{ y: -55, opacity: 0 }}
             transition={{ duration: 1.1 }}
             className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-display font-black ${
-              f.kind === "note" ? "text-lg text-cyan-300" : f.kind === "heal" ? "text-2xl text-emerald-400" : "text-2xl text-rose-400"
+              f.kind === "note"
+                ? "text-lg text-cyan-300"
+                : f.kind === "crit"
+                  ? "text-xl text-orange-400"
+                  : f.kind === "heal"
+                    ? "text-2xl text-emerald-400"
+                    : "text-2xl text-rose-400"
             }`}
           >
             {f.value}

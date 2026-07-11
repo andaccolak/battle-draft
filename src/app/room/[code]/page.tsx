@@ -24,9 +24,14 @@ export default function RoomPage() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setDraft(getNickname() || "");
+    const stored = getNickname() || "";
+    setDraft(stored);
+    if (stored && sessionStorage.getItem("bd_nick_ok") === code) {
+      sessionStorage.removeItem("bd_nick_ok");
+      setNickname(stored);
+    }
     setReady(true);
-  }, []);
+  }, [code]);
 
   if (!ready) {
     return <main className="flex min-h-dvh items-center justify-center text-slate-500">{t("loading")}</main>;
@@ -131,7 +136,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
         >
           {snapshot.phase === "lobby" && (
-            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} />
+            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} onTourney={game.chooseTourney} />
           )}
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />
@@ -141,7 +146,20 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
               <div className="h-[calc(100dvh-8rem)] min-h-[540px]">
-                <BattleStage battle={snapshot.battle} eventId={snapshot.event?.id} arenaMap={snapshot.arenaMap} playerId={game.playerId} onReact={game.reactBattle} />
+                <BattleStage
+                  battle={snapshot.battle}
+                  eventId={snapshot.event?.id}
+                  arenaMap={snapshot.arenaMap}
+                  playerId={game.playerId}
+                  spectators={snapshot.players
+                    .filter((p) => p.nickname !== snapshot.battle?.a.nickname && p.nickname !== snapshot.battle?.b.nickname)
+                    .map((p) => ({ nickname: p.nickname, eliminated: p.eliminated }))}
+                  results={(snapshot.bracket ?? [])
+                    .flatMap((r) => r.matches)
+                    .filter((m): m is { a: string; b: string; winner: string } => !!m.winner && !!m.a && !!m.b)
+                    .map((m) => ({ a: m.a, b: m.b, winner: m.winner }))}
+                  onReact={game.reactBattle}
+                />
               </div>
             ) : (
               snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />

@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
-import { ARENA_MAPS, MATCH_MODES } from "@/lib/game/types";
+import { ARENA_MAPS, MATCH_MODES, TOURNEY_MODES } from "@/lib/game/types";
 import { AVATARS, MODELED_AVATARS } from "@/lib/game/avatars";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
@@ -90,9 +90,10 @@ interface Props {
   onAvatar: (avatarId: string) => void;
   onMap: (mapId: string) => void;
   onMode: (modeId: string) => void;
+  onTourney: (modeId: string) => void;
 }
 
-export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode }: Props) {
+export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode, onTourney }: Props) {
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const solo = snapshot.players.length === 1;
@@ -160,6 +161,31 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
               >
                 <span className="text-xl">{MAP_EMOJI[mapId]}</span>
                 {t(`map_${mapId}`)}
+              </motion.button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="card-surface p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-bold">{t("chooseTourney")}</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {TOURNEY_MODES.map((modeId) => {
+            const selected = snapshot.tourneyMode === modeId;
+            return (
+              <motion.button
+                key={modeId}
+                whileTap={isHost ? { scale: 0.95 } : undefined}
+                disabled={!isHost}
+                onClick={() => onTourney(modeId)}
+                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
+                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
+                } ${isHost ? "" : "cursor-default opacity-80"}`}
+              >
+                <span className="text-xl">{modeId === "knockout" ? "🏆" : "📊"}</span>
+                {t(`tourney_${modeId}`)}
               </motion.button>
             );
           })}

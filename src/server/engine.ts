@@ -1,6 +1,7 @@
 import type {
   ArenaMap,
   MatchMode,
+  TourneyMode,
   BattlePayload,
   BracketRound,
   DraftOffer,
@@ -12,7 +13,7 @@ import type {
   Slot,
   TimelineEntry
 } from "@/lib/game/types";
-import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS } from "@/lib/game/types";
+import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
@@ -112,6 +113,8 @@ export interface RoomState {
   matchCounter: number;
   arenaMap?: ArenaMap;
   matchMode?: MatchMode;
+  tourneyMode?: TourneyMode;
+  leagueStage?: "league" | "semis" | "final" | null;
   recentEventIds?: string[];
 }
 
@@ -152,7 +155,9 @@ export function createState(code: string, playerId: string, nickname: string, no
     persisted: false,
     matchCounter: 0,
     arenaMap: "colosseum",
-    matchMode: "single"
+    matchMode: "single",
+    tourneyMode: "knockout",
+    leagueStage: null
   };
 }
 
@@ -200,6 +205,44 @@ export function setMatchMode(state: RoomState, playerId: string, modeId: string)
   if (!MATCH_MODES.includes(modeId as MatchMode)) return null;
   state.matchMode = modeId as MatchMode;
   return null;
+}
+
+export function setTourneyMode(state: RoomState, playerId: string, modeId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  if (state.hostId !== playerId) return "err_host_start";
+  if (!TOURNEY_MODES.includes(modeId as TourneyMode)) return null;
+  state.tourneyMode = modeId as TourneyMode;
+  return null;
+}
+
+function isLeague(state: RoomState): boolean {
+  return (state.tourneyMode ?? "knockout") === "league";
+}
+
+function homeAwayActive(state: RoomState): boolean {
+  if ((state.matchMode ?? "single") !== "homeAway") return false;
+  if (!isLeague(state)) return true;
+  return state.leagueStage === "semis";
+}
+
+function roundRobinRounds(ids: string[]): StateBracketMatch[][] {
+  const list = [...ids];
+  if (list.length % 2 === 1) list.push("");
+  const n = list.length;
+  const rounds: StateBracketMatch[][] = [];
+  const arr = [...list];
+  for (let r = 0; r < n - 1; r++) {
+    const matches: StateBracketMatch[] = [];
+    for (let i = 0; i < n / 2; i++) {
+      const x = arr[i];
+      const y = arr[n - 1 - i];
+      if (x && y) matches.push({ a: x, b: y, winner: null });
+    }
+    if (matches.length > 0) rounds.push(matches);
+    const last = arr.pop();
+    if (last !== undefined) arr.splice(1, 0, last);
+  }
+  return rounds;
 }
 
 export function touch(state: RoomState, playerId: string, now: number): boolean {
@@ -372,11 +415,20 @@ function beginEventPhase(state: RoomState, now: number): void {
       ids[j] = a;
     }
   }
-  const round: StateBracketMatch[] = [];
-  for (let i = 0; i < ids.length; i += 2) {
-    round.push({ a: ids[i] ?? null, b: ids[i + 1] ?? null, winner: null });
+  if (isLeague(state) && ids.length > 2) {
+    state.bracket = roundRobinRounds(ids);
+    state.leagueStage = "league";
+  } else if (isLeague(state)) {
+    state.bracket = [[{ a: ids[0] ?? null, b: ids[1] ?? null, winner: null }]];
+    state.leagueStage = "final";
+  } else {
+    const round: StateBracketMatch[] = [];
+    for (let i = 0; i < ids.length; i += 2) {
+      round.push({ a: ids[i] ?? null, b: ids[i + 1] ?? null, winner: null });
+    }
+    state.bracket = [round];
+    state.leagueStage = null;
   }
-  state.bracket = [round];
   state.currentRound = 0;
   state.currentMatch = 0;
 }
@@ -390,6 +442,32 @@ function advanceBattles(state: RoomState, now: number): void {
     const round = state.bracket[state.currentRound];
     if (!round) return;
     if (state.currentMatch >= round.length) {
+      if (isLeague(state) && state.leagueStage === "league") {
+        if (state.currentRound < state.bracket.length - 1) {
+          state.currentRound++;
+          state.currentMatch = 0;
+          continue;
+        }
+        const standings = [...state.players].sort((x, y) => y.wins - x.wins);
+        const qualifiers = standings.slice(0, standings.length >= 6 ? 4 : 2);
+        const qualified = new Set(qualifiers.map((p) => p.id));
+        for (const p of state.players) {
+          if (!qualified.has(p.id)) p.eliminated = true;
+        }
+        if (qualifiers.length >= 4) {
+          state.bracket.push([
+            { a: qualifiers[0]?.id ?? null, b: qualifiers[3]?.id ?? null, winner: null },
+            { a: qualifiers[1]?.id ?? null, b: qualifiers[2]?.id ?? null, winner: null }
+          ]);
+          state.leagueStage = "semis";
+        } else {
+          state.bracket.push([{ a: qualifiers[0]?.id ?? null, b: qualifiers[1]?.id ?? null, winner: null }]);
+          state.leagueStage = "final";
+        }
+        state.currentRound++;
+        state.currentMatch = 0;
+        continue;
+      }
       const winners = round.map((m) => m.winner).filter((w): w is string => w !== null);
       if (winners.length <= 1) {
         state.phase = "champion";
@@ -405,6 +483,7 @@ function advanceBattles(state: RoomState, now: number): void {
         next.push({ a: winners[i] ?? null, b: winners[i + 1] ?? null, winner: null });
       }
       state.bracket.push(next);
+      if (isLeague(state) && state.leagueStage === "semis") state.leagueStage = "final";
       state.currentRound++;
       state.currentMatch = 0;
       continue;
@@ -416,7 +495,7 @@ function advanceBattles(state: RoomState, now: number): void {
       state.currentMatch++;
       continue;
     }
-    const homeAway = (state.matchMode ?? "single") === "homeAway";
+    const homeAway = homeAwayActive(state);
     const legsPlayed = (match.legWinsA ?? 0) + (match.legWinsB ?? 0);
     const swapSides = homeAway && legsPlayed % 2 === 1;
     const pa = findPlayer(state, swapSides ? match.b : match.a);
@@ -436,7 +515,19 @@ function advanceBattles(state: RoomState, now: number): void {
       bCanReact: !pb.isBot
     });
     const roundSize = round.length;
-    const roundKey = roundSize === 1 ? "final" : roundSize === 2 ? "semifinal" : roundSize <= 4 ? "quarterfinal" : "round";
+    const roundKey = isLeague(state)
+      ? state.leagueStage === "final"
+        ? "final"
+        : state.leagueStage === "semis"
+          ? "semifinal"
+          : "round"
+      : roundSize === 1
+        ? "final"
+        : roundSize === 2
+          ? "semifinal"
+          : roundSize <= 4
+            ? "quarterfinal"
+            : "round";
     state.battle = {
       roundIndex: state.currentRound,
       matchIndex: state.currentMatch,
@@ -542,9 +633,15 @@ function maybeResolveDuel(state: RoomState, now: number, force: boolean): void {
   const defReady = battle.defScore !== undefined && battle.defScore !== null;
   const atkReady = !attackerHuman || (battle.atkScore !== undefined && battle.atkScore !== null);
   if (!force && (!defReady || !atkReady)) return;
+  const ZONE = 0.14;
   let dodged = false;
   if (defReady) {
-    dodged = attackerHuman ? (battle.defScore as number) < (battle.atkScore ?? 0.75) : battle.defPass === true;
+    if (battle.defPass === true) {
+      dodged = true;
+    } else if (attackerHuman) {
+      const atk = battle.atkScore ?? 0.75;
+      dodged = atk <= ZONE ? false : (battle.defScore as number) < atk;
+    }
   }
   battle.defScore = null;
   battle.atkScore = null;
@@ -582,7 +679,14 @@ function finishBattle(state: RoomState, now: number): void {
   const match = round?.[state.currentMatch];
   const winner = findPlayer(state, battle.winnerId);
   if (winner) winner.wins++;
-  const homeAway = (state.matchMode ?? "single") === "homeAway";
+  if (isLeague(state) && state.leagueStage === "league") {
+    if (match) match.winner = battle.winnerId;
+    state.battle = null;
+    state.currentMatch++;
+    state.nextBattleAt = now + BATTLE_GAP_MS;
+    return;
+  }
+  const homeAway = homeAwayActive(state);
   if (homeAway && match) {
     if (battle.winnerId === match.a) match.legWinsA = (match.legWinsA ?? 0) + 1;
     else match.legWinsB = (match.legWinsB ?? 0) + 1;
@@ -633,6 +737,7 @@ export function playAgain(state: RoomState, playerId: string, now: number): stri
   state.nextBattleAt = null;
   state.champion = null;
   state.records = [];
+  state.leagueStage = null;
   reassignHost(state);
   return null;
 }
@@ -770,6 +875,7 @@ export function snapshotFor(
     hostId: state.hostId ?? "",
     arenaMap: state.arenaMap ?? "colosseum",
     matchMode: state.matchMode ?? "single",
+    tourneyMode: state.tourneyMode ?? "knockout",
     players: state.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,

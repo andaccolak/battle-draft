@@ -39,6 +39,7 @@ export default function HomePage() {
       });
       const data = (await res.json()) as { code?: string; error?: string };
       if (data.code) {
+        sessionStorage.setItem("bd_nick_ok", data.code);
         router.push(`/room/${data.code}`);
         return;
       }
@@ -56,6 +57,7 @@ export default function HomePage() {
       setError(t("codeLength"));
       return;
     }
+    sessionStorage.setItem("bd_nick_ok", code.trim().toUpperCase());
     router.push(`/room/${code.trim().toUpperCase()}`);
   };
 

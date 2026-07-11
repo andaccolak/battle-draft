@@ -186,8 +186,8 @@ function buildCombatant(
   const c: Combatant = {
     key,
     nickname: build.nickname,
-    hp: 100,
-    maxHp: 100,
+    hp: 200,
+    maxHp: 200,
     shield: 0,
     attack: 12,
     defense: 0,
@@ -527,7 +527,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         });
       } else {
         self.attack *= 0.55;
-        self.maxHp = Math.max(30, Math.round(self.maxHp * 0.55));
+        self.maxHp = Math.max(60, Math.round(self.maxHp * 0.55));
         self.hp = self.maxHp;
         pre.push({
           text: `🎰 ${self.nickname} goes ALL IN... and BUSTS! Attack and HP crumble!`,

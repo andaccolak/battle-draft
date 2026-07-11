@@ -34,7 +34,9 @@ function getStudio(): Studio | null {
   renderer.setPixelRatio(1);
   renderer.setSize(THUMB_W, THUMB_H);
   renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.6));
   scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.5));
   const sun = new THREE.DirectionalLight(0xffffff, 2.2);
   sun.position.set(2, 4, 3);

@@ -297,6 +297,7 @@ function acquireRenderer(): THREE.WebGLRenderer {
     sharedRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
     sharedRenderer.shadowMap.enabled = true;
     sharedRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    sharedRenderer.outputColorSpace = THREE.SRGBColorSpace;
   }
   return sharedRenderer;
 }
@@ -660,6 +661,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     const renderer = acquireRenderer();
     container.appendChild(renderer.domElement);
 
+    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.1);
     scene.add(hemi);
     const sun = new THREE.DirectionalLight(0xffffff, 2.2);

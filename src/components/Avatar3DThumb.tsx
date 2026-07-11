@@ -28,6 +28,7 @@ export default function Avatar3DThumb({ avatarId, className }: Props) {
     renderer.setClearColor(0x000000, 0);
     container.appendChild(renderer.domElement);
 
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     scene.add(new THREE.HemisphereLight(0xffffff, 0x334455, 1.4));
     const sun = new THREE.DirectionalLight(0xffffff, 2);
     sun.position.set(2, 4, 3);

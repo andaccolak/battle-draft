@@ -159,12 +159,16 @@ export type ArenaMap = (typeof ARENA_MAPS)[number];
 export const MATCH_MODES = ["single", "homeAway"] as const;
 export type MatchMode = (typeof MATCH_MODES)[number];
 
+export const TOURNEY_MODES = ["knockout", "league"] as const;
+export type TourneyMode = (typeof TOURNEY_MODES)[number];
+
 export interface RoomSnapshot {
   code: string;
   phase: Phase;
   hostId: string;
   arenaMap: ArenaMap;
   matchMode: MatchMode;
+  tourneyMode: TourneyMode;
   players: PublicPlayer[];
   draftRound: number;
   totalDraftRounds: number;
