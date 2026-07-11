@@ -46,10 +46,17 @@ const ATTACK_POOLS: Record<FighterKind, string[]> = {
   fists: ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick"]
 };
 
-const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_1H_Attack_Jump_Chop"];
+const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_2H_Attack_Spin", "Melee_1H_Attack_Jump_Chop"];
 const MELEE_KINDS = new Set<FighterKind>(["blade", "heavy", "dual", "fists"]);
 const REACTION_POSES = new Set<Pose>(["hit", "knockdown", "block", "dodge", "roll"]);
 const CHAR_HEIGHT = 2.4;
+const RUN_SPEED = 5.5;
+const WALK_SPEED = 0.55;
+
+const IDLE_POOLS: Partial<Record<FighterKind, string[]>> = {
+  fists: ["Melee_Unarmed_Idle", IDLE_CLIP],
+  heavy: ["Melee_2H_Idle", IDLE_CLIP]
+};
 
 function impactMsFor(kind: FighterKind): number {
   return MELEE_KINDS.has(kind) ? 700 : 560;
@@ -254,6 +261,8 @@ interface Rig {
   reactTimer: ReturnType<typeof setTimeout> | null;
   placeholder: boolean;
   marker: THREE.MeshBasicMaterial | null;
+  moveSpeed: number | null;
+  idleClip: string;
 }
 
 interface Projectile {
@@ -315,7 +324,9 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     actionTimer: null,
     reactTimer: null,
     placeholder: true,
-    marker: null
+    marker: null,
+    moveSpeed: null,
+    idleClip: IDLE_CLIP
   };
 }
 
@@ -390,7 +401,7 @@ function playAction(
     const onFinished = (e: { action: THREE.AnimationAction }) => {
       if (e.action !== target) return;
       mixer.removeEventListener("finished", onFinished as never);
-      const idle = getAction(rig, IDLE_CLIP);
+      const idle = getAction(rig, rig.idleClip) ?? getAction(rig, IDLE_CLIP);
       if (idle && rig.current === target) {
         idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
         target.fadeOut(0.3);
@@ -406,6 +417,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   rig.returnTimer = setTimeout(() => {
     rig.targetPos.copy(rig.base);
     rig.targetTilt = 0;
+    rig.moveSpeed = null;
   }, ms);
 }
 
@@ -419,11 +431,12 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
     rig.actionTimer = null;
   }
   rig.targetTilt = 0;
+  rig.moveSpeed = null;
+  rig.idleClip = pickAvailable(rig, IDLE_POOLS[kind] ?? [IDLE_CLIP], false) ?? IDLE_CLIP;
   switch (pose) {
     case "idle":
       rig.targetPos.copy(rig.base);
-      if (Math.random() < 0.18) playAction(rig, ["Skeletons_Taunt"], { once: true, backToIdle: true });
-      else playAction(rig, [IDLE_CLIP]);
+      playAction(rig, [rig.idleClip]);
       break;
     case "guard":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.25);
@@ -441,23 +454,28 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
         playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
       } else if (rig.clips?.has("Walking_A")) {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 0.35);
+        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.0);
+        rig.moveSpeed = WALK_SPEED;
         playAction(rig, ["Walking_A"]);
       } else {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, [IDLE_CLIP]);
+        playAction(rig, [rig.idleClip]);
       }
       break;
     case "attack": {
-      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.25 : 0.2);
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.7 : 0.2);
       const pool = ATTACK_POOLS[kind];
       const strike =
         crit && MELEE_KINDS.has(kind)
           ? (pickAvailable(rig, CRIT_POOL, true) ?? pickAvailable(rig, pool, true))
           : pickAvailable(rig, pool, true);
       if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
+        rig.moveSpeed = RUN_SPEED;
         playAction(rig, ["Running_A"]);
-        rig.actionTimer = setTimeout(() => playAction(rig, [strike], { once: true, backToIdle: true }), 320);
+        rig.actionTimer = setTimeout(() => {
+          rig.moveSpeed = null;
+          playAction(rig, [strike], { once: true, backToIdle: true });
+        }, 320);
       } else if (strike) {
         playAction(rig, [strike], { once: true, backToIdle: true });
         if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, 320);
@@ -490,7 +508,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       break;
     case "roll":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 1);
-      playAction(rig, ["Dodge_Backward", "Dodge_Left"], { once: true, backToIdle: true });
+      playAction(rig, ["Dodge_Backward", "Dodge_Forward", "Dodge_Left"], { once: true, backToIdle: true, random: true });
       scheduleReturn(rig, 700);
       break;
     case "stun":
@@ -543,7 +561,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
   const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
   const weatherRef = useRef<Weather | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
+  const mapRef = useRef(map);
   kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
+  mapRef.current = map;
 
   const spawnProjectile = (from: Rig, to: Rig, kind: FighterKind) => {
     const scene = sceneRef.current;
@@ -575,7 +595,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 60);
+    const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 95);
     camera.position.set(0, 3, 8);
     cameraRef.current = camera;
 
@@ -642,7 +662,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     dom.style.touchAction = "none";
     const pointers = new Map<number, { x: number; y: number }>();
     let pinchDist = 0;
-    const clampZoom = (v: number) => Math.min(1.6, Math.max(0.55, v));
+    const clampZoom = (v: number) => Math.min(2.8, Math.max(0.55, v));
     const onPointerDown = (e: PointerEvent) => {
       pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dom.setPointerCapture(e.pointerId);
@@ -690,13 +710,22 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     let frame = 0;
     const orbit = { azimuth: cameraState.azimuth, dist: 8, lookX: 0, elev: cameraState.elev };
     const lookAt = new THREE.Vector3(0, 1.15, 0);
+    const moveVec = new THREE.Vector3();
     const animate = () => {
       frame = requestAnimationFrame(animate);
       const delta = clock.getDelta();
       const damp = 1 - Math.pow(0.0001, delta);
       for (const rig of [rigA, rigB]) {
         rig.mixer?.update(delta);
-        rig.group.position.lerp(rig.targetPos, damp * 0.9);
+        if (rig.moveSpeed) {
+          moveVec.subVectors(rig.targetPos, rig.group.position);
+          const remaining = moveVec.length();
+          if (remaining > 0.02) {
+            rig.group.position.addScaledVector(moveVec.normalize(), Math.min(rig.moveSpeed * delta, remaining));
+          }
+        } else {
+          rig.group.position.lerp(rig.targetPos, damp * 0.9);
+        }
         rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
       }
       const projectiles = projectilesRef.current;
@@ -714,7 +743,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       weatherRef.current?.update(delta);
       orbit.azimuth += (cameraState.azimuth - orbit.azimuth) * damp * 0.9;
       orbit.elev += (cameraState.elev - orbit.elev) * damp * 0.9;
-      orbit.dist += (camTarget.current.z * cameraState.zoom - orbit.dist) * damp * 0.6;
+      const maxDist = mapRef.current === "dungeon" ? 18 : 34;
+      orbit.dist += (Math.min(maxDist, camTarget.current.z * cameraState.zoom) - orbit.dist) * damp * 0.6;
       orbit.lookX += (camTarget.current.x - orbit.lookX) * damp * 0.6;
       camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
       lookAt.set(orbit.lookX, 1.15, 0);
@@ -769,7 +799,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     const colors = ARENA_COLORS[fx] ?? ARENA_COLORS.none;
     if (!scene || !colors) return;
     scene.background = new THREE.Color(colors.bg);
-    scene.fog = new THREE.Fog(colors.fog, 10, 44);
+    scene.fog = new THREE.Fog(colors.fog, 12, 62);
     const floorMat = floorRef.current?.material as THREE.MeshStandardMaterial | undefined;
     if (floorMat) floorMat.color.set(colors.floor);
     const ringMat = ringRef.current?.material as THREE.MeshStandardMaterial | undefined;
