@@ -7,6 +7,7 @@ import type { AvatarDef } from "@/lib/game/avatars";
 
 export type Pose =
   | "idle"
+  | "guard"
   | "windup"
   | "attack"
   | "hit"

@@ -1,4 +1,4 @@
-import type { Item } from "./types";
+import type { Item, Slot } from "./types";
 
 export const ITEMS: Item[] = [
   { id: "w_rusty_sword", name: "Rusty Sword", emoji: "🗡️", slot: "weapon", rarity: "common", stats: { attack: 14 } },
@@ -121,6 +121,22 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
 export function weaponModelFor(item: Item | undefined): WeaponModelDef | undefined {
   if (!item) return undefined;
   return WEAPON_MODELS[baseWeaponId(item)];
+}
+
+const SHIELD_MODELS: Record<string, string> = {
+  a_titan: "shield_square",
+  c_guardian_charm: "shield_badge"
+};
+
+export function shieldModelFor(equipment: Partial<Record<Slot, Item>>, disabledItems: string[]): string | undefined {
+  for (const item of Object.values(equipment)) {
+    if (!item || disabledItems.includes(item.id)) continue;
+    const type = item.passive?.type;
+    if (type === "block" || type === "shield") {
+      return SHIELD_MODELS[baseWeaponId(item)] ?? "shield_round";
+    }
+  }
+  return undefined;
 }
 
 export function weaponVisualKindFor(item: Item | undefined): WeaponVisualKind {

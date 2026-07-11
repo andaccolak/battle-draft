@@ -29,8 +29,6 @@ export const AVATARS: AvatarDef[] = [
   { id: "mystic", skin: "#f1d3c2", hair: "#a855f7", style: "long", outfit: "#581c87", trim: "#e879f9" },
   { id: "golem", skin: "#9ca3af", hair: "#6b7280", style: "bald", outfit: "#4b5563", trim: "#10b981" },
   { id: "punk", skin: "#e8b48c", hair: "#22c55e", style: "mohawk", outfit: "#171717", trim: "#22d3ee" },
-  { id: "valkyrie", skin: "#f5d0b0", hair: "#f8fafc", style: "bob", outfit: "#0e7490", trim: "#fde047" },
-  { id: "monk", skin: "#d9a06b", hair: "#a16207", style: "bald", outfit: "#ea580c", trim: "#fef3c7" },
   { id: "frost", skin: "#bfdbfe", hair: "#e0f2fe", style: "afro", outfit: "#1e40af", trim: "#93c5fd" },
   { id: "minotaur", skin: "#c2846a", hair: "#78350f", style: "horns", outfit: "#78350f", trim: "#f59e0b", beard: "#57281a" }
 ];

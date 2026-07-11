@@ -96,12 +96,13 @@ function mountWeapon(slot: THREE.Object3D, template: THREE.Group): void {
   slot.add(weapon);
 }
 
-export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined): Promise<void> {
+export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined, shieldModel?: string): Promise<void> {
   const def = weaponModelFor(weapon);
-  if (!def) return;
+  const offhandName = def?.offhand ?? shieldModel;
+  if (!def && !offhandName) return;
   const [main, off] = await Promise.all([
-    loadWeaponModel(def.model),
-    def.offhand ? loadWeaponModel(def.offhand) : Promise.resolve(null)
+    def ? loadWeaponModel(def.model) : Promise.resolve(null),
+    offhandName ? loadWeaponModel(offhandName) : Promise.resolve(null)
   ]);
   const right = findHandSlot(instance, "r");
   const left = findHandSlot(instance, "l");

@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import type { FighterView } from "@/lib/game/types";
 import { avatarById } from "@/lib/game/avatars";
-import { weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/items";
+import { shieldModelFor, weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize, attachWeapons } from "@/lib/three/characterAssets";
 import { buildDungeonArena } from "@/lib/three/arenaKits";
@@ -48,6 +48,12 @@ const ATTACK_POOLS: Record<FighterKind, string[]> = {
 
 const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_1H_Attack_Jump_Chop"];
 const MELEE_KINDS = new Set<FighterKind>(["blade", "heavy", "dual", "fists"]);
+const REACTION_POSES = new Set<Pose>(["hit", "knockdown", "block", "dodge", "roll"]);
+const CHAR_HEIGHT = 2.4;
+
+function impactMsFor(kind: FighterKind): number {
+  return MELEE_KINDS.has(kind) ? 700 : 560;
+}
 
 function activeWeapon(fighter: FighterView): Item | undefined {
   const weapon = fighter.equipment.weapon;
@@ -245,15 +251,24 @@ interface Rig {
   targetTilt: number;
   returnTimer: ReturnType<typeof setTimeout> | null;
   actionTimer: ReturnType<typeof setTimeout> | null;
+  reactTimer: ReturnType<typeof setTimeout> | null;
   placeholder: boolean;
   marker: THREE.MeshBasicMaterial | null;
+}
+
+interface Projectile {
+  mesh: THREE.Object3D;
+  from: THREE.Vector3;
+  to: THREE.Vector3;
+  elapsed: number;
+  duration: number;
 }
 
 const cameraState = { azimuth: 0, elev: 3, zoom: 1 };
 
 function attachMarker(rig: Rig, color: number): void {
   const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
-  const ring = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.58, 32), mat);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(0.58, 0.78, 32), mat);
   ring.rotation.x = -Math.PI / 2;
   ring.position.y = 0.03;
   rig.group.add(ring);
@@ -275,8 +290,8 @@ function attachNameSprite(rig: Rig, name: string, color: string): void {
   ctx.fillText(name.slice(0, 12), 128, 32);
   const texture = new THREE.CanvasTexture(canvas);
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
-  sprite.scale.set(1.5, 0.375, 1);
-  sprite.position.y = 2.15;
+  sprite.scale.set(1.9, 0.475, 1);
+  sprite.position.y = 2.95;
   sprite.renderOrder = 5;
   rig.group.add(sprite);
 }
@@ -298,15 +313,17 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     targetTilt: 0,
     returnTimer: null,
     actionTimer: null,
+    reactTimer: null,
     placeholder: true,
     marker: null
   };
 }
 
-async function attachModel(rig: Rig, avatarId: string, weapon: Item | undefined): Promise<void> {
+async function attachModel(rig: Rig, avatarId: string, weapon: Item | undefined, shieldModel: string | undefined): Promise<void> {
   const [base, library] = await Promise.all([loadBase(avatarId), loadAnimLibrary()]);
   if (!base) {
     const placeholder = buildPlaceholder(avatarId);
+    placeholder.scale.setScalar(CHAR_HEIGHT / 1.75);
     rig.group.add(placeholder);
     return;
   }
@@ -317,8 +334,8 @@ async function attachModel(rig: Rig, avatarId: string, weapon: Item | undefined)
       child.frustumCulled = false;
     }
   });
-  normalizeSize(instance, 1.75);
-  await attachWeapons(instance, weapon);
+  normalizeSize(instance, CHAR_HEIGHT);
+  await attachWeapons(instance, weapon, shieldModel);
   rig.group.add(instance);
   rig.placeholder = false;
   rig.mixer = new THREE.AnimationMixer(instance);
@@ -392,7 +409,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   }, ms);
 }
 
-function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void {
+function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void): void {
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
     rig.returnTimer = null;
@@ -407,6 +424,10 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       rig.targetPos.copy(rig.base);
       if (Math.random() < 0.18) playAction(rig, ["Skeletons_Taunt"], { once: true, backToIdle: true });
       else playAction(rig, [IDLE_CLIP]);
+      break;
+    case "guard":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.25);
+      playAction(rig, ["Melee_Blocking", "Melee_Block", IDLE_CLIP]);
       break;
     case "taunt":
       rig.targetPos.copy(rig.base);
@@ -428,7 +449,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
       }
       break;
     case "attack": {
-      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.15 : 0.2);
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.25 : 0.2);
       const pool = ATTACK_POOLS[kind];
       const strike =
         crit && MELEE_KINDS.has(kind)
@@ -439,6 +460,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean): void
         rig.actionTimer = setTimeout(() => playAction(rig, [strike], { once: true, backToIdle: true }), 320);
       } else if (strike) {
         playAction(rig, [strike], { once: true, backToIdle: true });
+        if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, 320);
       }
       scheduleReturn(rig, 1100);
       break;
@@ -520,7 +542,26 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
   const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
   const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
   const weatherRef = useRef<Weather | null>(null);
+  const projectilesRef = useRef<Projectile[]>([]);
   kindRef.current = { a: fighterKind(a), b: fighterKind(b) };
+
+  const spawnProjectile = (from: Rig, to: Rig, kind: FighterKind) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const mesh =
+      kind === "magic"
+        ? new THREE.Mesh(
+            new THREE.SphereGeometry(0.16, 12, 10),
+            new THREE.MeshBasicMaterial({ color: 0xb388ff, transparent: true, opacity: 0.95 })
+          )
+        : new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), new THREE.MeshStandardMaterial({ color: 0x8a6d4a, roughness: 0.6 }));
+    const start = from.group.position.clone().setY(1.5).addScaledVector(from.dir, 0.6);
+    const end = to.group.position.clone().setY(1.35);
+    mesh.position.copy(start);
+    mesh.lookAt(end);
+    scene.add(mesh);
+    projectilesRef.current.push({ mesh, from: start, to: end, elapsed: 0, duration: 0.22 });
+  };
 
   const retargetCamera = () => {
     const { focus: f, zoom: z } = zoomState.current;
@@ -577,8 +618,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     scene.add(ring);
     ringRef.current = ring;
 
-    const posA = new THREE.Vector3(-0.72, 0, 1.05);
-    const posB = new THREE.Vector3(0.72, 0, -1.05);
+    const posA = new THREE.Vector3(-0.9, 0, 1.3);
+    const posB = new THREE.Vector3(0.9, 0, -1.3);
     const dirAB = posB.clone().sub(posA).normalize();
     const rigA = makeRig(posA, dirAB);
     const rigB = makeRig(posB, dirAB.clone().negate());
@@ -590,8 +631,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     attachMarker(rigB, 0xf87171);
     attachNameSprite(rigA, a.nickname, "#a5b4fc");
     attachNameSprite(rigB, b.nickname, "#fca5a5");
-    void attachModel(rigA, avatarById(a.avatar).id, activeWeapon(a)).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
-    void attachModel(rigB, avatarById(b.avatar).id, activeWeapon(b)).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
+    void attachModel(rigA, avatarById(a.avatar).id, activeWeapon(a), shieldModelFor(a.equipment, a.disabledItems)).then(() =>
+      applyPose(rigA, "idle", kindRef.current.a, false)
+    );
+    void attachModel(rigB, avatarById(b.avatar).id, activeWeapon(b), shieldModelFor(b.equipment, b.disabledItems)).then(() =>
+      applyPose(rigB, "idle", kindRef.current.b, false)
+    );
 
     const dom = renderer.domElement;
     dom.style.touchAction = "none";
@@ -644,7 +689,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
     const clock = new THREE.Clock();
     let frame = 0;
     const orbit = { azimuth: cameraState.azimuth, dist: 8, lookX: 0, elev: cameraState.elev };
-    const lookAt = new THREE.Vector3(0, 0.95, 0);
+    const lookAt = new THREE.Vector3(0, 1.15, 0);
     const animate = () => {
       frame = requestAnimationFrame(animate);
       const delta = clock.getDelta();
@@ -654,13 +699,25 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
         rig.group.position.lerp(rig.targetPos, damp * 0.9);
         rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
       }
+      const projectiles = projectilesRef.current;
+      for (let i = projectiles.length - 1; i >= 0; i--) {
+        const p = projectiles[i];
+        if (!p) continue;
+        p.elapsed += delta;
+        const t = Math.min(1, p.elapsed / p.duration);
+        p.mesh.position.lerpVectors(p.from, p.to, t);
+        if (t >= 1) {
+          p.mesh.removeFromParent();
+          projectiles.splice(i, 1);
+        }
+      }
       weatherRef.current?.update(delta);
       orbit.azimuth += (cameraState.azimuth - orbit.azimuth) * damp * 0.9;
       orbit.elev += (cameraState.elev - orbit.elev) * damp * 0.9;
       orbit.dist += (camTarget.current.z * cameraState.zoom - orbit.dist) * damp * 0.6;
       orbit.lookX += (camTarget.current.x - orbit.lookX) * damp * 0.6;
       camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
-      lookAt.set(orbit.lookX, 0.95, 0);
+      lookAt.set(orbit.lookX, 1.15, 0);
       camera.lookAt(lookAt);
       renderer.render(scene, camera);
     };
@@ -673,7 +730,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       const halfH = Math.atan(Math.tan(THREE.MathUtils.degToRad(21)) * camera.aspect);
-      baseZ.current = Math.min(12, Math.max(4.4, 1.8 / Math.tan(halfH)));
+      baseZ.current = Math.min(12, Math.max(4.2, 1.35 / Math.tan(halfH)));
       retargetCamera();
     };
     resize();
@@ -696,6 +753,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
       if (rigB.returnTimer) clearTimeout(rigB.returnTimer);
       if (rigA.actionTimer) clearTimeout(rigA.actionTimer);
       if (rigB.actionTimer) clearTimeout(rigB.actionTimer);
+      if (rigA.reactTimer) clearTimeout(rigA.reactTimer);
+      if (rigB.reactTimer) clearTimeout(rigB.reactTimer);
+      for (const p of projectilesRef.current) p.mesh.removeFromParent();
+      projectilesRef.current = [];
       arenaRef.current?.removeFromParent();
       arenaRef.current = null;
       renderer.dispose();
@@ -738,8 +799,31 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, focus, zoom
   }, [fx, map]);
 
   useEffect(() => {
-    if (rigARef.current) applyPose(rigARef.current, poseA, kindRef.current.a, crit);
-    if (rigBRef.current) applyPose(rigBRef.current, poseB, kindRef.current.b, crit);
+    const rigA = rigARef.current;
+    const rigB = rigBRef.current;
+    if (!rigA || !rigB) return;
+    for (const rig of [rigA, rigB]) {
+      if (rig.reactTimer) {
+        clearTimeout(rig.reactTimer);
+        rig.reactTimer = null;
+      }
+    }
+    const kinds = kindRef.current;
+    const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind) => {
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind));
+      const lead = reaction === "dodge" || reaction === "roll" ? 260 : 0;
+      defender.reactTimer = setTimeout(() => applyPose(defender, reaction, defenderKind, false), Math.max(120, impactMsFor(attackerKind) - lead));
+    };
+    if (poseA === "attack" && REACTION_POSES.has(poseB)) {
+      delayReaction(rigA, kinds.a, rigB, poseB, kinds.b);
+    } else if (poseB === "attack" && REACTION_POSES.has(poseA)) {
+      delayReaction(rigB, kinds.b, rigA, poseA, kinds.a);
+    } else {
+      if (poseA === "attack") applyPose(rigA, "attack", kinds.a, crit, () => spawnProjectile(rigA, rigB, kinds.a));
+      else applyPose(rigA, poseA, kinds.a, crit);
+      if (poseB === "attack") applyPose(rigB, "attack", kinds.b, crit, () => spawnProjectile(rigB, rigA, kinds.b));
+      else applyPose(rigB, poseB, kinds.b, crit);
+    }
   }, [poseA, poseB, beat, crit]);
 
   useEffect(() => {

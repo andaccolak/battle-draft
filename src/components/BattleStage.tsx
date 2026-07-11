@@ -89,7 +89,7 @@ function indexForElapsed(entries: TimelineEntry[], elapsed: number): number {
 function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
   if (!entry) return { a: "idle", b: "idle" };
   if (entry.t === "windup") {
-    return entry.actor === "a" ? { a: "windup", b: "idle" } : { a: "idle", b: "windup" };
+    return entry.actor === "a" ? { a: "windup", b: "guard" } : { a: "guard", b: "windup" };
   }
   if (entry.t === "attack") {
     const defenderHp = entry.actor === "a" ? entry.hpB : entry.hpA;

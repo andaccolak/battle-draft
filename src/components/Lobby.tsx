@@ -39,7 +39,7 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap }: 
 
       <div className="card-surface p-5">
         <h2 className="mb-3 font-bold">{t("chooseFighter")}</h2>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-1.5">
           {AVATARS.map((av) => {
             const selected = me?.avatar === av.id;
             return (
