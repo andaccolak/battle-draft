@@ -240,7 +240,11 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       at(() => {
         floatId.current++;
         const pos = screenPosRef.current[side];
-        setFloats((f) => [...f.slice(-7), { id: floatId.current, side, value, kind, x: pos.x, y: pos.y }]);
+        setFloats((f) => {
+          const onSide = f.filter((x) => x.side === side).length;
+          const y = Math.max(0.08, pos.y - onSide * 0.08);
+          return [...f.slice(-2), { id: floatId.current, side, value, kind, x: pos.x, y }];
+        });
       }, delay);
     };
     // HP bar + sound land together with the visual hit
@@ -347,10 +351,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
             {floats.map((f) => (
               <motion.div
                 key={f.id}
-                initial={{ opacity: 0, y: 6, scale: 0.8 }}
-                animate={{ opacity: [0, 1, 1, 0], y: -48, scale: 1 }}
+                initial={{ opacity: 0, y: 4, scale: 0.8 }}
+                animate={{ opacity: [0, 1, 1, 0], y: -40, scale: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
+                transition={{ duration: 0.9, ease: "easeOut" }}
                 style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%` }}
                 className={`absolute -translate-x-1/2 whitespace-nowrap font-display font-black drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${
                   f.kind === "note"

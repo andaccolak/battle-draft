@@ -57,8 +57,8 @@ const RING_RADIUS = 1.65;
 const CALM_POSES = new Set<Pose>(["idle", "guard"]);
 
 const GUARD_POOLS: Partial<Record<FighterKind, string[]>> = {
-  bow: ["Ranged_Bow_Aiming_Idle", "Ranged_Bow_Idle"],
-  crossbow: ["Ranged_2H_Aiming", "Ranged_1H_Aiming"],
+  bow: ["Ranged_Bow_Idle"],
+  crossbow: ["Ranged_1H_Shooting", "Ranged_1H_Aiming"],
   magic: ["Ranged_Magic_Spellcasting"]
 };
 
@@ -538,7 +538,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
         playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
       } else if (kind === "bow") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_Bow_Aiming_Idle", "Ranged_Bow_Idle", IDLE_CLIP]);
+        playAction(rig, ["Ranged_Bow_Draw", "Ranged_Bow_Idle", IDLE_CLIP]);
       } else if (rig.clips?.has("Walking_A")) {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.0);
         rig.moveSpeed = WALK_SPEED;
@@ -781,12 +781,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     }
     void attachModel(rigA, avatarById(a.avatar).id, a, charScale).then(() => {
       applyPose(rigA, "idle", kindRef.current.a, false);
-      if (revealRef.current) playAction(rigA, ["Spawn_Ground"], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigA, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
       rigA.attached = true;
     });
     void attachModel(rigB, avatarById(b.avatar).id, b, charScale).then(() => {
       applyPose(rigB, "idle", kindRef.current.b, false);
-      if (revealRef.current) playAction(rigB, ["Spawn_Ground"], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigB, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
       rigB.attached = true;
     });
 
@@ -949,12 +949,14 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
           [rigB, "b"]
         ] as const) {
           projVec.copy(rig.group.position);
-          projVec.y += 2.4 * charScale;
+          projVec.y += 2.2 * charScale;
           projVec.project(camera);
-          screenPosRef.current[key] = {
-            x: Math.min(0.92, Math.max(0.08, (projVec.x + 1) / 2)),
-            y: Math.min(0.85, Math.max(0.08, (1 - projVec.y) / 2))
-          };
+          if (projVec.z < 1 && Math.abs(projVec.x) < 1.4 && Math.abs(projVec.y) < 1.4) {
+            screenPosRef.current[key] = {
+              x: Math.min(0.9, Math.max(0.1, (projVec.x + 1) / 2)),
+              y: Math.min(0.72, Math.max(0.12, (1 - projVec.y) / 2))
+            };
+          }
         }
       }
       renderer.render(scene, camera);
@@ -1123,7 +1125,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     if (revealed && !revealedOnceRef.current) {
       revealedOnceRef.current = true;
       for (const rig of [rigARef.current, rigBRef.current]) {
-        if (rig?.attached) playAction(rig, ["Spawn_Ground"], { once: true, backToIdle: true });
+        if (rig?.attached) playAction(rig, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
       }
     }
   }, [revealed]);
