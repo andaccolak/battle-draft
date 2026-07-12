@@ -118,9 +118,10 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
     );
   }
 
+  const inBattle = snapshot.phase === "battle" && !!snapshot.battle;
   return (
-    <main className="mx-auto min-h-dvh max-w-2xl px-4 py-5">
-      <header className="mb-5 flex items-center justify-between">
+    <main className={`mx-auto max-w-2xl px-4 ${inBattle ? "py-3" : "min-h-dvh py-5"}`}>
+      <header className={`${inBattle ? "mb-3" : "mb-5"} flex items-center justify-between`}>
         <button onClick={() => { game.leaveRoom(); onExit(); }} className="text-sm font-semibold text-slate-500 transition hover:text-slate-300">
           {t("leave")}
         </button>
@@ -133,6 +134,20 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           <div className={`h-2 w-2 rounded-full ${game.connected ? "bg-emerald-400" : "bg-rose-500"}`} />
         </div>
       </header>
+
+      <AnimatePresence>
+        {snapshot.shout && snapshot.hostId === game.playerId && (
+          <motion.div
+            key={`shout-${snapshot.shout.at}`}
+            initial={{ opacity: 0, y: -14, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0 }}
+            className="mb-4 rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-2.5 text-center text-sm font-bold text-amber-200"
+          >
+            {t("shoutToast", { p: snapshot.shout.by })}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {error && snapshot && (
@@ -166,7 +181,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "event" && snapshot.event && <EventReveal event={snapshot.event} />}
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
-              <div className="h-[calc(100dvh-8rem)] min-h-[540px] overflow-hidden">
+              <div className="h-[calc(100dvh-6rem)] min-h-[540px] overflow-hidden">
                 <BattleStage
                   battle={snapshot.battle}
                   eventId={snapshot.event?.id}
@@ -185,7 +200,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
             ) : (
               snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />
             ))}
-          {snapshot.phase === "champion" && <Champion snapshot={snapshot} playerId={game.playerId} onPlayAgain={game.playAgain} />}
+          {snapshot.phase === "champion" && <Champion snapshot={snapshot} playerId={game.playerId} onPlayAgain={game.playAgain} onShout={game.shout} />}
         </motion.div>
       </AnimatePresence>
     </main>

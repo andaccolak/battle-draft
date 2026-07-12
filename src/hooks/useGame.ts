@@ -18,6 +18,7 @@ export interface GameApi {
   chooseMap: (mapId: string) => void;
   chooseMode: (modeId: string) => void;
   chooseTourney: (modeId: string) => void;
+  shout: () => void;
   pickItem: (itemId: string | null) => void;
   pickLuckCard: (cardId: string) => void;
   reactBattle: (pass: boolean, score?: number) => void;
@@ -127,6 +128,7 @@ export function useGame(code: string, nickname: string): GameApi {
   const pickLuckCard = useCallback((cardId: string) => void postAction({ type: "luck", cardId }), [postAction]);
   const reactBattle = useCallback((pass: boolean, score?: number) => void postAction({ type: "react", pass, score }), [postAction]);
   const playAgain = useCallback(() => void postAction({ type: "again" }), [postAction]);
+  const shout = useCallback(() => void postAction({ type: "shout" }), [postAction]);
   const leaveRoom = useCallback(() => {
     void postAction({ type: "leave" });
     leftRef.current = true;
@@ -149,6 +151,7 @@ export function useGame(code: string, nickname: string): GameApi {
     pickLuckCard,
     reactBattle,
     playAgain,
+    shout,
     leaveRoom,
     clearError
   };

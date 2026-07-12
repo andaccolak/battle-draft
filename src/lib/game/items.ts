@@ -12,6 +12,7 @@ export const ITEMS: Item[] = [
   { id: "w_golden_bow", name: "Golden Bow", emoji: "🌟", slot: "weapon", rarity: "legendary", stats: { attack: 30, critChance: 25, critDamage: 30 }, tags: ["ranged"] },
   { id: "w_hunting_bow", name: "Hunting Bow", emoji: "🏹", slot: "weapon", rarity: "common", stats: { attack: 15, critChance: 8 }, tags: ["ranged"] },
   { id: "w_hatchet", name: "Hatchet", emoji: "🪓", slot: "weapon", rarity: "common", stats: { attack: 17, critChance: 5 } },
+  { id: "w_tribal_shield", name: "Tribal Round Shield", emoji: "🥁", slot: "weapon", rarity: "uncommon", stats: { attack: 20, defense: 7, accuracy: -8 } },
   { id: "w_bone_crossbow", name: "Bone Crossbow", emoji: "🦴", slot: "weapon", rarity: "rare", stats: { attack: 26, critChance: 10, accuracy: -5 }, tags: ["ranged"] },
   { id: "w_claymore", name: "Claymore", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 32, accuracy: -8, critDamage: 15 } },
   { id: "w_grimoire", name: "Forbidden Grimoire", emoji: "📖", slot: "weapon", rarity: "epic", stats: { attack: 25, critChance: 12 }, passive: { type: "ignoreDefense", value: 25, label: "Ignores 25% of enemy defense" }, tags: ["ranged"] },
@@ -48,6 +49,7 @@ export const ITEMS: Item[] = [
   { id: "a_scale_vest", name: "Scale Vest", emoji: "🐟", slot: "armor", rarity: "rare", stats: { defense: 15, speed: 5 } },
   { id: "a_cursed_shroud", name: "Cursed Shroud", emoji: "🕸️", slot: "armor", rarity: "epic", stats: { defense: 5, attack: 12, dodge: 12, hp: -15 } },
   { id: "a_bone_wall", name: "Bone Wall", emoji: "🦴", slot: "armor", rarity: "rare", stats: { defense: 16 }, passive: { type: "block", value: 15, label: "15% chance to block half damage" } },
+  { id: "a_royal_plate", name: "Royal Guard Plate", emoji: "🏰", slot: "armor", rarity: "epic", stats: { defense: 17, hp: 15 }, passive: { type: "block", value: 18, label: "18% chance to block half damage" }, tags: ["heavy"] },
   { id: "a_plate", name: "Plate Armor", emoji: "🛡️", slot: "armor", rarity: "rare", stats: { defense: 21, speed: -12 }, tags: ["heavy"] },
   { id: "a_shadow_cloak", name: "Shadow Cloak", emoji: "🌫️", slot: "armor", rarity: "rare", stats: { defense: 8, dodge: 16 } },
   { id: "a_thorned_mail", name: "Thorned Mail", emoji: "🌵", slot: "armor", rarity: "rare", stats: { defense: 12 }, passive: { type: "reflect", value: 20, label: "Reflects 20% of damage taken" } },
@@ -76,6 +78,7 @@ export const ITEMS: Item[] = [
   { id: "c_frost_charm", name: "Frost Charm", emoji: "❄️", slot: "accessory", rarity: "rare", stats: { defense: 5 }, passive: { type: "stunChance", value: 10, label: "10% chance to freeze-stun on hit" } },
   { id: "c_smoke_bomb", name: "Smoke Bomb", emoji: "💨", slot: "accessory", rarity: "uncommon", stats: { dodge: 12, speed: 4 } },
   { id: "c_bone_ward", name: "Bone Ward", emoji: "☠️", slot: "accessory", rarity: "rare", stats: { defense: 4 }, passive: { type: "shield", value: 25, label: "Starts battle with a 25 HP shield" } },
+  { id: "c_duel_buckler", name: "Dueling Buckler", emoji: "🛡️", slot: "accessory", rarity: "uncommon", stats: { defense: 6 }, passive: { type: "block", value: 12, label: "12% chance to block half damage" } },
   { id: "c_iron_band", name: "Iron Band", emoji: "⭕", slot: "accessory", rarity: "common", stats: { defense: 6 } },
   { id: "c_lucky_coin", name: "Lucky Coin", emoji: "🪙", slot: "accessory", rarity: "uncommon", stats: { critChance: 14 } },
   { id: "c_healing_pendant", name: "Healing Pendant", emoji: "💚", slot: "accessory", rarity: "uncommon", stats: {}, passive: { type: "healPerTurn", value: 6, label: "Regenerates 6 HP per turn" } },
@@ -132,6 +135,7 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28, hand: "l" },
   w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26, hand: "l" },
   w_hatchet: { model: "axe_1handed", kind: "blade" },
+  w_tribal_shield: { model: "shield_round_barbarian", kind: "blade", hand: "l" },
   w_bone_crossbow: { model: "Skeleton_Crossbow", kind: "crossbow" },
   w_claymore: { model: "Claymore", kind: "heavy", scale: 0.27 },
   w_grimoire: { model: "spellbook_open", kind: "magic" },
@@ -156,7 +160,9 @@ const SHIELD_MODELS: Record<string, string> = {
   a_titan: "shield_square",
   c_guardian_charm: "shield_badge",
   a_bone_wall: "Skeleton_Shield_Large_A",
-  c_bone_ward: "Skeleton_Shield_Small_A"
+  c_bone_ward: "Skeleton_Shield_Small_A",
+  a_royal_plate: "shield_square_color",
+  c_duel_buckler: "Skeleton_Shield_Small_B"
 };
 
 export interface HeadgearDef {

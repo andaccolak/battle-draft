@@ -34,9 +34,22 @@ function randomCode(): string {
   return code;
 }
 
-export async function createRoom(playerId: string, nickname: string): Promise<string> {
+export async function createRoom(playerId: string, nickname: string, customCode?: string): Promise<string> {
   const mode = await storeMode();
   const now = Date.now();
+  if (customCode) {
+    const code = customCode.toUpperCase();
+    const state = createState(code, playerId, nickname, now);
+    if (mode === "memory") {
+      if (memStore().has(code)) throw new Error("err_code_taken");
+      memStore().set(code, { state, version: 0 });
+      return code;
+    }
+    const existing = await prisma.gameState.findUnique({ where: { code } });
+    if (existing) throw new Error("err_code_taken");
+    await prisma.gameState.create({ data: { code, state: toJson(state) } });
+    return code;
+  }
   for (let attempt = 0; attempt < 6; attempt++) {
     const code = randomCode();
     const state = createState(code, playerId, nickname, now);

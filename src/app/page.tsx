@@ -11,6 +11,7 @@ export default function HomePage() {
   const { t } = useI18n();
   const [nickname, setNickname] = useState("");
   const [code, setCode] = useState("");
+  const [customCode, setCustomCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -29,13 +30,17 @@ export default function HomePage() {
 
   const createRoom = async () => {
     if (!validate()) return;
+    if (customCode.trim() && !/^[A-Za-z0-9]{4,6}$/.test(customCode.trim())) {
+      setError(t("codeLength"));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const res = await fetch("/api/rooms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: nickname.trim(), playerId: getPlayerId() })
+        body: JSON.stringify({ nickname: nickname.trim(), playerId: getPlayerId(), code: customCode.trim().toUpperCase() || undefined })
       });
       const data = (await res.json()) as { code?: string; error?: string };
       if (data.code) {
@@ -96,6 +101,14 @@ export default function HomePage() {
             className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-3 text-lg font-semibold placeholder:text-slate-600 focus:border-indigo-400"
           />
         </div>
+
+        <input
+          value={customCode}
+          onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+          maxLength={6}
+          placeholder={t("customCode")}
+          className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-4 py-2.5 text-center text-sm font-semibold uppercase tracking-widest placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-600 focus:border-indigo-400"
+        />
 
         <button onClick={() => void createRoom()} disabled={busy} className="btn-primary w-full text-lg">
           {busy ? t("creating") : t("createRoom")}

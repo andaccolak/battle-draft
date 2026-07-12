@@ -255,7 +255,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const actor = current?.actor ?? "none";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <div className="mb-2 text-center">
         <span className="rounded-full bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-widest text-amber-300">
           {battle.roundKey === "final"
@@ -451,7 +451,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
       <div
         ref={logRef}
-        className="mt-2 min-h-16 flex-1 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-2 h-24 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div
@@ -648,6 +648,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
   const [pos, setPos] = useState(0);
   const [result, setResult] = useState<boolean | null>(null);
   const posRef = useRef(0);
+  const histRef = useRef<{ t: number; p: number }[]>([]);
   const doneRef = useRef(false);
   const startRef = useRef<number | null>(null);
 
@@ -663,9 +664,11 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
         onResult(false, 1);
         return;
       }
-      const phase = (el % 1600) / 1600;
+      const phase = (el % 2000) / 2000;
       const p = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
       posRef.current = p;
+      histRef.current.push({ t: ts, p });
+      if (histRef.current.length > 30) histRef.current.shift();
       setPos(p);
       raf = requestAnimationFrame(step);
     };
@@ -676,7 +679,17 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
   const tap = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
+    const target = performance.now() - 80;
+    let sampled = posRef.current;
+    let bestDiff = Infinity;
+    for (const h of histRef.current) {
+      const diff = Math.abs(h.t - target);
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        sampled = h.p;
+      }
+    }
+    const offset = Math.min(1, Math.abs(sampled - 0.5) * 2);
     const pass = offset <= 0.1;
     setResult(pass);
     onResult(pass, offset);

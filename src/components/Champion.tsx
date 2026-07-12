@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
@@ -11,9 +11,11 @@ interface Props {
   snapshot: RoomSnapshot;
   playerId: string;
   onPlayAgain: () => void;
+  onShout: () => void;
 }
 
-export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
+export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: Props) {
+  const [shouted, setShouted] = useState(false);
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const champion = snapshot.players.find((p) => !p.eliminated);
@@ -112,7 +114,18 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
           {t("oneMoreGame")}
         </button>
       ) : (
-        <p className="text-sm text-slate-400">{t("shoutHost")}</p>
+        <button
+          onClick={() => {
+            if (shouted) return;
+            onShout();
+            setShouted(true);
+            setTimeout(() => setShouted(false), 30000);
+          }}
+          disabled={shouted}
+          className={`btn-primary w-full text-lg ${shouted ? "opacity-50" : ""}`}
+        >
+          {shouted ? t("shoutSent") : t("shoutBtn")}
+        </button>
       )}
     </div>
   );

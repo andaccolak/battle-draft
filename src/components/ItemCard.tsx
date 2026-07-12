@@ -24,9 +24,10 @@ export default function ItemCard({ item, locked = false, onPick, compact = false
   const { t, itemName, passiveLabel, slotLabel } = useI18n();
   const style = RARITY_STYLES[item.rarity];
   const slot = SLOT_META[item.slot];
-  const stats = Object.entries(item.stats)
-    .filter(([, v]) => v !== undefined && v !== 0)
-    .map(([k, v]) => `${(v as number) > 0 ? "+" : ""}${v} ${t(`stat_${k}`)}`);
+  const STAT_ORDER = ["attack", "defense", "hp", "speed", "critChance", "critDamage", "accuracy", "dodge", "initiative"] as const;
+  const stats = STAT_ORDER.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map(
+    (k) => `${(item.stats[k] as number) > 0 ? "+" : ""}${item.stats[k]} ${t(`stat_${k}`)}`
+  );
 
   return (
     <motion.button

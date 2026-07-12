@@ -117,6 +117,7 @@ export interface RoomState {
   tourneyMode?: TourneyMode;
   leagueStage?: "league" | "semis" | "final" | null;
   recentEventIds?: string[];
+  shout?: { by: string; at: number } | null;
 }
 
 function makePlayer(id: string, nickname: string, isBot: boolean, now: number): StatePlayer {
@@ -772,6 +773,16 @@ function finishBattle(state: RoomState, now: number): void {
   state.nextBattleAt = now + BATTLE_GAP_MS;
 }
 
+export function shoutHost(state: RoomState, playerId: string, now: number): string | null {
+  if (state.phase !== "champion" && state.phase !== "lobby") return null;
+  if (state.hostId === playerId) return null;
+  const p = findPlayer(state, playerId);
+  if (!p) return null;
+  if (state.shout && now - state.shout.at < 30000) return null;
+  state.shout = { by: p.nickname, at: now };
+  return null;
+}
+
 export function playAgain(state: RoomState, playerId: string, now: number): string | null {
   if (state.phase !== "champion") return null;
   if (state.hostId !== playerId) return "err_host_restart";
@@ -935,6 +946,7 @@ export function snapshotFor(
     arenaMap: state.arenaMap ?? "colosseum",
     matchMode: state.matchMode ?? "single",
     tourneyMode: state.tourneyMode ?? "knockout",
+    shout: state.shout && now - state.shout.at < 6000 ? state.shout : null,
     players: state.players.map((p) => ({
       id: p.id,
       nickname: p.nickname,

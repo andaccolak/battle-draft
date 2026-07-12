@@ -178,6 +178,7 @@ export interface RoomSnapshot {
   bracket: BracketRound[] | null;
   battle: BattlePayload | null;
   champion: string | null;
+  shout?: { by: string; at: number } | null;
   serverNow: number;
 }
 

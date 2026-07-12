@@ -10,7 +10,7 @@ function cleanNickname(raw: unknown): string | null {
 }
 
 export async function POST(req: Request): Promise<NextResponse> {
-  let body: { nickname?: string; playerId?: string };
+  let body: { nickname?: string; playerId?: string; code?: string };
   try {
     body = (await req.json()) as { nickname?: string; playerId?: string };
   } catch {
@@ -21,10 +21,17 @@ export async function POST(req: Request): Promise<NextResponse> {
   if (!nickname || !playerId) {
     return NextResponse.json({ error: "err_nickname" }, { status: 400 });
   }
+  const rawCode = typeof body.code === "string" ? body.code.trim().toUpperCase() : "";
+  if (rawCode && !/^[A-Z0-9]{4,6}$/.test(rawCode)) {
+    return NextResponse.json({ error: "codeLength" }, { status: 400 });
+  }
   try {
-    const code = await createRoom(playerId, nickname);
+    const code = await createRoom(playerId, nickname, rawCode || undefined);
     return NextResponse.json({ code });
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message === "err_code_taken") {
+      return NextResponse.json({ error: "err_code_taken" }, { status: 409 });
+    }
     return NextResponse.json({ error: "err_busy" }, { status: 500 });
   }
 }
