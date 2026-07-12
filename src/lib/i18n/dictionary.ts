@@ -73,6 +73,7 @@ export const UI: Record<string, { en: string; tr: string }> = {
   qteTitle: { en: "🌀 DODGE!", tr: "🌀 KAÇIN!" },
   qteHint: { en: "Tap in the green zone!", tr: "Yeşil bölgedeyken dokun!" },
   qtePerfect: { en: "PERFECT TIMING!", tr: "MÜKEMMEL ZAMANLAMA!" },
+  qteGood: { en: "Good timing!", tr: "İyi zamanlama!" },
   qteFailed: { en: "Bad timing...", tr: "Kötü zamanlama..." },
   qteWaiting: { en: "⚡ {p} is trying to dodge...", tr: "⚡ {p} kaçmaya çalışıyor..." },
   critBit: { en: "💥 CRITICAL HIT!", tr: "💥 KRİTİK VURUŞ!" },

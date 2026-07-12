@@ -304,6 +304,7 @@ interface Rig {
   marker: THREE.MeshBasicMaterial | null;
   moveSpeed: number | null;
   idleClip: string;
+  droppedWeapon: { obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler; scl: THREE.Vector3 } | null;
   pose: Pose;
   radius: number;
   radiusTarget: number;
@@ -386,6 +387,7 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     marker: null,
     moveSpeed: null,
     idleClip: IDLE_CLIP,
+    droppedWeapon: null,
     pose: "idle",
     radius: RING_RADIUS,
     radiusTarget: RING_RADIUS
@@ -1073,20 +1075,37 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, sc
 
   useEffect(() => {
     const dropWeapon = (rig: Rig | null, lost: boolean | undefined) => {
-      if (!rig || !lost) return;
-      const weapon = rig.group.getObjectByName("weapon_main");
+      if (!rig) return;
       const scene = sceneRef.current;
-      if (!weapon || !scene) return;
-      const pos = new THREE.Vector3();
-      const scale = new THREE.Vector3();
-      weapon.getWorldPosition(pos);
-      weapon.getWorldScale(scale);
-      weapon.removeFromParent();
-      weapon.name = "weapon_dropped";
-      weapon.position.set(pos.x, 0.06, pos.z);
-      weapon.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
-      weapon.scale.copy(scale);
-      scene.add(weapon);
+      if (!scene) return;
+      if (lost && !rig.droppedWeapon) {
+        const weapon = rig.group.getObjectByName("weapon_main");
+        if (!weapon || !weapon.parent) return;
+        rig.droppedWeapon = {
+          obj: weapon,
+          parent: weapon.parent,
+          pos: weapon.position.clone(),
+          rot: weapon.rotation.clone(),
+          scl: weapon.scale.clone()
+        };
+        const pos = new THREE.Vector3();
+        const scale = new THREE.Vector3();
+        weapon.getWorldPosition(pos);
+        weapon.getWorldScale(scale);
+        weapon.removeFromParent();
+        weapon.position.set(pos.x, 0.06, pos.z);
+        weapon.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
+        weapon.scale.copy(scale);
+        scene.add(weapon);
+      } else if (!lost && rig.droppedWeapon) {
+        const d = rig.droppedWeapon;
+        d.obj.removeFromParent();
+        d.obj.position.copy(d.pos);
+        d.obj.rotation.copy(d.rot);
+        d.obj.scale.copy(d.scl);
+        d.parent.add(d.obj);
+        rig.droppedWeapon = null;
+      }
     };
     dropWeapon(rigARef.current, weaponLostA);
     dropWeapon(rigBRef.current, weaponLostB);

@@ -66,6 +66,11 @@ interface Combatant {
   weaponId: string;
   windupKey: string;
   weaponless: boolean;
+  weaponRecoverIn: number;
+  savedWeaponName: string;
+  savedWeaponId: string;
+  savedWindupKey: string;
+  savedAttack: number;
   hasBoots: boolean;
   hasHelmet: boolean;
   hasArmor: boolean;
@@ -219,6 +224,11 @@ function buildCombatant(
     weaponId: "fists",
     windupKey: "windupBlade",
     weaponless: false,
+    weaponRecoverIn: 0,
+    savedWeaponName: "",
+    savedWeaponId: "",
+    savedWindupKey: "",
+    savedAttack: 0,
     hasBoots: false,
     hasHelmet: false,
     hasArmor: false,
@@ -391,6 +401,11 @@ function randomEquippedSlot(equipment: Partial<Record<Slot, Item>>): Slot | null
 }
 
 function disarm(c: Combatant): void {
+  c.savedWeaponName = c.weaponName;
+  c.savedWeaponId = c.weaponId;
+  c.savedWindupKey = c.windupKey;
+  c.savedAttack = c.attack;
+  c.weaponRecoverIn = 2;
   c.weaponless = true;
   c.attack = Math.max(5, c.attack * 0.7);
   c.weaponName = "fists";
@@ -786,6 +801,24 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         params: { p: att.nickname, weapon: att.weaponId }
       });
     }
+    if (att.weaponless && att.weaponRecoverIn > 0 && att.savedWeaponId) {
+      att.weaponRecoverIn--;
+      if (att.weaponRecoverIn === 0) {
+        att.weaponless = false;
+        att.weaponName = att.savedWeaponName;
+        att.weaponId = att.savedWeaponId;
+        att.windupKey = att.savedWindupKey;
+        att.attack = att.savedAttack;
+        att.savedWeaponId = "";
+        push({
+          t: "passive",
+          actor: att.key,
+          text: `🤚 ${att.nickname} grabs the ${att.weaponName} back off the ground!`,
+          key: "weaponRecover",
+          params: { p: att.nickname, weapon: att.weaponId }
+        });
+      }
+    }
     if (att.weaponless) {
       improvAttack(att, def);
       return;
@@ -1094,7 +1127,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         dmg: 2
       });
       tryRevive(clumsy);
-    } else if (r < 0.8) {
+    } else if (r < 0.78) {
       const tripper = roll(50) ? a : b;
       push({
         t: "quirk",
@@ -1103,6 +1136,19 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         key: "quirkTrip",
         params: { p: tripper.nickname }
       });
+    } else if (r < 0.84) {
+      a.hp -= 3;
+      b.hp -= 3;
+      push({
+        t: "quirk",
+        actor: "none",
+        text: `🐝 A swarm of bees crashes the fight! Everyone -3!`,
+        key: "quirkBees",
+        params: {},
+        dmg: 3
+      });
+      tryRevive(a);
+      tryRevive(b);
     } else if (r < 0.9 || round <= 4) {
       push({
         t: "quirk",

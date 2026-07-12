@@ -30,7 +30,15 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
       scale: 2,
       useCORS: true,
       logging: false,
-      ignoreElements: (el) => (el as HTMLElement).dataset?.noshare === "1"
+      ignoreElements: (el) => (el as HTMLElement).dataset?.noshare === "1",
+      onclone: (doc) => {
+        const name = doc.querySelector("[data-share-name]") as HTMLElement | null;
+        if (name) {
+          name.style.background = "none";
+          name.style.webkitTextFillColor = "#fbbf24";
+          name.style.color = "#fbbf24";
+        }
+      }
     }).catch(() => null);
     const blob = canvas ? await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png")) : null;
     if (!blob) {
@@ -38,13 +46,11 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
       return;
     }
     const file = new File([blob], "battle-draft-result.png", { type: "image/png" });
-    try {
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file] });
-        setShareState("idle");
-        return;
-      }
-    } catch {}
+    if (navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file] }).catch(() => {});
+      setShareState("idle");
+      return;
+    }
     try {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
       setShareState("copied");
@@ -94,6 +100,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          data-share-name
           className="font-display mt-2 bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-6xl font-black text-transparent"
         >
           {snapshot.champion ?? champion?.nickname ?? "???"}

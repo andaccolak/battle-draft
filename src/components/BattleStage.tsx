@@ -117,6 +117,9 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     if (entry.key === "revive") {
       return entry.actor === "a" ? { a: "revive", b: "idle" } : { a: "idle", b: "revive" };
     }
+    if (entry.key === "weaponRecover") {
+      return entry.actor === "a" ? { a: "pickup", b: "idle" } : { a: "idle", b: "pickup" };
+    }
   }
   if (entry.t === "quirk") {
     if (entry.key === "quirkTaunt" && entry.actor !== "none") {
@@ -181,10 +184,12 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const [zoom, setZoom] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const floatId = useRef(0);
+  const indexRef = useRef(0);
   const entriesRef = useRef(battle.timeline);
   entriesRef.current = battle.timeline;
   const screenPosRef = useRef({ a: { x: 0.28, y: 0.4 }, b: { x: 0.72, y: 0.4 } });
 
+  indexRef.current = index;
   const entries = battle.timeline;
   const visible = entries.slice(0, index + 1);
   const current = entries[Math.min(index, entries.length - 1)];
@@ -214,8 +219,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         setTimeout(() => setZoom(false), 600);
       }
     }
+    const scheduledAt = index;
     const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay = 0) => {
       setTimeout(() => {
+        if (delay > 0 && indexRef.current !== scheduledAt) return;
         floatId.current++;
         const pos = screenPosRef.current[side];
         setFloats((f) => [...f.slice(-7), { id: floatId.current, side, value, kind, x: pos.x, y: pos.y }]);
@@ -257,10 +264,15 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const qteMine = atPause && pending !== null && pending.playerId === playerId;
   const qteAttacker = atPause && pending !== null && pending.attackerId === playerId;
   const suspense = current?.t === "windup" || atPause;
-  const weaponLost = {
-    a: visible.some((e) => (e.key === "quirkString" && e.actor === "a") || (e.key === "quirkArm" && e.actor === "b")),
-    b: visible.some((e) => (e.key === "quirkString" && e.actor === "b") || (e.key === "quirkArm" && e.actor === "a"))
+  const weaponLostFor = (side: "a" | "b") => {
+    let lost = false;
+    for (const e of visible) {
+      if ((e.key === "quirkString" && e.actor === side) || (e.key === "quirkArm" && e.actor !== side && e.actor !== "none")) lost = true;
+      if (e.key === "weaponRecover" && e.actor === side) lost = false;
+    }
+    return lost;
   };
+  const weaponLost = { a: weaponLostFor("a"), b: weaponLostFor("b") };
   const actor = current?.actor ?? "none";
 
   return (
@@ -624,7 +636,7 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
 function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: (pass: boolean, score?: number) => void }) {
   const { t } = useI18n();
   const [pos, setPos] = useState(0);
-  const [result, setResult] = useState<boolean | null>(null);
+  const [result, setResult] = useState<"perfect" | "good" | "bad" | null>(null);
   const posRef = useRef(0);
   const histRef = useRef<{ t: number; p: number }[]>([]);
   const doneRef = useRef(false);
@@ -638,7 +650,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
       const el = ts - startRef.current;
       if (el > 3200) {
         doneRef.current = true;
-        setResult(false);
+        setResult("bad");
         onResult(false, 1);
         return;
       }
@@ -657,7 +669,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
   const tap = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const target = performance.now() - 80;
+    const target = performance.now() - 110;
     let sampled = posRef.current;
     let bestDiff = Infinity;
     for (const h of histRef.current) {
@@ -669,7 +681,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
     }
     const offset = Math.min(1, Math.abs(sampled - 0.5) * 2);
     const pass = offset <= 0.1;
-    setResult(pass);
+    setResult(offset <= 0.015 ? "perfect" : pass ? "good" : "bad");
     onResult(pass, offset);
   };
 
@@ -697,6 +709,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           <div className="mt-2 text-sm font-bold text-slate-300">{mode === "attack" ? t("qteAttackHint") : t("qteHint")}</div>
           <div className="relative mt-5 h-7 w-72 max-w-[85vw] overflow-hidden rounded-full border border-white/20 bg-white/10">
             <div className={`absolute inset-y-0 left-[45%] w-[10%] rounded ${mode === "attack" ? "bg-amber-500/80" : "bg-emerald-500/70"}`} />
+            <div className="absolute inset-y-0 left-[49.5%] w-[1%] rounded bg-white/90" />
             <div
               className="absolute inset-y-0 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
               style={{ left: `${pos * 100}%` }}
@@ -708,9 +721,11 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           initial={{ scale: 2.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 12 }}
-          className={`font-display text-2xl font-black ${result ? "text-emerald-300" : "text-rose-400"}`}
+          className={`font-display text-2xl font-black ${
+            result === "perfect" ? "text-amber-300" : result === "good" ? "text-emerald-300" : "text-rose-400"
+          }`}
         >
-          {result ? t("qtePerfect") : t("qteFailed")}
+          {result === "perfect" ? t("qtePerfect") : result === "good" ? t("qteGood") : t("qteFailed")}
         </motion.div>
       )}
     </motion.div>

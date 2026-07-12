@@ -698,15 +698,16 @@ function maybeResolveDuel(state: RoomState, now: number, force: boolean): void {
   const defReady = battle.defScore !== undefined && battle.defScore !== null;
   const atkReady = !attackerHuman || (battle.atkScore !== undefined && battle.atkScore !== null);
   if (!force && (!defReady || !atkReady)) return;
-  const ZONE = 0.1;
+  const PERFECT = 0.015;
+  const GOOD = 0.1;
   let dodged = false;
   if (defReady) {
-    if (battle.defPass === true) {
-      dodged = true;
-    } else if (attackerHuman) {
-      const atk = battle.atkScore ?? 0.75;
-      dodged = atk <= ZONE ? false : (battle.defScore as number) < atk;
-    }
+    const defO = battle.defScore as number;
+    const atkO = attackerHuman ? (battle.atkScore ?? 1) : 1;
+    const atkPerfect = attackerHuman && atkO <= PERFECT;
+    if (defO <= PERFECT) dodged = true;
+    else if (atkPerfect) dodged = false;
+    else dodged = defO <= GOOD;
   }
   battle.defScore = null;
   battle.atkScore = null;
