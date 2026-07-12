@@ -1,6 +1,22 @@
 "use client";
 
 let ctx: AudioContext | null = null;
+let muted = false;
+
+if (typeof window !== "undefined") {
+  muted = localStorage.getItem("bd_muted") === "1";
+}
+
+export function isMuted(): boolean {
+  return muted;
+}
+
+export function setMuted(value: boolean): void {
+  muted = value;
+  try {
+    localStorage.setItem("bd_muted", value ? "1" : "0");
+  } catch {}
+}
 
 function audio(): AudioContext | null {
   if (typeof window === "undefined") return null;
@@ -14,6 +30,7 @@ function audio(): AudioContext | null {
 }
 
 function tone(freq: number, duration: number, type: OscillatorType, volume: number, delay = 0): void {
+  if (muted) return;
   const ac = audio();
   if (!ac) return;
   const osc = ac.createOscillator();

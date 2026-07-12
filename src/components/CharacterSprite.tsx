@@ -9,6 +9,8 @@ export type Pose =
   | "idle"
   | "guard"
   | "windup"
+  | "throw"
+  | "pickup"
   | "attack"
   | "hit"
   | "knockdown"

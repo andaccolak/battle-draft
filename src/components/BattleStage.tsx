@@ -120,6 +120,12 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     if (entry.key === "quirkTaunt" && entry.actor !== "none") {
       return entry.actor === "a" ? { a: "taunt", b: "idle" } : { a: "idle", b: "taunt" };
     }
+    if ((entry.key === "quirkRock" || entry.key === "quirkBoot") && entry.actor !== "none") {
+      return entry.actor === "a" ? { a: "throw", b: "hit" } : { a: "hit", b: "throw" };
+    }
+    if (entry.key === "quirkDropFoot" && entry.actor !== "none") {
+      return entry.actor === "a" ? { a: "pickup", b: "idle" } : { a: "idle", b: "pickup" };
+    }
     if (entry.actor === "none" || !entry.dmg) return { a: "idle", b: "idle" };
     return entry.actor === "a" ? { a: "attack", b: "hit" } : { a: "hit", b: "attack" };
   }

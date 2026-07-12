@@ -11,6 +11,10 @@ export const ITEMS: Item[] = [
   { id: "w_cursed_bow", name: "Cursed Bow", emoji: "🦇", slot: "weapon", rarity: "epic", stats: { attack: 24, critChance: 10 }, passive: { type: "poisonOnHit", value: 5, label: "Hits poison for 5 dmg per turn" }, tags: ["ranged"] },
   { id: "w_golden_bow", name: "Golden Bow", emoji: "🌟", slot: "weapon", rarity: "legendary", stats: { attack: 30, critChance: 25, critDamage: 30 }, tags: ["ranged"] },
   { id: "w_hunting_bow", name: "Hunting Bow", emoji: "🏹", slot: "weapon", rarity: "common", stats: { attack: 15, critChance: 8 }, tags: ["ranged"] },
+  { id: "w_hatchet", name: "Hatchet", emoji: "🪓", slot: "weapon", rarity: "common", stats: { attack: 17, critChance: 5 } },
+  { id: "w_bone_crossbow", name: "Bone Crossbow", emoji: "🦴", slot: "weapon", rarity: "rare", stats: { attack: 26, critChance: 10, accuracy: -5 }, tags: ["ranged"] },
+  { id: "w_claymore", name: "Claymore", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 32, accuracy: -8, critDamage: 15 } },
+  { id: "w_grimoire", name: "Forbidden Grimoire", emoji: "📖", slot: "weapon", rarity: "epic", stats: { attack: 25, critChance: 12 }, passive: { type: "ignoreDefense", value: 25, label: "Ignores 25% of enemy defense" }, tags: ["ranged"] },
   { id: "w_war_hammer", name: "Giant's Greatsword", emoji: "🗡️", slot: "weapon", rarity: "uncommon", stats: { attack: 42, accuracy: -35 } },
   { id: "w_spiked_flail", name: "Spiked Shield", emoji: "🛡️", slot: "weapon", rarity: "uncommon", stats: { attack: 24, accuracy: -10, critChance: 8 } },
   { id: "w_twin_blades", name: "Twin Blades", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 17 }, passive: { type: "extraAttack", value: 35, label: "35% chance to attack twice" } },
@@ -43,6 +47,7 @@ export const ITEMS: Item[] = [
   { id: "a_gamblers_vest", name: "Gambler's Vest", emoji: "🎰", slot: "armor", rarity: "uncommon", stats: { defense: 8, critChance: 8 } },
   { id: "a_scale_vest", name: "Scale Vest", emoji: "🐟", slot: "armor", rarity: "rare", stats: { defense: 15, speed: 5 } },
   { id: "a_cursed_shroud", name: "Cursed Shroud", emoji: "🕸️", slot: "armor", rarity: "epic", stats: { defense: 5, attack: 12, dodge: 12, hp: -15 } },
+  { id: "a_bone_wall", name: "Bone Wall", emoji: "🦴", slot: "armor", rarity: "rare", stats: { defense: 16 }, passive: { type: "block", value: 15, label: "15% chance to block half damage" } },
   { id: "a_plate", name: "Plate Armor", emoji: "🛡️", slot: "armor", rarity: "rare", stats: { defense: 21, speed: -12 }, tags: ["heavy"] },
   { id: "a_shadow_cloak", name: "Shadow Cloak", emoji: "🌫️", slot: "armor", rarity: "rare", stats: { defense: 8, dodge: 16 } },
   { id: "a_thorned_mail", name: "Thorned Mail", emoji: "🌵", slot: "armor", rarity: "rare", stats: { defense: 12 }, passive: { type: "reflect", value: 20, label: "Reflects 20% of damage taken" } },
@@ -52,6 +57,7 @@ export const ITEMS: Item[] = [
   { id: "a_dragonscale", name: "Dragonscale Armor", emoji: "🐊", slot: "armor", rarity: "legendary", stats: { defense: 22 }, passive: { type: "reflect", value: 15, label: "Reflects 15% of damage taken" } },
   { id: "b_worn", name: "Worn Boots", emoji: "🥾", slot: "boots", rarity: "common", stats: { speed: 7 } },
   { id: "b_striders", name: "Leather Striders", emoji: "👟", slot: "boots", rarity: "common", stats: { speed: 6, dodge: 4 } },
+  { id: "b_dancer", name: "Dancer's Steps", emoji: "🩰", slot: "boots", rarity: "uncommon", stats: { speed: 9, dodge: 9, defense: -3 } },
   { id: "b_crusader", name: "Crusader Greaves", emoji: "✝️", slot: "boots", rarity: "rare", stats: { speed: 4, defense: 9, attack: 5 }, tags: ["heavy"] },
   { id: "b_sandals", name: "Sandals", emoji: "🩴", slot: "boots", rarity: "common", stats: { speed: 10, defense: -2 } },
   { id: "b_sturdy", name: "Sturdy Boots", emoji: "👢", slot: "boots", rarity: "common", stats: { speed: 5, defense: 5 } },
@@ -68,6 +74,8 @@ export const ITEMS: Item[] = [
   { id: "c_copper_ring", name: "Copper Ring", emoji: "💍", slot: "accessory", rarity: "common", stats: { hp: 12, attack: 4 } },
   { id: "c_war_drum", name: "War Drum", emoji: "🥁", slot: "accessory", rarity: "epic", stats: { attack: 10, initiative: 15 } },
   { id: "c_frost_charm", name: "Frost Charm", emoji: "❄️", slot: "accessory", rarity: "rare", stats: { defense: 5 }, passive: { type: "stunChance", value: 10, label: "10% chance to freeze-stun on hit" } },
+  { id: "c_smoke_bomb", name: "Smoke Bomb", emoji: "💨", slot: "accessory", rarity: "uncommon", stats: { dodge: 12, speed: 4 } },
+  { id: "c_bone_ward", name: "Bone Ward", emoji: "☠️", slot: "accessory", rarity: "rare", stats: { defense: 4 }, passive: { type: "shield", value: 25, label: "Starts battle with a 25 HP shield" } },
   { id: "c_iron_band", name: "Iron Band", emoji: "⭕", slot: "accessory", rarity: "common", stats: { defense: 6 } },
   { id: "c_lucky_coin", name: "Lucky Coin", emoji: "🪙", slot: "accessory", rarity: "uncommon", stats: { critChance: 14 } },
   { id: "c_healing_pendant", name: "Healing Pendant", emoji: "💚", slot: "accessory", rarity: "uncommon", stats: {}, passive: { type: "healPerTurn", value: 6, label: "Regenerates 6 HP per turn" } },
@@ -90,7 +98,7 @@ export function itemById(id: string): Item | undefined {
 
 export type WeaponKind = "ranged" | "heavy" | "blade";
 
-const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe"]);
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe", "w_claymore"]);
 
 function baseWeaponId(item: Item): string {
   return item.id.replace(/_(forged|gambled)$/, "");
@@ -122,6 +130,10 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27 },
   w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28 },
   w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26 },
+  w_hatchet: { model: "axe_1handed", kind: "blade" },
+  w_bone_crossbow: { model: "Skeleton_Crossbow", kind: "crossbow" },
+  w_claymore: { model: "Claymore", kind: "heavy", scale: 0.27 },
+  w_grimoire: { model: "spellbook_open", kind: "magic" },
   w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
   w_spiked_flail: { model: "shield_spikes", kind: "blade" },
   w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },
@@ -141,7 +153,9 @@ export function weaponModelFor(item: Item | undefined): WeaponModelDef | undefin
 
 const SHIELD_MODELS: Record<string, string> = {
   a_titan: "shield_square",
-  c_guardian_charm: "shield_badge"
+  c_guardian_charm: "shield_badge",
+  a_bone_wall: "Skeleton_Shield_Large_A",
+  c_bone_ward: "Skeleton_Shield_Small_A"
 };
 
 export interface HeadgearDef {

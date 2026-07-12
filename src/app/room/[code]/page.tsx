@@ -13,6 +13,26 @@ import BattleStage from "@/components/BattleStage";
 import Bracket from "@/components/Bracket";
 import Champion from "@/components/Champion";
 import { LangToggle, useI18n } from "@/lib/i18n";
+import { isMuted, setMuted } from "@/lib/sound";
+
+function MuteToggle() {
+  const [muted, setMutedState] = useState(false);
+  useEffect(() => {
+    setMutedState(isMuted());
+  }, []);
+  return (
+    <button
+      onClick={() => {
+        const next = !muted;
+        setMuted(next);
+        setMutedState(next);
+      }}
+      className="rounded-lg px-1.5 py-1 text-lg leading-none transition hover:bg-white/10"
+    >
+      {muted ? "🔇" : "🔊"}
+    </button>
+  );
+}
 
 export default function RoomPage() {
   const { t } = useI18n();
@@ -108,6 +128,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {t("room")} <span className="text-indigo-300">{snapshot.code}</span>
         </div>
         <div className="flex items-center gap-2">
+          <MuteToggle />
           <LangToggle />
           <div className={`h-2 w-2 rounded-full ${game.connected ? "bg-emerald-400" : "bg-rose-500"}`} />
         </div>

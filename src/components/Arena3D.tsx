@@ -503,14 +503,24 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.25);
       playAction(rig, guardPoolFor(kind, rig.idleClip));
       break;
+    case "throw":
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 0.3);
+      playAction(rig, ["Throw", "Melee_Unarmed_Attack_Punch_A"], { once: true, backToIdle: true });
+      if (onShoot) rig.actionTimer = setTimeout(onShoot, 380);
+      scheduleReturn(rig, 900);
+      break;
+    case "pickup":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, ["PickUp", "Hit_A"], { once: true, backToIdle: true });
+      break;
     case "taunt":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["Skeletons_Taunt", IDLE_CLIP], { once: true, backToIdle: true });
+      playAction(rig, ["Skeletons_Taunt", "Waving", IDLE_CLIP], { once: true, backToIdle: true, random: true });
       break;
     case "windup":
       if (kind === "magic") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_Magic_Raise", IDLE_CLIP], { once: true, backToIdle: true });
+        playAction(rig, ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP], { once: true, backToIdle: true, random: true });
       } else if (kind === "crossbow") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
         playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
@@ -566,7 +576,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
     case "block":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.15);
       if (rig.placeholder) rig.targetTilt = -0.12;
-      playAction(rig, ["Melee_Block_Hit", "Hit_A"], { once: true, backToIdle: true });
+      playAction(rig, ["Melee_Block_Hit", "Melee_Block_Attack", "Hit_A"], { once: true, backToIdle: true, random: true });
       scheduleReturn(rig, 500);
       break;
     case "dodge":
@@ -596,7 +606,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       break;
     case "victory":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["Cheering"]);
+      playAction(rig, ["Cheering", "Waving", "Push_Ups", "Jump_Full_Short"], { random: true });
       break;
   }
 }
@@ -652,6 +662,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
       launch(
         new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), new THREE.MeshBasicMaterial({ color: 0xb388ff, transparent: true, opacity: 0.95 }))
       );
+      return;
+    }
+    if (kind === "fists") {
+      launch(new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), new THREE.MeshStandardMaterial({ color: 0x8d8d86, roughness: 0.9 })));
       return;
     }
     if (kind === "bow") {
@@ -739,8 +753,14 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     attachMarker(rigB, 0xf87171);
     attachNameSprite(rigA, a.nickname, "#a5b4fc");
     attachNameSprite(rigB, b.nickname, "#fca5a5");
-    void attachModel(rigA, avatarById(a.avatar).id, a).then(() => applyPose(rigA, "idle", kindRef.current.a, false));
-    void attachModel(rigB, avatarById(b.avatar).id, b).then(() => applyPose(rigB, "idle", kindRef.current.b, false));
+    void attachModel(rigA, avatarById(a.avatar).id, a).then(() => {
+      applyPose(rigA, "idle", kindRef.current.a, false);
+      playAction(rigA, ["Spawn_Ground"], { once: true, backToIdle: true });
+    });
+    void attachModel(rigB, avatarById(b.avatar).id, b).then(() => {
+      applyPose(rigB, "idle", kindRef.current.b, false);
+      playAction(rigB, ["Spawn_Ground"], { once: true, backToIdle: true });
+    });
 
     const dom = renderer.domElement;
     dom.style.touchAction = "none";
@@ -1007,8 +1027,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
       delayReaction(rigB, kinds.b, rigA, poseA, kinds.a);
     } else {
       if (poseA === "attack") applyPose(rigA, "attack", kinds.a, crit, () => spawnProjectile(rigA, rigB, kinds.a), rigB);
+      else if (poseA === "throw") applyPose(rigA, "throw", kinds.a, false, () => spawnProjectile(rigA, rigB, "fists"), rigB);
       else applyPose(rigA, poseA, kinds.a, crit);
       if (poseB === "attack") applyPose(rigB, "attack", kinds.b, crit, () => spawnProjectile(rigB, rigA, kinds.b), rigA);
+      else if (poseB === "throw") applyPose(rigB, "throw", kinds.b, false, () => spawnProjectile(rigB, rigA, "fists"), rigA);
       else applyPose(rigB, poseB, kinds.b, crit);
     }
   }, [poseA, poseB, beat, crit]);
