@@ -398,6 +398,12 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           {!qteMine && qteAttacker && <QteChallenge key={`qteatk-${entries.length}`} mode="attack" onResult={onReact} />}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {current && current.t === "card" && ["pirate", "trade", "magnet"].includes(current.key ?? "") && (
+            <CardSwapFx key={`cardfx-${index}`} entry={current} battle={battle} />
+          )}
+        </AnimatePresence>
+
         <AnimatePresence>{current && current.t === "victory" && <Confetti />}</AnimatePresence>
       </motion.div>
 
@@ -508,6 +514,45 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       )}
     </div>
   );
+}
+
+function FlyingItem({ emoji, label, fromRight, delay, top }: { emoji: string; label: string; fromRight: boolean; delay: number; top: string }) {
+  return (
+    <motion.div
+      initial={{ x: fromRight ? 150 : -150, opacity: 0, scale: 0.6 }}
+      animate={{ x: fromRight ? -150 : 150, opacity: [0, 1, 1, 0], scale: [0.6, 1.25, 1.25, 0.7] }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 1.6, delay, ease: "easeInOut" }}
+      className="pointer-events-none absolute left-1/2 z-20 flex -translate-x-1/2 flex-col items-center"
+      style={{ top }}
+    >
+      <div className="text-4xl drop-shadow-[0_2px_10px_rgba(251,191,36,0.7)]">{emoji}</div>
+      {label && <div className="mt-0.5 rounded bg-slate-950/80 px-1.5 py-0.5 text-[10px] font-bold text-amber-200">{label}</div>}
+    </motion.div>
+  );
+}
+
+function CardSwapFx({ entry, battle }: { entry: TimelineEntry; battle: BattlePayload }) {
+  const { itemName } = useI18n();
+  const ownerIsA = entry.params?.side === "a";
+  if (entry.key === "trade") {
+    const slot = entry.params?.slot as keyof typeof battle.a.equipment | undefined;
+    const aGot = slot ? battle.a.equipment[slot] : undefined;
+    const bGot = slot ? battle.b.equipment[slot] : undefined;
+    return (
+      <>
+        {aGot && <FlyingItem emoji={aGot.emoji} label={itemName(aGot)} fromRight delay={0} top="30%" />}
+        {bGot && <FlyingItem emoji={bGot.emoji} label={itemName(bGot)} fromRight={false} delay={0.15} top="42%" />}
+      </>
+    );
+  }
+  const emoji = (entry.params?.emoji as string) ?? "🎁";
+  const itemId = entry.params?.item as string | undefined;
+  const stolen =
+    itemId !== undefined
+      ? [...Object.values(battle.a.equipment), ...Object.values(battle.b.equipment)].find((i) => i && i.id === itemId)
+      : undefined;
+  return <FlyingItem emoji={emoji} label={stolen ? itemName(stolen) : ""} fromRight={ownerIsA} delay={0} top="34%" />;
 }
 
 function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "left" | "right"; headline: string }) {

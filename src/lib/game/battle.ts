@@ -420,7 +420,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     otherEquip: Partial<Record<Slot, Item>>,
     otherDisabled: string[],
     selfName: string,
-    otherName: string
+    otherName: string,
+    selfKey: "a" | "b"
   ) => {
     const card = self.luckCard?.id;
     if (card === "pirate") {
@@ -433,7 +434,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
           pre.push({
             text: `🏴‍☠️ ${selfName} activates Pirate and steals ${otherName}'s ${stolen.emoji} ${stolen.name}!`,
             key: "pirate",
-            params: { p: selfName, o: otherName, item: stolen.id, emoji: stolen.emoji },
+            params: { p: selfName, o: otherName, item: stolen.id, emoji: stolen.emoji, side: selfKey },
             fx: `steal:${slot}`
           });
         }
@@ -451,7 +452,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         pre.push({
           text: `🎁 ${selfName} activates Trade! ${slot} items are swapped with ${otherName}!`,
           key: "trade",
-          params: { p: selfName, o: otherName, slot },
+          params: { p: selfName, o: otherName, slot, side: selfKey },
           fx: `trade:${slot}`
         });
       }
@@ -463,15 +464,15 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         pre.push({
           text: `🧲 ${selfName}'s Magnet rips ${otherName}'s ${weapon.emoji} ${weapon.name} away!`,
           key: "magnet",
-          params: { p: selfName, o: otherName, item: weapon.id, emoji: weapon.emoji },
+          params: { p: selfName, o: otherName, item: weapon.id, emoji: weapon.emoji, side: selfKey },
           fx: "magnet"
         });
       }
     }
   };
 
-  applyCards(aBuild, aEquip, bEquip, bDisabled, aBuild.nickname, bBuild.nickname);
-  applyCards(bBuild, bEquip, aEquip, aDisabled, bBuild.nickname, aBuild.nickname);
+  applyCards(aBuild, aEquip, bEquip, bDisabled, aBuild.nickname, bBuild.nickname, "a");
+  applyCards(bBuild, bEquip, aEquip, aDisabled, bBuild.nickname, aBuild.nickname, "b");
 
   const a = buildCombatant("a", { ...aBuild, equipment: aEquip }, event, aDisabled);
   const b = buildCombatant("b", { ...bBuild, equipment: bEquip }, event, bDisabled);

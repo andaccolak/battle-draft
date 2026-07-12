@@ -222,7 +222,30 @@ function isLeague(state: RoomState): boolean {
 function homeAwayActive(state: RoomState): boolean {
   if ((state.matchMode ?? "single") !== "homeAway") return false;
   if (!isLeague(state)) return true;
-  return state.leagueStage === "semis";
+  return state.leagueStage === "league" || state.leagueStage === "semis";
+}
+
+function lotHash(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+function headToHeadDiff(state: RoomState, xa: string, xb: string): number {
+  let xWins = 0;
+  let yWins = 0;
+  for (const round of state.bracket) {
+    for (const m of round) {
+      const pair = (m.a === xa && m.b === xb) || (m.a === xb && m.b === xa);
+      if (!pair) continue;
+      const aIsX = m.a === xa;
+      const wa = m.legWinsA ?? (m.winner !== null && m.winner === m.a ? 1 : 0);
+      const wb = m.legWinsB ?? (m.winner !== null && m.winner === m.b ? 1 : 0);
+      xWins += aIsX ? wa : wb;
+      yWins += aIsX ? wb : wa;
+    }
+  }
+  return yWins - xWins;
 }
 
 function roundRobinRounds(ids: string[]): StateBracketMatch[][] {
@@ -448,7 +471,12 @@ function advanceBattles(state: RoomState, now: number): void {
           state.currentMatch = 0;
           continue;
         }
-        const standings = [...state.players].sort((x, y) => y.wins - x.wins);
+        const standings = [...state.players].sort(
+          (x, y) =>
+            y.wins - x.wins ||
+            headToHeadDiff(state, x.id, y.id) ||
+            lotHash(state.code + y.id) - lotHash(state.code + x.id)
+        );
         const qualifiers = standings.slice(0, standings.length >= 6 ? 4 : 2);
         const qualified = new Set(qualifiers.map((p) => p.id));
         for (const p of state.players) {
@@ -680,7 +708,20 @@ function finishBattle(state: RoomState, now: number): void {
   const winner = findPlayer(state, battle.winnerId);
   if (winner) winner.wins++;
   if (isLeague(state) && state.leagueStage === "league") {
-    if (match) match.winner = battle.winnerId;
+    if (match && homeAwayActive(state)) {
+      if (battle.winnerId === match.a) match.legWinsA = (match.legWinsA ?? 0) + 1;
+      else match.legWinsB = (match.legWinsB ?? 0) + 1;
+      const winsA = match.legWinsA ?? 0;
+      const winsB = match.legWinsB ?? 0;
+      if (winsA + winsB < 2) {
+        state.battle = null;
+        state.nextBattleAt = now + BATTLE_GAP_MS;
+        return;
+      }
+      match.winner = winsA > winsB ? match.a : winsB > winsA ? match.b : battle.winnerId;
+    } else if (match) {
+      match.winner = battle.winnerId;
+    }
     state.battle = null;
     state.currentMatch++;
     state.nextBattleAt = now + BATTLE_GAP_MS;
