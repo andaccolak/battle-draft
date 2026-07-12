@@ -17,8 +17,20 @@ interface FloatingNumber {
   side: "a" | "b";
   value: string;
   kind: "dmg" | "heal" | "note" | "crit";
+  mag: number;
   x: number;
   y: number;
+}
+
+const FLOAT_SIZES: Record<string, string[]> = {
+  dmg: ["text-2xl text-rose-400", "text-3xl text-rose-400", "text-4xl text-rose-300"],
+  crit: ["text-3xl text-orange-400", "text-3xl text-orange-400", "text-4xl text-orange-300"],
+  heal: ["text-2xl text-emerald-400", "text-2xl text-emerald-400", "text-3xl text-emerald-300"],
+  note: ["text-base text-cyan-300", "text-base text-cyan-300", "text-base text-cyan-300"]
+};
+
+function floatMag(dmg: number): number {
+  return dmg >= 55 ? 2 : dmg >= 28 ? 1 : 0;
 }
 
 type FxKind = "rain" | "storm" | "snow" | "fog" | "sun" | "night" | "bloodmoon" | "poison" | "wind" | "quake" | "overcast" | "none";
@@ -236,14 +248,14 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         }, delay)
       );
     };
-    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay: number) => {
+    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay: number, mag = 0) => {
       at(() => {
         floatId.current++;
         const pos = screenPosRef.current[side];
         setFloats((f) => {
           const onSide = f.filter((x) => x.side === side).length;
           const y = Math.max(0.08, pos.y - onSide * 0.08);
-          return [...f.slice(-2), { id: floatId.current, side, value, kind, x: pos.x, y }];
+          return [...f.slice(-2), { id: floatId.current, side, value, kind, mag, x: pos.x, y }];
         });
       }, delay);
     };
@@ -271,7 +283,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", impact);
       else if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
         const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
-        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", impact);
+        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", impact, floatMag(entry.dmg ?? 0));
       }
       if (entry.t === "passive" && entry.key === "stunApplied") pushFloat(other, t("noteStun"), "note", 120);
       if (entry.t === "passive" && entry.key === "revive") pushFloat(entry.actor, t("noteRevive"), "note", 120);
@@ -358,19 +370,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
             {floats.map((f) => (
               <motion.div
                 key={f.id}
-                initial={{ opacity: 0, y: 4, scale: 0.8 }}
-                animate={{ opacity: [0, 1, 1, 0], y: -40, scale: 1 }}
+                initial={{ opacity: 0, y: 4, scale: 0.55 }}
+                animate={{ opacity: [0, 1, 1, 0], y: -44, scale: [0.55, 1.18, 1] }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.9, ease: "easeOut" }}
                 style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%` }}
                 className={`absolute -translate-x-1/2 whitespace-nowrap font-display font-black drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${
-                  f.kind === "note"
-                    ? "text-base text-cyan-300"
-                    : f.kind === "crit"
-                      ? "text-xl text-orange-400"
-                      : f.kind === "heal"
-                        ? "text-2xl text-emerald-400"
-                        : "text-2xl text-rose-400"
+                  (FLOAT_SIZES[f.kind] ?? FLOAT_SIZES.note)?.[Math.min(2, f.mag)] ?? "text-base text-cyan-300"
                 }`}
               >
                 {f.value}

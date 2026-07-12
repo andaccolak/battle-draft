@@ -321,6 +321,36 @@ interface Projectile {
   duration: number;
 }
 
+interface Burst {
+  points: THREE.Points;
+  vels: Float32Array;
+  life: number;
+  max: number;
+  gravity: number;
+}
+
+function spawnBurst(scene: THREE.Scene, list: Burst[], pos: THREE.Vector3, color: number, count: number, speed: number, gravity = 7): void {
+  const positions = new Float32Array(count * 3);
+  const vels = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = pos.x;
+    positions[i * 3 + 1] = pos.y;
+    positions[i * 3 + 2] = pos.z;
+    const angle = Math.random() * Math.PI * 2;
+    const radial = (0.4 + Math.random() * 0.6) * speed;
+    vels[i * 3] = Math.cos(angle) * radial;
+    vels[i * 3 + 1] = (0.35 + Math.random() * 0.75) * speed;
+    vels[i * 3 + 2] = Math.sin(angle) * radial;
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({ color, size: 0.08, transparent: true, opacity: 1, depthWrite: false });
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  scene.add(points);
+  list.push({ points, vels, life: 0, max: 0.45, gravity });
+}
+
 const cameraState = { azimuth: 0, elev: 3, zoom: 1 };
 
 let sharedRenderer: THREE.WebGLRenderer | null = null;
@@ -465,6 +495,7 @@ function playAction(
     target.clampWhenFinished = true;
   } else {
     target.setLoop(THREE.LoopRepeat, Infinity);
+    target.time = Math.random() * target.getClip().duration;
   }
   if (rig.current && rig.current !== target) rig.current.fadeOut(fade);
   target.fadeIn(fade).play();
@@ -561,15 +592,18 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
         crit && MELEE_KINDS.has(kind)
           ? (pickAvailable(rig, CRIT_POOL, true, seed) ?? pickAvailable(rig, pool, true, seed))
           : pickAvailable(rig, pool, true, seed);
+      const heft = kind === "heavy" ? 0.9 : kind === "dual" || kind === "fists" ? 1.12 : 1;
       if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
         rig.moveSpeed = RUN_SPEED;
         playAction(rig, ["Running_A"]);
         rig.actionTimer = setTimeout(() => {
           rig.moveSpeed = null;
           playAction(rig, [strike], { once: true, backToIdle: true });
+          rig.current?.setEffectiveTimeScale(heft);
         }, meleeRunMs(rig, opp));
       } else if (strike) {
         playAction(rig, [strike], { once: true, backToIdle: true });
+        rig.current?.setEffectiveTimeScale(heft);
         if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, 320);
       }
       scheduleReturn(rig, 1100);
@@ -664,8 +698,11 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
   const revealRef = useRef(!!revealed);
   const revealedOnceRef = useRef(false);
   const lightsRef = useRef<{ ambient: THREE.AmbientLight; hemi: THREE.HemisphereLight; sun: THREE.DirectionalLight } | null>(null);
-  const timeRef = useRef({ scale: 1, target: 1 });
+  const timeRef = useRef({ scale: 1, target: 1, freeze: 0 });
   const slowTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const burstsRef = useRef<Burst[]>([]);
+  const kickRef = useRef(0);
+  const flashRef = useRef<THREE.PointLight | null>(null);
   kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
   mapRef.current = map;
 
@@ -706,6 +743,21 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     launch(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.8), new THREE.MeshStandardMaterial({ color: 0x8a6d4a, roughness: 0.6 })));
   };
 
+  const impactFx = (target: Rig, hard: boolean, block: boolean) => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const pos = target.group.position.clone().setY(1.1);
+    const flash = flashRef.current;
+    if (flash) {
+      flash.position.copy(pos).setY(1.6);
+      flash.color.set(hard ? 0xffb347 : block ? 0xbfd4ff : 0xffe2c8);
+      flash.intensity = hard ? 26 : block ? 10 : 16;
+    }
+    spawnBurst(scene, burstsRef.current, pos, hard ? 0xffa733 : block ? 0xcfe0ff : 0xffd9a8, hard ? 16 : 10, hard ? 3.2 : 2.1);
+    kickRef.current += hard ? 0.55 : 0.22;
+    if (hard) timeRef.current.freeze = 0.085;
+  };
+
   const retargetCamera = () => {
     const { focus: f, zoom: z } = zoomState.current;
     camTarget.current.x = f === "a" ? -0.45 : f === "b" ? 0.45 : 0;
@@ -743,6 +795,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const rim = new THREE.PointLight(0x8899ff, 12, 20);
     rim.position.set(-3, 3, -3);
     scene.add(rim);
+    const flash = new THREE.PointLight(0xffffff, 0, 9);
+    scene.add(flash);
+    flashRef.current = flash;
     lightsRef.current = { ambient, hemi, sun };
 
     const floor = new THREE.Mesh(
@@ -859,7 +914,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       const rawDelta = clock.getDelta();
       const time = timeRef.current;
       time.scale += (time.target - time.scale) * Math.min(1, rawDelta * 7);
-      const delta = rawDelta * time.scale;
+      time.freeze = Math.max(0, time.freeze - rawDelta);
+      const delta = time.freeze > 0 ? 0 : rawDelta * time.scale;
       const damp = 1 - Math.pow(0.0001, delta);
       const camDamp = 1 - Math.pow(0.0001, rawDelta);
       const calm = CALM_POSES.has(rigA.pose) && CALM_POSES.has(rigB.pose);
@@ -943,6 +999,30 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
           projectiles.splice(i, 1);
         }
       }
+      const bursts = burstsRef.current;
+      for (let i = bursts.length - 1; i >= 0; i--) {
+        const burst = bursts[i];
+        if (!burst) continue;
+        burst.life += delta;
+        const attr = burst.points.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const arr = attr.array as Float32Array;
+        for (let j = 0; j < burst.vels.length; j += 3) {
+          arr[j] = (arr[j] ?? 0) + (burst.vels[j] ?? 0) * delta;
+          arr[j + 1] = (arr[j + 1] ?? 0) + (burst.vels[j + 1] ?? 0) * delta;
+          arr[j + 2] = (arr[j + 2] ?? 0) + (burst.vels[j + 2] ?? 0) * delta;
+          burst.vels[j + 1] = (burst.vels[j + 1] ?? 0) - burst.gravity * delta;
+        }
+        attr.needsUpdate = true;
+        (burst.points.material as THREE.PointsMaterial).opacity = Math.max(0, 1 - burst.life / burst.max);
+        if (burst.life >= burst.max) {
+          burst.points.removeFromParent();
+          burst.points.geometry.dispose();
+          (burst.points.material as THREE.Material).dispose();
+          bursts.splice(i, 1);
+        }
+      }
+      if (flashRef.current) flashRef.current.intensity = Math.max(0, flashRef.current.intensity - rawDelta * 90);
+      kickRef.current *= Math.pow(0.02, rawDelta);
       weatherRef.current?.update(delta);
       if (pointers.size === 0) {
         if (time.scale < 0.85) cameraState.azimuth += rawDelta * 0.5;
@@ -953,7 +1033,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       const maxDist = mapRef.current === "dungeon" ? 18 : 34;
       orbit.dist += (Math.min(maxDist, camTarget.current.z * cameraState.zoom) - orbit.dist) * camDamp * 0.6;
       orbit.lookX += (camTarget.current.x - orbit.lookX) * camDamp * 0.6;
-      camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
+      const camDist = Math.max(2.5, orbit.dist - kickRef.current);
+      camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * camDist, orbit.elev, Math.cos(orbit.azimuth) * camDist);
       lookAt.set(orbit.lookX, 1.15, 0);
       camera.lookAt(lookAt);
       if (screenPosRef) {
@@ -1014,6 +1095,15 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       slowTimersRef.current = [];
       timeRef.current.scale = 1;
       timeRef.current.target = 1;
+      timeRef.current.freeze = 0;
+      for (const burst of burstsRef.current) {
+        burst.points.removeFromParent();
+        burst.points.geometry.dispose();
+        (burst.points.material as THREE.Material).dispose();
+      }
+      burstsRef.current = [];
+      kickRef.current = 0;
+      flashRef.current = null;
       arenaRef.current?.removeFromParent();
       arenaRef.current = null;
       renderer.domElement.remove();
@@ -1077,13 +1167,27 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const kinds = kindRef.current;
     const seedA = beat * 2 + 1;
     const seedB = beat * 2 + 2;
+    for (const [pose, rig] of [
+      [poseA, rigA],
+      [poseB, rigB]
+    ] as const) {
+      if (pose === "dead" && rig.pose !== "dead") {
+        slowTimersRef.current.push(
+          setTimeout(() => {
+            if (sceneRef.current) spawnBurst(sceneRef.current, burstsRef.current, rig.group.position.clone().setY(0.15), 0x9c8f7f, 14, 1.5, 2.5);
+          }, 750)
+        );
+      }
+    }
     const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind, atkSeed: number, defSeed: number) => {
       applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed);
       const lead = reaction === "dodge" || reaction === "roll" ? 260 : 0;
-      defender.reactTimer = setTimeout(
-        () => applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed),
-        Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead)
-      );
+      defender.reactTimer = setTimeout(() => {
+        applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed);
+        if (reaction === "hit" || reaction === "knockdown" || reaction === "block") {
+          impactFx(defender, crit || reaction === "knockdown", reaction === "block");
+        }
+      }, Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead));
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {
       delayReaction(rigA, kinds.a, rigB, poseB, kinds.b, seedA, seedB);
