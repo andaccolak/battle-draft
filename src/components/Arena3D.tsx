@@ -311,6 +311,8 @@ interface Rig {
   pose: Pose;
   radius: number;
   radiusTarget: number;
+  impulse: THREE.Vector3;
+  returning: boolean;
 }
 
 interface Projectile {
@@ -425,7 +427,9 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     droppedWeapon: null,
     pose: "idle",
     radius: RING_RADIUS,
-    radiusTarget: RING_RADIUS
+    radiusTarget: RING_RADIUS,
+    impulse: new THREE.Vector3(),
+    returning: false
   };
 }
 
@@ -522,7 +526,13 @@ function scheduleReturn(rig: Rig, ms: number): void {
   rig.returnTimer = setTimeout(() => {
     rig.targetPos.copy(rig.base);
     rig.targetTilt = 0;
-    rig.moveSpeed = null;
+    if (rig.group.position.distanceTo(rig.base) > 0.7 && rig.clips?.has("Walking_A")) {
+      rig.moveSpeed = 1.6;
+      rig.returning = true;
+      playAction(rig, ["Walking_A"]);
+    } else {
+      rig.moveSpeed = null;
+    }
   }, ms);
 }
 
@@ -538,6 +548,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
   }
   rig.targetTilt = 0;
   rig.moveSpeed = null;
+  rig.returning = false;
   rig.pose = pose;
   rig.idleClip = pickAvailable(rig, IDLE_POOLS[kind] ?? [IDLE_CLIP], false) ?? IDLE_CLIP;
   switch (pose) {
@@ -977,14 +988,23 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       }
       for (const rig of [rigA, rigB]) {
         rig.mixer?.update(delta);
+        const pushed = rig.impulse.lengthSq() > 0.0004;
+        if (pushed) {
+          rig.group.position.addScaledVector(rig.impulse, delta);
+          rig.impulse.multiplyScalar(Math.pow(0.001, delta));
+        }
         if (rig.moveSpeed) {
           moveVec.subVectors(rig.targetPos, rig.group.position);
           const remaining = moveVec.length();
           if (remaining > 0.02) {
             rig.group.position.addScaledVector(moveVec.normalize(), Math.min(rig.moveSpeed * delta, remaining));
+          } else if (rig.returning) {
+            rig.returning = false;
+            rig.moveSpeed = null;
+            playAction(rig, [rig.idleClip]);
           }
         } else {
-          rig.group.position.lerp(rig.targetPos, damp * 0.9);
+          rig.group.position.lerp(rig.targetPos, damp * (pushed ? 0.2 : 0.9));
         }
         rig.group.rotation.z += (rig.targetTilt - rig.group.rotation.z) * damp;
       }
@@ -1189,6 +1209,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
         applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed);
         if (reaction === "hit" || reaction === "knockdown" || reaction === "block") {
           impactFx(defender, crit || reaction === "knockdown", reaction === "block");
+          defender.impulse.addScaledVector(defender.dir, reaction === "knockdown" ? -3.4 : reaction === "block" ? -1.2 : -2.2);
+        } else if (reaction === "dodge" || reaction === "roll") {
+          defender.impulse.addScaledVector(defender.side, reaction === "roll" ? 3.6 : 2.8);
         }
       }, Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead));
     };

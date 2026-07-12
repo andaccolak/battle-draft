@@ -131,9 +131,10 @@ function mountWeapon(
 }
 
 const TWO_HANDED_KINDS = new Set(["bow", "crossbow", "dual", "heavy"]);
-const UPRIGHT_MODELS = new Set(["Skeleton_Crossbow", "mug_full", "shield_round_barbarian", "shield_spikes", "spellbook_open"]);
+const UPRIGHT_MODELS = new Set(["mug_full", "shield_round_barbarian", "shield_spikes", "spellbook_open"]);
 
 function tiltFor(kind: string, model: string): number {
+  if (model === "Skeleton_Crossbow") return Math.PI / 2;
   if (kind === "bow" || UPRIGHT_MODELS.has(model)) return 0;
   return -Math.PI / 2;
 }
