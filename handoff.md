@@ -4,6 +4,12 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 
 # Last Completed Work
 
+## Physical hits + anti-float pass (game-feel sprint, 2026-07-13)
+
+- Rigs carry an `impulse` velocity (integrated in the render loop with exponential decay): landed hits shove the defender along the attack direction (-3.4 knockdown / -2.2 hit / -1.2 block), dodges/rolls snap sideways (+2.8/+3.6) at the moment the attack would land, so evades visibly leave the swing line. While an impulse is live the positional lerp gain drops to 0.2 so the shove reads.
+- Post-attack recovery no longer ice-skates: `scheduleReturn` walks fighters back with Walking_A at 1.6 u/s when they are >0.7 units from base (`rig.returning`; the loop switches to idle on arrival). Short offsets still lerp.
+- Bone Crossbow mount fixed (+90° tilt special case in `tiltFor`); large-size `/dev/weapons` audit of all 37 weapons is clean.
+
 ## Weapon grip + identity pass (game-feel sprint, 2026-07-13)
 
 - Melee weapons/staves were mounted lying horizontal or pointing backward in the hand. `tiltFor` in characterAssets applies a -90° X rotation at mount; `UPRIGHT_MODELS` (bows, mug, shields, Skeleton_Crossbow, spellbook) are exempt because their native orientation was already correct — extend that set rather than removing the tilt if a future model mounts oddly.
