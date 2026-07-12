@@ -1,3 +1,56 @@
+# Current Status
+
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the QTE input-feedback polish milestone.
+
+# Last Completed Work
+
+- Made the timed QTE overlay a semantic button, so it is operable with keyboard and assistive technologies as well as touch.
+- Preserved immediate `pointerdown` resolution for touch responsiveness while safely deduplicating the follow-up click event.
+- Added immediate audio and best-effort vibration confirmation for perfect, good, and failed timing outcomes.
+- Announced the timing result through an assertive live region for screen-reader players.
+
+# Current Architecture Notes
+
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari.
+
+# Remaining Tasks
+
+- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari.
+- [ ] Continue targeted combat polish while preserving the current 3D asset and frame-time budgets.
+- [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets.
+
+# Known Bugs
+
+- Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
+
+# Current Branch
+
+`main`
+
+# Build Status
+
+`npm run typecheck` and `npm run build` passed on 2026-07-12 after this milestone.
+
+# Files Recently Modified
+
+- `src/components/BattleStage.tsx`
+- `handoff.md`
+
+# Suggested Next Step
+
+Run a physical mobile multiplayer smoke test focused on the QTE overlay, then take the next small combat-presentation improvement from the prioritized list above.
+
+# Important Decisions
+
+- QTE scoring remains based on the displayed rAF marker position; no timing thresholds or server rules changed.
+- The QTE resolves on `pointerdown` to retain the lowest possible touch latency. Its semantic button also resolves keyboard activation through `click`; the one-shot guard makes the paired browser events harmless.
+
+# Notes For Next Session
+
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention.
+
+---
+
 # Battle Draft — Claude Handoff Document
 
 This document briefs an AI assistant (or a new developer) taking over work on this codebase. Read it fully before making changes. Part I is the live session handover (current mission, status, pitfalls); Part II is the stable project spec.

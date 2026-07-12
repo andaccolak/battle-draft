@@ -674,9 +674,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
       if (startRef.current === null) startRef.current = ts;
       const el = ts - startRef.current;
       if (el > 3200) {
-        doneRef.current = true;
-        setResult("bad");
-        onResult(false, 1);
+        resolve(1);
         return;
       }
       const phase = (el % 2600) / 2600;
@@ -689,22 +687,37 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
     return () => cancelAnimationFrame(raf);
   }, [onResult]);
 
-  const tap = () => {
+  const resolve = (offset: number) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
     const pass = offset <= 0.1;
-    setResult(offset <= 0.02 ? "perfect" : pass ? "good" : "bad");
+    const timing = offset <= 0.02 ? "perfect" : pass ? "good" : "bad";
+    setResult(timing);
+    if (timing === "perfect") {
+      sfx.pick();
+      navigator.vibrate?.([10, 28, 12]);
+    } else if (timing === "good") {
+      sfx.pick();
+      navigator.vibrate?.(10);
+    } else {
+      sfx.miss();
+      navigator.vibrate?.(22);
+    }
     onResult(pass, offset);
   };
 
+  const tap = () => resolve(Math.min(1, Math.abs(posRef.current - 0.5) * 2));
+
   return (
-    <motion.div
+    <motion.button
+      type="button"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onPointerDown={tap}
-      className="absolute inset-0 z-30 flex cursor-pointer flex-col items-center justify-center bg-slate-950/75 backdrop-blur-sm"
+      onClick={tap}
+      aria-label={mode === "attack" ? t("qteAttackHint") : t("qteHint")}
+      className="absolute inset-0 z-30 flex cursor-pointer flex-col items-center justify-center border-0 bg-slate-950/75 p-0 text-left touch-manipulation backdrop-blur-sm"
     >
       {result === null ? (
         <>
@@ -732,6 +745,9 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
         </>
       ) : (
         <motion.div
+          role="status"
+          aria-live="assertive"
+          aria-atomic="true"
           initial={{ scale: 2.2, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: "spring", damping: 12 }}
@@ -742,7 +758,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           {result === "perfect" ? t("qtePerfect") : result === "good" ? t("qteGood") : t("qteFailed")}
         </motion.div>
       )}
-    </motion.div>
+    </motion.button>
   );
 }
 
