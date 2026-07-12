@@ -4,6 +4,14 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 
 # Last Completed Work
 
+## Weapon grip + identity pass (game-feel sprint, 2026-07-13)
+
+- Melee weapons/staves were mounted lying horizontal or pointing backward in the hand. `tiltFor` in characterAssets applies a -90° X rotation at mount; `UPRIGHT_MODELS` (bows, mug, shields, Skeleton_Crossbow, spellbook) are exempt because their native orientation was already correct — extend that set rather than removing the tilt if a future model mounts oddly.
+- Weapons sharing one model are differentiated by optional `tint`/`emissive` on `WeaponModelDef` — materials are CLONED per mount before tinting (KayKit clones share materials; never tint the shared template). `avatarThumb` cache key includes tint/emissive.
+- Projectiles spark on arrival (`burst` color per weapon kind).
+- `/dev/weapons` renders every weapon in a knight's hand as a grid — use it for any future weapon-visual audit (screenshot at ~900px).
+- Verified via the grid page and a full driven match; battle frames show natural grips, quiver + bow correct, impact flash lighting the victim on crits.
+
 ## Impact pack (game-feel sprint, 2026-07-13)
 
 - Every connecting blow (hit/knockdown/block reactions) fires `impactFx` in Arena3D at the same moment the reaction pose applies: a reusable PointLight flash at the victim (warm for hits, orange for hard hits, steel-blue for blocks), a spark `Burst` (pooled THREE.Points, disposed after 0.45 s), and a camera distance kick (`kickRef`, exponential decay) that punches in and springs back.
