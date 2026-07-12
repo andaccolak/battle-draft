@@ -228,6 +228,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         setFloats((f) => [...f.slice(-7), { id: floatId.current, side, value, kind, x: pos.x, y: pos.y }]);
       }, delay);
     };
+    const other = entry.actor === "a" ? "b" : "a";
     if (entry.heal !== undefined && entry.heal > 0) {
       pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal");
     }
@@ -237,18 +238,15 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     if (entry.t === "poison" && entry.dmg !== undefined) {
       pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg");
     }
-    const pushNote = (side: "a" | "b", text: string, delay: number, kind: "note" | "crit" = "note") => {
-      pushFloat(side, text, kind, delay);
-    };
-    const other = entry.actor === "a" ? "b" : "a";
     if (entry.actor !== "none") {
-      if (entry.t === "miss") pushNote(entry.actor, t("noteMiss"), 620);
-      if (entry.t === "dodge") pushNote(other, t("noteDodge"), 480);
-      if (entry.t === "attack" && entry.dmg !== undefined && entry.dmg > 0) pushFloat(other, `-${entry.dmg}`, "dmg", 620);
-      if (entry.t === "attack" && entry.blocked) pushNote(other, t("noteBlock"), 620);
-      if (entry.t === "attack" && entry.crit) pushNote(other, t("noteCrit"), 620, "crit");
-      if (entry.t === "passive" && entry.key === "stunApplied") pushNote(other, t("noteStun"), 120);
-      if (entry.t === "passive" && entry.key === "revive") pushNote(entry.actor, t("noteRevive"), 120);
+      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", 620);
+      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", 480);
+      else if (entry.t === "attack" && entry.dmg !== undefined && entry.dmg > 0) {
+        const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
+        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", 620);
+      }
+      if (entry.t === "passive" && entry.key === "stunApplied") pushFloat(other, t("noteStun"), "note", 120);
+      if (entry.t === "passive" && entry.key === "revive") pushFloat(entry.actor, t("noteRevive"), "note", 120);
     }
   }, [index]);
 
@@ -638,7 +636,6 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
   const [result, setResult] = useState<"perfect" | "good" | "bad" | null>(null);
   const posRef = useRef(0);
   const markerRef = useRef<HTMLDivElement>(null);
-  const histRef = useRef<{ t: number; p: number }[]>([]);
   const doneRef = useRef(false);
   const startRef = useRef<number | null>(null);
 
@@ -654,11 +651,9 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
         onResult(false, 1);
         return;
       }
-      const phase = (el % 2000) / 2000;
+      const phase = (el % 2600) / 2600;
       const p = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
       posRef.current = p;
-      histRef.current.push({ t: ts, p });
-      if (histRef.current.length > 60) histRef.current.shift();
       if (markerRef.current) markerRef.current.style.left = `${p * 100}%`;
       raf = requestAnimationFrame(step);
     };
@@ -666,23 +661,12 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
     return () => cancelAnimationFrame(raf);
   }, [onResult]);
 
-  const tap = (e: { timeStamp?: number }) => {
+  const tap = () => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const last = histRef.current[histRef.current.length - 1];
-    const evT = e.timeStamp && last && Math.abs(e.timeStamp - last.t) < 600 ? e.timeStamp : performance.now() - 90;
-    let sampled = posRef.current;
-    let bestDiff = Infinity;
-    for (const h of histRef.current) {
-      const diff = Math.abs(h.t - evT);
-      if (diff < bestDiff) {
-        bestDiff = diff;
-        sampled = h.p;
-      }
-    }
-    const offset = Math.min(1, Math.abs(sampled - 0.5) * 2);
+    const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
     const pass = offset <= 0.1;
-    setResult(offset <= 0.015 ? "perfect" : pass ? "good" : "bad");
+    setResult(offset <= 0.02 ? "perfect" : pass ? "good" : "bad");
     onResult(pass, offset);
   };
 
