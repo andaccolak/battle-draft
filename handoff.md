@@ -1,21 +1,21 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the QTE input-feedback polish milestone.
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the draft and luck choice-lock feedback milestone.
 
 # Last Completed Work
 
-- Made the timed QTE overlay a semantic button, so it is operable with keyboard and assistive technologies as well as touch.
-- Preserved immediate `pointerdown` resolution for touch responsiveness while safely deduplicating the follow-up click event.
-- Added immediate audio and best-effort vibration confirmation for perfect, good, and failed timing outcomes.
-- Announced the timing result through an assertive live region for screen-reader players.
+- Added local, one-shot choice locks to item draft and luck-card picks, preventing accidental duplicate taps while the API request is in flight.
+- The chosen card now receives a green, animated confirmation stamp; alternative choices fade and disable immediately, giving each pick a satisfying, unambiguous resolution.
+- Choice locks automatically release after four seconds if no authoritative snapshot arrives, so a dropped request never traps the player.
+- Added localized choice-lock copy and kept the server as the sole authority for game state.
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens now use short-lived local pending IDs to provide optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari.
 
 # Remaining Tasks
 
-- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari.
+- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking.
 - [ ] Continue targeted combat polish while preserving the current 3D asset and frame-time budgets.
 - [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets.
 
@@ -34,16 +34,21 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 # Files Recently Modified
 
 - `src/components/BattleStage.tsx`
+- `src/components/DraftPhase.tsx`
+- `src/components/LuckPhase.tsx`
+- `src/components/ItemCard.tsx`
+- `src/lib/i18n/dictionary.ts`
 - `handoff.md`
 
 # Suggested Next Step
 
-Run a physical mobile multiplayer smoke test focused on the QTE overlay, then take the next small combat-presentation improvement from the prioritized list above.
+Run a physical mobile multiplayer smoke test focused on draft/luck lock feedback and the QTE overlay, then take the next small combat-presentation improvement from the prioritized list above.
 
 # Important Decisions
 
 - QTE scoring remains based on the displayed rAF marker position; no timing thresholds or server rules changed.
 - The QTE resolves on `pointerdown` to retain the lowest possible touch latency. Its semantic button also resolves keyboard activation through `click`; the one-shot guard makes the paired browser events harmless.
+- Local pick locks are presentation-only and have a four-second escape hatch. They never assume a pick was accepted; only the next server snapshot advances the phase.
 
 # Notes For Next Session
 

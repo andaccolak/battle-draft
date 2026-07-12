@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LuckOffer, RoomSnapshot } from "@/lib/game/types";
 import { LUCK_TIME_MS } from "@/lib/game/types";
@@ -16,6 +17,25 @@ interface Props {
 
 export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
   const { t, cardText } = useI18n();
+  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingCardId(null);
+  }, [luckOffer?.picked]);
+
+  useEffect(() => {
+    if (!pendingCardId) return;
+    const timer = setTimeout(() => setPendingCardId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [pendingCardId]);
+
+  const pick = (cardId: string) => {
+    if (pendingCardId) return;
+    setPendingCardId(cardId);
+    sfx.legendary();
+    onPick(cardId);
+  };
+
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <div className="text-center">
@@ -37,11 +57,11 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
                 animate={{ opacity: 1, rotateY: 0 }}
                 transition={{ delay: 0.15 + i * 0.15, duration: 0.4 }}
                 whileTap={{ scale: 0.96 }}
-                onClick={() => {
-                  sfx.legendary();
-                  onPick(card.id);
-                }}
-                className="w-full rounded-2xl border-2 border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500/15 to-indigo-500/15 p-5 text-left transition active:scale-95"
+                onClick={() => pick(card.id)}
+                disabled={pendingCardId !== null}
+                className={`relative w-full rounded-2xl border-2 border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500/15 to-indigo-500/15 p-5 text-left transition active:scale-95 disabled:active:scale-100 ${
+                  pendingCardId === card.id ? "border-emerald-300 bg-emerald-500/15 ring-2 ring-emerald-300/40" : pendingCardId ? "opacity-45" : ""
+                }`}
               >
                 <div className="flex items-center gap-4">
                   <span className="text-4xl">{card.emoji}</span>
@@ -50,6 +70,11 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
                     <div className="mt-0.5 text-sm text-slate-300">{cardText(card).description}</div>
                   </div>
                 </div>
+                {pendingCardId === card.id && (
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-950/70">
+                    <span className="rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-black text-white">{t("choiceLocked")}</span>
+                  </motion.div>
+                )}
               </motion.button>
             ))}
           </motion.div>

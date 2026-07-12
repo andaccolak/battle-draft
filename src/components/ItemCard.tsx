@@ -16,14 +16,17 @@ const RARITY_STYLES: Record<Rarity, { border: string; text: string; bg: string }
 interface Props {
   item: Item;
   locked?: boolean;
+  pending?: boolean;
+  selected?: boolean;
   onPick?: () => void;
   compact?: boolean;
 }
 
-export default function ItemCard({ item, locked = false, onPick, compact = false }: Props) {
+export default function ItemCard({ item, locked = false, pending = false, selected = false, onPick, compact = false }: Props) {
   const { t, itemName, passiveLabel, slotLabel } = useI18n();
   const style = RARITY_STYLES[item.rarity];
   const slot = SLOT_META[item.slot];
+  const unavailable = locked || pending;
   const STAT_ORDER = ["attack", "defense", "hp", "speed", "critChance", "critDamage", "accuracy", "dodge", "initiative"] as const;
   const stats = STAT_ORDER.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map(
     (k) => `${(item.stats[k] as number) > 0 ? "+" : ""}${item.stats[k]} ${t(`stat_${k}`)}`
@@ -32,11 +35,11 @@ export default function ItemCard({ item, locked = false, onPick, compact = false
   return (
     <motion.button
       layout
-      whileTap={locked || !onPick ? undefined : { scale: 0.96 }}
-      onClick={locked ? undefined : onPick}
-      disabled={locked || !onPick}
+      whileTap={unavailable || !onPick ? undefined : { scale: 0.96 }}
+      onClick={unavailable ? undefined : onPick}
+      disabled={unavailable || !onPick}
       className={`relative w-full rounded-2xl border-2 p-3 text-left transition ${style.border} ${style.bg} ${
-        locked ? "grayscale opacity-60" : item.rarity === "legendary" ? "animate-pulseGlow" : ""
+        locked ? "grayscale opacity-60" : pending && !selected ? "opacity-45" : selected ? "border-emerald-300 bg-emerald-500/15 ring-2 ring-emerald-300/40" : item.rarity === "legendary" ? "animate-pulseGlow" : ""
       }`}
     >
       <div className="flex items-start gap-3">
@@ -69,6 +72,11 @@ export default function ItemCard({ item, locked = false, onPick, compact = false
             {t("slotOccupied")}
           </span>
         </div>
+      )}
+      {selected && !locked && (
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-950/70">
+          <span className="rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-black text-white">{t("choiceLocked")}</span>
+        </motion.div>
       )}
     </motion.button>
   );

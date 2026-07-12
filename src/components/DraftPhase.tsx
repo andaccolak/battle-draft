@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { DraftOffer, RoomSnapshot } from "@/lib/game/types";
 import { DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
@@ -19,6 +20,24 @@ interface Props {
 export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props) {
   const { t } = useI18n();
   const me = snapshot.players.find((p) => p.id === playerId);
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setPendingId(null);
+  }, [offer?.round, offer?.picked]);
+
+  useEffect(() => {
+    if (!pendingId) return;
+    const timer = setTimeout(() => setPendingId(null), 4000);
+    return () => clearTimeout(timer);
+  }, [pendingId]);
+
+  const pick = (itemId: string | null) => {
+    if (pendingId) return;
+    setPendingId(itemId ?? "skip");
+    sfx.pick();
+    onPick(itemId);
+  };
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
@@ -64,15 +83,14 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
                 <ItemCard
                   item={item}
                   locked={offer.lockedSlots.includes(item.slot)}
-                  onPick={() => {
-                    sfx.pick();
-                    onPick(item.id);
-                  }}
+                  pending={pendingId !== null}
+                  selected={pendingId === item.id}
+                  onPick={() => pick(item.id)}
                 />
               </motion.div>
             ))}
             {!offer.canPickAny && (
-              <button onClick={() => onPick(null)} className="btn-ghost w-full">
+              <button onClick={() => pick(null)} disabled={pendingId !== null} className="btn-ghost w-full disabled:opacity-40">
                 {t("skipRound")}
               </button>
             )}

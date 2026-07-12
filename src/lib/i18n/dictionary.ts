@@ -26,6 +26,7 @@ export const UI: Record<string, { en: string; tr: string }> = {
   draft: { en: "Draft", tr: "Seçim" },
   pickOne: { en: "Pick ONE item. The slot locks forever.", tr: "SADECE BİR eşya seç. O yuva sonsuza dek kilitlenir." },
   slotOccupied: { en: "🔒 Slot already occupied", tr: "🔒 Bu yuva zaten dolu" },
+  choiceLocked: { en: "✓ Choice locked in", tr: "✓ Seçimin kilitlendi" },
   lockedIn: { en: "Locked in!", tr: "Seçim yapıldı!" },
   waitingSlow: { en: "Waiting for the slowpokes...", tr: "Yavaş kalanlar bekleniyor..." },
   skipRound: { en: "😱 Every slot is taken — skip this round", tr: "😱 Tüm yuvalar dolu — bu turu pas geç" },
