@@ -35,7 +35,7 @@ export default function AvatarPortrait({ avatarId, weapon, equipment, disabledIt
       src={url}
       alt=""
       draggable={false}
-      className={`${className ?? ""} object-contain`}
+      className={`${className ?? ""} block object-contain`}
       style={flip ? { transform: "scaleX(-1)" } : undefined}
     />
   );

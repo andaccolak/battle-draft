@@ -16,6 +16,18 @@ export const ITEMS: Item[] = [
   { id: "w_bone_crossbow", name: "Bone Crossbow", emoji: "🦴", slot: "weapon", rarity: "rare", stats: { attack: 26, critChance: 10, accuracy: -5 }, tags: ["ranged"] },
   { id: "w_claymore", name: "Claymore", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 32, accuracy: -8, critDamage: 15 } },
   { id: "w_grimoire", name: "Forbidden Grimoire", emoji: "📖", slot: "weapon", rarity: "epic", stats: { attack: 25, critChance: 12 }, passive: { type: "ignoreDefense", value: 25, label: "Ignores 25% of enemy defense" }, tags: ["ranged"] },
+  { id: "w_shortsword", name: "Short Sword", emoji: "🗡️", slot: "weapon", rarity: "common", stats: { attack: 15, speed: 6 } },
+  { id: "w_woodaxe", name: "Woodcutter's Axe", emoji: "🪓", slot: "weapon", rarity: "common", stats: { attack: 18, defense: 3 } },
+  { id: "w_knight_sword", name: "Knight's Longsword", emoji: "⚔️", slot: "weapon", rarity: "uncommon", stats: { attack: 22, defense: 5 } },
+  { id: "w_broadaxe", name: "Broad Axe", emoji: "🪓", slot: "weapon", rarity: "uncommon", stats: { attack: 26, accuracy: -8 } },
+  { id: "w_assassin_dagger", name: "Assassin's Dagger", emoji: "🔪", slot: "weapon", rarity: "rare", stats: { attack: 14, speed: 12, critChance: 18 }, passive: { type: "firstStrike", value: 1, label: "Always attacks first" } },
+  { id: "w_frost_staff", name: "Frost Staff", emoji: "❄️", slot: "weapon", rarity: "rare", stats: { attack: 22 }, passive: { type: "stunChance", value: 14, label: "14% chance to freeze on hit" }, tags: ["ranged"] },
+  { id: "w_bonecleaver", name: "Bone Cleaver", emoji: "🦴", slot: "weapon", rarity: "rare", stats: { attack: 27, critDamage: 18 } },
+  { id: "w_soul_staff", name: "Soul Siphon Staff", emoji: "🔮", slot: "weapon", rarity: "epic", stats: { attack: 24 }, passive: { type: "lifesteal", value: 22, label: "Heals 22% of damage dealt" }, tags: ["ranged"] },
+  { id: "w_warcleaver", name: "Warcleaver", emoji: "🪓", slot: "weapon", rarity: "epic", stats: { attack: 34, accuracy: -12 }, passive: { type: "executioner", value: 45, label: "+45% dmg vs targets below 35% HP" } },
+  { id: "w_kings_blade", name: "King's Greatblade", emoji: "⚔️", slot: "weapon", rarity: "legendary", stats: { attack: 34, defense: 8, critChance: 15 } },
+  { id: "w_reaper_scythe", name: "Reaper's Scythe", emoji: "☠️", slot: "weapon", rarity: "legendary", stats: { attack: 30 }, passive: { type: "extraAttack", value: 40, label: "40% chance to attack twice" } },
+  { id: "w_arcane_orb", name: "Arcane Orb", emoji: "🌀", slot: "weapon", rarity: "legendary", stats: { attack: 28, critChance: 20 }, passive: { type: "ignoreDefense", value: 45, label: "Ignores 45% of enemy defense" }, tags: ["ranged"] },
   { id: "w_war_hammer", name: "Giant's Greatsword", emoji: "🗡️", slot: "weapon", rarity: "uncommon", stats: { attack: 38, accuracy: -30 } },
   { id: "w_spiked_flail", name: "Spiked Shield", emoji: "🛡️", slot: "weapon", rarity: "uncommon", stats: { attack: 24, accuracy: -10, critChance: 8 } },
   { id: "w_twin_blades", name: "Twin Blades", emoji: "⚔️", slot: "weapon", rarity: "rare", stats: { attack: 17 }, passive: { type: "extraAttack", value: 35, label: "35% chance to attack twice" } },
@@ -107,7 +119,7 @@ export function itemById(id: string): Item | undefined {
 
 export type WeaponKind = "ranged" | "heavy" | "blade";
 
-const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe", "w_claymore"]);
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe", "w_claymore", "w_broadaxe", "w_warcleaver", "w_kings_blade", "w_bonecleaver"]);
 
 function baseWeaponId(item: Item): string {
   return item.id.replace(/_(forged|gambled)$/, "");
@@ -145,6 +157,18 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_bone_crossbow: { model: "Skeleton_Crossbow", kind: "crossbow" },
   w_claymore: { model: "Claymore", kind: "heavy", scale: 0.27 },
   w_grimoire: { model: "spellbook_open", kind: "magic" },
+  w_shortsword: { model: "sword_1handed", kind: "blade" },
+  w_woodaxe: { model: "axe_1handed", kind: "blade" },
+  w_knight_sword: { model: "sword_1handed", kind: "blade" },
+  w_broadaxe: { model: "axe_2handed", kind: "heavy" },
+  w_assassin_dagger: { model: "dagger", kind: "blade" },
+  w_frost_staff: { model: "staff", kind: "magic" },
+  w_bonecleaver: { model: "Skeleton_Axe", kind: "heavy" },
+  w_soul_staff: { model: "Skeleton_Staff", kind: "magic" },
+  w_warcleaver: { model: "axe_2handed", kind: "heavy" },
+  w_kings_blade: { model: "sword_2handed_color", kind: "heavy" },
+  w_reaper_scythe: { model: "Skeleton_Blade", kind: "blade" },
+  w_arcane_orb: { model: "wand", kind: "magic" },
   w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
   w_spiked_flail: { model: "shield_spikes", kind: "blade", hand: "l" },
   w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },

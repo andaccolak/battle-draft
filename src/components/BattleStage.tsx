@@ -185,6 +185,12 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const logRef = useRef<HTMLDivElement>(null);
   const floatId = useRef(0);
   const indexRef = useRef(0);
+  const prevIndexRef = useRef(-1);
+  const pendingRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const [dispHp, setDispHp] = useState(() => {
+    const e = battle.timeline[indexForElapsed(battle.timeline, battle.elapsedMs ?? 0)];
+    return { a: e?.hpA ?? battle.a.maxHp, b: e?.hpB ?? battle.b.maxHp };
+  });
   const entriesRef = useRef(battle.timeline);
   entriesRef.current = battle.timeline;
   const screenPosRef = useRef({ a: { x: 0.28, y: 0.4 }, b: { x: 0.72, y: 0.4 } });
@@ -209,53 +215,70 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   }, [battle.elapsedMs]);
 
   useEffect(() => {
+    for (const timer of pendingRef.current) clearTimeout(timer);
+    pendingRef.current = [];
     const entry = entriesRef.current[index];
+    const jumped = index - prevIndexRef.current > 1;
+    prevIndexRef.current = index;
     if (!entry) return;
-    playSound(entry);
-    if (entry.t === "attack") {
-      if (entry.crit) {
-        setShake((s) => s + 1);
-        setZoom(true);
-        setTimeout(() => setZoom(false), 600);
-      }
-    }
+    // hit lands mid-beat for strikes; everything else resolves immediately
+    const isStrike = (entry.t === "attack" && (entry.dmg ?? 0) > 0) || entry.t === "miss" || entry.t === "dodge";
+    const impact = jumped ? 0 : entry.t === "dodge" ? 480 : isStrike ? 620 : 0;
     const scheduledAt = index;
-    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay = 0) => {
-      setTimeout(() => {
-        if (delay > 0 && indexRef.current !== scheduledAt) return;
+    const at = (fn: () => void, delay: number) => {
+      if (delay <= 0) {
+        fn();
+        return;
+      }
+      pendingRef.current.push(
+        setTimeout(() => {
+          if (indexRef.current === scheduledAt) fn();
+        }, delay)
+      );
+    };
+    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay: number) => {
+      at(() => {
         floatId.current++;
         const pos = screenPosRef.current[side];
         setFloats((f) => [...f.slice(-7), { id: floatId.current, side, value, kind, x: pos.x, y: pos.y }]);
       }, delay);
     };
+    // HP bar + sound land together with the visual hit
+    at(() => {
+      setDispHp({ a: entry.hpA, b: entry.hpB });
+      playSound(entry);
+      if (entry.t === "attack" && entry.crit) {
+        setShake((sh) => sh + 1);
+        setZoom(true);
+        pendingRef.current.push(setTimeout(() => setZoom(false), 600));
+      }
+    }, impact);
+    if (jumped) setFloats([]);
     const other = entry.actor === "a" ? "b" : "a";
-    if (entry.heal !== undefined && entry.heal > 0) {
-      pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal");
-    }
-    if (entry.t === "passive" && entry.dmg !== undefined) {
-      pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg");
-    }
-    if (entry.t === "poison" && entry.dmg !== undefined) {
-      pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg");
-    }
+    if (entry.heal !== undefined && entry.heal > 0) pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal", impact);
+    if (entry.t === "passive" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0);
+    if (entry.t === "poison" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg", 0);
     if (entry.actor !== "none") {
-      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", 620);
-      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", 480);
-      else if (entry.t === "attack" && entry.dmg !== undefined && entry.dmg > 0) {
+      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", impact);
+      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", impact);
+      else if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
         const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
-        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", 620);
+        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", impact);
       }
       if (entry.t === "passive" && entry.key === "stunApplied") pushFloat(other, t("noteStun"), "note", 120);
       if (entry.t === "passive" && entry.key === "revive") pushFloat(entry.actor, t("noteRevive"), "note", 120);
     }
   }, [index]);
 
+  useEffect(() => () => pendingRef.current.forEach(clearTimeout), []);
+
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
   }, [visible.length]);
 
-  const hpA = current?.hpA ?? battle.a.maxHp;
-  const hpB = current?.hpB ?? battle.b.maxHp;
+  const introNow = current?.t === "intro";
+  const hpA = introNow ? battle.a.maxHp : dispHp.a;
+  const hpB = introNow ? battle.b.maxHp : dispHp.b;
   const showIntro = current?.t === "intro";
   const pending = battle.pending ?? null;
   const atPause = pending !== null && index >= entries.length - 1;
@@ -311,6 +334,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           fx={fx}
           map={arenaMap ?? "colosseum"}
           eventId={eventId}
+          revealed={current ? current.t !== "intro" && current.t !== "showcase" && current.t !== "event" : true}
           screenPosRef={screenPosRef}
           weaponLostA={weaponLost.a}
           weaponLostB={weaponLost.b}

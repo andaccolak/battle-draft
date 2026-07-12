@@ -123,13 +123,16 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
                 b.wins - a.wins
             )
             .map((p, i) => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
-                <span className="flex items-center gap-2 font-semibold">
-                  <AvatarPortrait avatarId={p.avatar} className="h-9 w-7" />
-                  {p.spectator ? "👀" : i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.isBot ? "🤖 " : ""}
+              <div key={p.id} className="flex items-center gap-2 rounded-lg bg-white/5 px-3 py-2 text-sm">
+                <AvatarPortrait avatarId={p.avatar} className="h-9 w-7 shrink-0" />
+                <span className="w-6 shrink-0 text-center text-base leading-none">
+                  {p.spectator ? "👀" : i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-semibold leading-none">
+                  {p.isBot ? "🤖 " : ""}
                   {p.nickname}
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="shrink-0 text-xs leading-none text-slate-400">
                   {p.spectator ? "" : `${p.wins} ${p.wins === 1 ? t("win") : t("wins")}`}
                 </span>
               </div>

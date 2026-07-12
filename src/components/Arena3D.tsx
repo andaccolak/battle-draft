@@ -304,6 +304,7 @@ interface Rig {
   marker: THREE.MeshBasicMaterial | null;
   moveSpeed: number | null;
   idleClip: string;
+  attached: boolean;
   droppedWeapon: { obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler; scl: THREE.Vector3 } | null;
   pose: Pose;
   radius: number;
@@ -387,6 +388,7 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     marker: null,
     moveSpeed: null,
     idleClip: IDLE_CLIP,
+    attached: false,
     droppedWeapon: null,
     pose: "idle",
     radius: RING_RADIUS,
@@ -630,6 +632,7 @@ interface Props {
   fx: string;
   map: string;
   eventId?: string;
+  revealed?: boolean;
   screenPosRef?: { current: { a: { x: number; y: number }; b: { x: number; y: number } } };
   weaponLostA?: boolean;
   weaponLostB?: boolean;
@@ -638,7 +641,7 @@ interface Props {
   crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
   const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
@@ -655,6 +658,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, sc
   const weatherRef = useRef<Weather | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const mapRef = useRef(map);
+  const revealRef = useRef(!!revealed);
+  const revealedOnceRef = useRef(false);
   const lightsRef = useRef<{ ambient: THREE.AmbientLight; hemi: THREE.HemisphereLight; sun: THREE.DirectionalLight } | null>(null);
   kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
   mapRef.current = map;
@@ -776,11 +781,13 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, sc
     }
     void attachModel(rigA, avatarById(a.avatar).id, a, charScale).then(() => {
       applyPose(rigA, "idle", kindRef.current.a, false);
-      playAction(rigA, ["Spawn_Ground"], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigA, ["Spawn_Ground"], { once: true, backToIdle: true });
+      rigA.attached = true;
     });
     void attachModel(rigB, avatarById(b.avatar).id, b, charScale).then(() => {
       applyPose(rigB, "idle", kindRef.current.b, false);
-      playAction(rigB, ["Spawn_Ground"], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigB, ["Spawn_Ground"], { once: true, backToIdle: true });
+      rigB.attached = true;
     });
 
     const dom = renderer.domElement;
@@ -1110,6 +1117,16 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, sc
     dropWeapon(rigARef.current, weaponLostA);
     dropWeapon(rigBRef.current, weaponLostB);
   }, [weaponLostA, weaponLostB]);
+
+  useEffect(() => {
+    revealRef.current = !!revealed;
+    if (revealed && !revealedOnceRef.current) {
+      revealedOnceRef.current = true;
+      for (const rig of [rigARef.current, rigBRef.current]) {
+        if (rig?.attached) playAction(rig, ["Spawn_Ground"], { once: true, backToIdle: true });
+      }
+    }
+  }, [revealed]);
 
   useEffect(() => {
     zoomState.current = { focus, zoom };
