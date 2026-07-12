@@ -8,6 +8,7 @@ import { ARENA_MAPS, MATCH_MODES, TOURNEY_MODES } from "@/lib/game/types";
 import { AVATARS, MODELED_AVATARS } from "@/lib/game/avatars";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
+import { setNickname as storeNickname } from "@/lib/session";
 
 const Avatar3DThumb = dynamic(() => import("./Avatar3DThumb"), { ssr: false });
 
@@ -91,9 +92,11 @@ interface Props {
   onMap: (mapId: string) => void;
   onMode: (modeId: string) => void;
   onTourney: (modeId: string) => void;
+  onRename: (nickname: string) => void;
 }
 
-export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode, onTourney }: Props) {
+export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode, onTourney, onRename }: Props) {
+  const [editingNick, setEditingNick] = useState<string | null>(null);
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const solo = snapshot.players.length === 1;
@@ -232,11 +235,41 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
               className="flex items-center gap-3 rounded-xl bg-white/5 px-4 py-2"
             >
               <AvatarPortrait avatarId={p.avatar} className="h-12 w-9" />
-              <span className="flex-1 font-semibold">
-                {p.isBot ? "🤖 " : p.isHost ? "👑 " : ""}
-                {p.nickname}
-              </span>
-              {p.id === playerId && <span className="text-xs font-bold text-indigo-300">{t("you")}</span>}
+              {editingNick !== null && p.id === playerId ? (
+                <span className="flex flex-1 items-center gap-1.5">
+                  <input
+                    value={editingNick}
+                    onChange={(e) => setEditingNick(e.target.value)}
+                    maxLength={16}
+                    autoFocus
+                    className="w-full min-w-0 rounded-lg border border-indigo-400/60 bg-slate-900/80 px-2 py-1 text-sm font-semibold focus:outline-none"
+                  />
+                  <button
+                    onClick={() => {
+                      const nick = (editingNick ?? "").trim();
+                      if (nick.length >= 2) {
+                        onRename(nick);
+                        storeNickname(nick);
+                      }
+                      setEditingNick(null);
+                    }}
+                    className="shrink-0 rounded-lg bg-indigo-500/30 px-2 py-1 text-sm font-bold text-indigo-200"
+                  >
+                    ✓
+                  </button>
+                </span>
+              ) : (
+                <span className="flex-1 font-semibold">
+                  {p.isBot ? "🤖 " : p.isHost ? "👑 " : ""}
+                  {p.nickname}
+                  {p.id === playerId && (
+                    <button onClick={() => setEditingNick(p.nickname)} className="ml-1.5 text-xs opacity-70">
+                      ✏️
+                    </button>
+                  )}
+                </span>
+              )}
+              {p.id === playerId && editingNick === null && <span className="text-xs font-bold text-indigo-300">{t("you")}</span>}
               {!p.connected && !p.isBot && <span className="text-xs text-rose-400">{t("offline")}</span>}
             </motion.div>
           ))}

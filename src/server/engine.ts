@@ -192,6 +192,15 @@ export function joinState(state: RoomState, playerId: string, nickname: string, 
   return null;
 }
 
+export function renamePlayer(state: RoomState, playerId: string, nickname: string): string | null {
+  if (state.phase !== "lobby") return null;
+  const p = findPlayer(state, playerId);
+  if (!p) return null;
+  if (state.players.some((pl) => pl.id !== playerId && pl.nickname.toLowerCase() === nickname.toLowerCase())) return "err_taken";
+  p.nickname = nickname;
+  return null;
+}
+
 export function setAvatar(state: RoomState, playerId: string, avatarId: string): string | null {
   if (state.phase !== "lobby") return null;
   const p = findPlayer(state, playerId);
@@ -814,6 +823,14 @@ export function playAgain(state: RoomState, playerId: string, now: number): stri
 
 export function tick(state: RoomState, now: number): boolean {
   let changed = false;
+  const host = state.hostId ? findPlayer(state, state.hostId) : undefined;
+  if (!host || (!host.isBot && !isConnected(host, now))) {
+    const candidate = state.players.find((p) => !p.isBot && !p.spectator && isConnected(p, now));
+    if (candidate && candidate.id !== state.hostId) {
+      state.hostId = candidate.id;
+      changed = true;
+    }
+  }
   if (state.phase === "lobby") {
     const before = state.players.length;
     state.players = state.players.filter((p) => p.isBot || now - p.lastSeen < LOBBY_PRUNE_MS);

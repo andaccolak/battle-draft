@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import type { RoomSnapshot } from "@/lib/game/types";
 import { sfx } from "@/lib/sound";
 import AvatarPortrait from "./AvatarPortrait";
+import { avatarThumb } from "@/lib/three/avatarThumbs";
 import { useI18n } from "@/lib/i18n";
 
 interface Props {
@@ -14,8 +15,90 @@ interface Props {
   onShout: () => void;
 }
 
+async function buildShareImage(snapshot: RoomSnapshot, championLabel: string, headline: string): Promise<Blob | null> {
+  const champion = snapshot.players.find((p) => !p.eliminated && !p.spectator);
+  const canvas = document.createElement("canvas");
+  canvas.width = 1080;
+  canvas.height = 1350;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const bg = ctx.createLinearGradient(0, 0, 0, 1350);
+  bg.addColorStop(0, "#1e1b4b");
+  bg.addColorStop(1, "#0f172a");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, 1080, 1350);
+  ctx.textAlign = "center";
+  if (champion) {
+    const url = await avatarThumb(champion.avatar, champion.equipment.weapon, champion.equipment, []);
+    if (url) {
+      const img = new Image();
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+        img.src = url;
+      });
+      if (img.width > 0) ctx.drawImage(img, 540 - 210, 90, 420, 558);
+    }
+  }
+  ctx.font = "120px sans-serif";
+  ctx.fillText("👑", 540, 740);
+  ctx.fillStyle = "#fbbf24";
+  ctx.font = "bold 44px sans-serif";
+  ctx.fillText(championLabel.toUpperCase(), 540, 810);
+  ctx.font = "900 96px sans-serif";
+  const grad = ctx.createLinearGradient(240, 0, 840, 0);
+  grad.addColorStop(0, "#fcd34d");
+  grad.addColorStop(1, "#fb923c");
+  ctx.fillStyle = grad;
+  ctx.fillText(snapshot.champion ?? champion?.nickname ?? "???", 540, 920);
+  const standings = [...snapshot.players]
+    .filter((p) => !p.spectator)
+    .sort((a, b) => Number(a.eliminated) - Number(b.eliminated) || b.wins - a.wins)
+    .slice(0, 5);
+  ctx.font = "bold 40px sans-serif";
+  standings.forEach((p, i) => {
+    const y = 1010 + i * 58;
+    ctx.fillStyle = i === 0 ? "#fcd34d" : "#cbd5e1";
+    ctx.fillText(`${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"}  ${p.nickname}  ·  ${p.wins}`, 540, y);
+  });
+  ctx.fillStyle = "#818cf8";
+  ctx.font = "bold 36px sans-serif";
+  ctx.fillText(headline, 540, 1310);
+  return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+}
+
 export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: Props) {
   const [shouted, setShouted] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "busy" | "copied" | "saved">("idle");
+
+  const share = async () => {
+    if (shareState === "busy") return;
+    setShareState("busy");
+    const blob = await buildShareImage(snapshot, t("champion"), "battle-draft.vercel.app");
+    if (!blob) {
+      setShareState("idle");
+      return;
+    }
+    const file = new File([blob], "battle-draft-result.png", { type: "image/png" });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file] });
+        setShareState("idle");
+        return;
+      }
+    } catch {}
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+      setShareState("copied");
+    } catch {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "battle-draft-result.png";
+      a.click();
+      setShareState("saved");
+    }
+    setTimeout(() => setShareState("idle"), 2500);
+  };
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
   const champion = snapshot.players.find((p) => !p.eliminated);
@@ -88,6 +171,10 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
             ))}
         </div>
       </div>
+
+      <button onClick={() => void share()} disabled={shareState === "busy"} className="btn-ghost w-full text-base">
+        {shareState === "copied" ? t("shareCopied") : shareState === "saved" ? t("shareSaved") : t("shareResultBtn")}
+      </button>
 
       {snapshot.bracket && snapshot.bracket.some((r) => r.matches.some((m) => m.winner)) && (
         <div className="card-surface w-full p-4">

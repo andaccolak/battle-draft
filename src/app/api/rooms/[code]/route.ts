@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRoom } from "@/server/store";
-import { joinState, leaveState, pickItem, pickLuck, playAgain, reactBattle, setArenaMap, setAvatar, setMatchMode, setTourneyMode, shoutHost, snapshotFor, startGame, touch } from "@/server/engine";
+import { joinState, leaveState, pickItem, pickLuck, playAgain, reactBattle, renamePlayer, setArenaMap, setAvatar, setMatchMode, setTourneyMode, shoutHost, snapshotFor, startGame, touch } from "@/server/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +67,11 @@ export async function POST(req: Request, ctx: { params: { code: string } }): Pro
         return pickItem(state, playerId, typeof body.itemId === "string" ? body.itemId : null);
       case "luck":
         return typeof body.cardId === "string" ? pickLuck(state, playerId, body.cardId) : null;
+      case "rename": {
+        const newNick = cleanNickname(body.nickname);
+        if (!newNick) return "err_nickname";
+        return renamePlayer(state, playerId, newNick);
+      }
       case "avatar":
         return typeof body.avatarId === "string" ? setAvatar(state, playerId, body.avatarId) : null;
       case "map":
