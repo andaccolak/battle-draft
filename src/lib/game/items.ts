@@ -148,7 +148,7 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_dagger: { model: "dagger", kind: "blade" },
   w_rapier: { model: "sword_1handed", kind: "blade" },
   w_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.28, hand: "l" },
-  w_twin_axe: { model: "Axe_Double", kind: "heavy", scale: 0.27 },
+  w_twin_axe: { model: "Axe_Double", kind: "heavy", scale: 0.2 },
   w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27, hand: "l" },
   w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28, hand: "l" },
   w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26, hand: "l" },

@@ -21,10 +21,10 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
   const [shouted, setShouted] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "busy" | "copied" | "saved">("idle");
   const captureRef = useRef<HTMLDivElement>(null);
+  const blobRef = useRef<Blob | null>(null);
 
-  const share = async () => {
-    if (shareState === "busy" || !captureRef.current) return;
-    setShareState("busy");
+  const buildImage = async (): Promise<Blob | null> => {
+    if (!captureRef.current) return null;
     const canvas = await html2canvas(captureRef.current, {
       backgroundColor: "#0f172a",
       scale: 2,
@@ -40,16 +40,33 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
         }
       }
     }).catch(() => null);
-    const blob = canvas ? await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png")) : null;
-    if (!blob) {
-      setShareState("idle");
-      return;
-    }
+    if (!canvas) return null;
+    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
+  };
+
+  // Pre-render the card once portraits have baked so the share sheet can open within the tap gesture.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void buildImage().then((b) => {
+        if (b) blobRef.current = b;
+      });
+    }, 1400);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const share = async () => {
+    if (shareState === "busy") return;
+    const blob = blobRef.current ?? (await buildImage());
+    if (!blob) return;
+    blobRef.current = blob;
     const file = new File([blob], "battle-draft-result.png", { type: "image/png" });
-    if (navigator.canShare?.({ files: [file] })) {
-      await navigator.share({ files: [file] }).catch(() => {});
-      setShareState("idle");
-      return;
+    if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return;
+      } catch {
+        // user cancelled or share unavailable -> fall through to download
+      }
     }
     try {
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);

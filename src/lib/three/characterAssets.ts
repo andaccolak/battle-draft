@@ -98,6 +98,13 @@ function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number
       child.frustumCulled = false;
     }
   });
+  // Some converted weapons put their origin at the head; lift so the grip sits in the hand.
+  weapon.updateMatrixWorld(true);
+  const box = new THREE.Box3().setFromObject(weapon);
+  const height = box.max.y - box.min.y;
+  if (box.min.y < -0.3 && height > 0.0001) {
+    weapon.position.y = -box.min.y - height * 0.15;
+  }
   slot.add(weapon);
 }
 

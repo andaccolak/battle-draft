@@ -56,6 +56,8 @@ const WALK_SPEED = 0.55;
 const RING_RADIUS = 1.65;
 const CALM_POSES = new Set<Pose>(["idle", "guard"]);
 
+const GREET_POOL = ["Waving", "Cheering", "Skeletons_Taunt", "Interact", "Melee_Block_Attack"];
+
 const GUARD_POOLS: Partial<Record<FighterKind, string[]>> = {
   bow: ["Ranged_Bow_Idle"],
   crossbow: ["Ranged_1H_Shooting", "Ranged_1H_Aiming"],
@@ -455,7 +457,7 @@ function playAction(
   const target = getAction(rig, pick);
   if (!target) return;
   if (!opts.once && rig.current === target && target.isRunning()) return;
-  const fade = 0.22;
+  const fade = 0.32;
   target.reset();
   target.setEffectiveTimeScale(1);
   if (opts.once) {
@@ -474,8 +476,8 @@ function playAction(
       mixer.removeEventListener("finished", onFinished as never);
       const idle = getAction(rig, rig.idleClip) ?? getAction(rig, IDLE_CLIP);
       if (idle && rig.current === target) {
-        idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.3).play();
-        target.fadeOut(0.3);
+        idle.reset().setLoop(THREE.LoopRepeat, Infinity).fadeIn(0.4).play();
+        target.fadeOut(0.4);
         rig.current = idle;
       }
     };
@@ -781,12 +783,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     }
     void attachModel(rigA, avatarById(a.avatar).id, a, charScale).then(() => {
       applyPose(rigA, "idle", kindRef.current.a, false);
-      if (revealRef.current) playAction(rigA, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigA, GREET_POOL, { once: true, backToIdle: true, random: true, seed: 1 });
       rigA.attached = true;
     });
     void attachModel(rigB, avatarById(b.avatar).id, b, charScale).then(() => {
       applyPose(rigB, "idle", kindRef.current.b, false);
-      if (revealRef.current) playAction(rigB, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
+      if (revealRef.current) playAction(rigB, GREET_POOL, { once: true, backToIdle: true, random: true, seed: 2 });
       rigB.attached = true;
     });
 
@@ -1125,7 +1127,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     if (revealed && !revealedOnceRef.current) {
       revealedOnceRef.current = true;
       for (const rig of [rigARef.current, rigBRef.current]) {
-        if (rig?.attached) playAction(rig, ["Waving", "Cheering", IDLE_CLIP], { once: true, backToIdle: true });
+        if (rig?.attached) playAction(rig, GREET_POOL, { once: true, backToIdle: true, random: true, seed: rig === rigARef.current ? 1 : 2 });
       }
     }
   }, [revealed]);
