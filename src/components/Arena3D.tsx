@@ -628,6 +628,7 @@ interface Props {
   fx: string;
   map: string;
   eventId?: string;
+  screenPosRef?: { current: { a: { x: number; y: number }; b: { x: number; y: number } } };
   weaponLostA?: boolean;
   weaponLostB?: boolean;
   focus: "a" | "b" | "none";
@@ -635,7 +636,7 @@ interface Props {
   crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
   const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
@@ -833,6 +834,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, we
     const orbit = { azimuth: cameraState.azimuth, dist: 8, lookX: 0, elev: cameraState.elev };
     const lookAt = new THREE.Vector3(0, 1.15, 0);
     const moveVec = new THREE.Vector3();
+    const projVec = new THREE.Vector3();
     const faceVec = new THREE.Vector3();
     const tangent = new THREE.Vector3();
     const up = new THREE.Vector3(0, 1, 0);
@@ -932,6 +934,20 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, we
       camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
       lookAt.set(orbit.lookX, 1.15, 0);
       camera.lookAt(lookAt);
+      if (screenPosRef) {
+        for (const [rig, key] of [
+          [rigA, "a"],
+          [rigB, "b"]
+        ] as const) {
+          projVec.copy(rig.group.position);
+          projVec.y += 2.4 * charScale;
+          projVec.project(camera);
+          screenPosRef.current[key] = {
+            x: Math.min(0.92, Math.max(0.08, (projVec.x + 1) / 2)),
+            y: Math.min(0.85, Math.max(0.08, (1 - projVec.y) / 2))
+          };
+        }
+      }
       renderer.render(scene, camera);
     };
 

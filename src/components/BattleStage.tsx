@@ -17,6 +17,8 @@ interface FloatingNumber {
   side: "a" | "b";
   value: string;
   kind: "dmg" | "heal" | "note" | "crit";
+  x: number;
+  y: number;
 }
 
 type FxKind = "rain" | "storm" | "snow" | "fog" | "sun" | "night" | "bloodmoon" | "poison" | "wind" | "quake" | "overcast" | "none";
@@ -181,6 +183,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const floatId = useRef(0);
   const entriesRef = useRef(battle.timeline);
   entriesRef.current = battle.timeline;
+  const screenPosRef = useRef({ a: { x: 0.28, y: 0.4 }, b: { x: 0.72, y: 0.4 } });
 
   const entries = battle.timeline;
   const visible = entries.slice(0, index + 1);
@@ -197,7 +200,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
   useEffect(() => {
     const expected = indexForElapsed(entriesRef.current, battle.elapsedMs ?? 0);
-    setIndex((i) => (Math.abs(expected - i) >= 2 ? expected : i));
+    setIndex((i) => (expected > i + 1 ? expected : i));
   }, [battle.elapsedMs]);
 
   useEffect(() => {
@@ -211,29 +214,30 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         setTimeout(() => setZoom(false), 600);
       }
     }
-    if (entry.heal !== undefined && entry.heal > 0) {
-      floatId.current++;
-      setFloats((f) => [...f, { id: floatId.current, side: entry.actor === "a" ? "a" : "b", value: `+${entry.heal}`, kind: "heal" }]);
-    }
-    if (entry.t === "passive" && entry.dmg !== undefined) {
-      floatId.current++;
-      const side = entry.actor === "a" ? "b" : "a";
-      setFloats((f) => [...f, { id: floatId.current, side, value: `-${entry.dmg}`, kind: "dmg" }]);
-    }
-    if (entry.t === "poison" && entry.dmg !== undefined) {
-      floatId.current++;
-      setFloats((f) => [...f, { id: floatId.current, side: entry.actor === "a" ? "a" : "b", value: `-${entry.dmg}`, kind: "dmg" }]);
-    }
-    const pushNote = (side: "a" | "b", text: string, delay: number, kind: "note" | "crit" = "note") => {
+    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay = 0) => {
       setTimeout(() => {
         floatId.current++;
-        setFloats((f) => [...f, { id: floatId.current, side, value: text, kind }]);
+        const pos = screenPosRef.current[side];
+        setFloats((f) => [...f.slice(-7), { id: floatId.current, side, value, kind, x: pos.x, y: pos.y }]);
       }, delay);
+    };
+    if (entry.heal !== undefined && entry.heal > 0) {
+      pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal");
+    }
+    if (entry.t === "passive" && entry.dmg !== undefined) {
+      pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg");
+    }
+    if (entry.t === "poison" && entry.dmg !== undefined) {
+      pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg");
+    }
+    const pushNote = (side: "a" | "b", text: string, delay: number, kind: "note" | "crit" = "note") => {
+      pushFloat(side, text, kind, delay);
     };
     const other = entry.actor === "a" ? "b" : "a";
     if (entry.actor !== "none") {
       if (entry.t === "miss") pushNote(entry.actor, t("noteMiss"), 620);
       if (entry.t === "dodge") pushNote(other, t("noteDodge"), 480);
+      if (entry.t === "attack" && entry.dmg !== undefined && entry.dmg > 0) pushFloat(other, `-${entry.dmg}`, "dmg", 620);
       if (entry.t === "attack" && entry.blocked) pushNote(other, t("noteBlock"), 620);
       if (entry.t === "attack" && entry.crit) pushNote(other, t("noteCrit"), 620, "crit");
       if (entry.t === "passive" && entry.key === "stunApplied") pushNote(other, t("noteStun"), 120);
@@ -286,25 +290,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         className="relative flex-1 overflow-hidden rounded-3xl border border-white/10"
         style={{ background: theme.sky }}
       >
-        {theme.celestial === "sun" && (
-          <motion.div
-            animate={{ opacity: [0.85, 1, 0.85], scale: [1, 1.06, 1] }}
-            transition={{ repeat: Infinity, duration: 3.2 }}
-            className="absolute right-8 top-6 h-16 w-16 rounded-full bg-amber-300 shadow-[0_0_70px_30px_rgba(251,191,36,0.45)]"
-          />
-        )}
-        {theme.celestial === "moon" && (
-          <div className="absolute right-10 top-7 h-12 w-12 rounded-full bg-slate-200 shadow-[0_0_40px_12px_rgba(226,232,240,0.3)]">
-            <div className="absolute -right-1 -top-1 h-10 w-10 rounded-full" style={{ background: "linear-gradient(180deg,#020617,#1e293b)" }} />
-          </div>
-        )}
-        {theme.celestial === "redmoon" && (
-          <motion.div
-            animate={{ opacity: [0.8, 1, 0.8] }}
-            transition={{ repeat: Infinity, duration: 2.6 }}
-            className="absolute right-9 top-6 h-14 w-14 rounded-full bg-red-600 shadow-[0_0_60px_20px_rgba(220,38,38,0.5)]"
-          />
-        )}
+        
 
         <Arena3D
           a={battle.a}
@@ -315,17 +301,37 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           fx={fx}
           map={arenaMap ?? "colosseum"}
           eventId={eventId}
+          screenPosRef={screenPosRef}
           weaponLostA={weaponLost.a}
           weaponLostB={weaponLost.b}
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}
         />
-        <div className="pointer-events-none absolute bottom-[42%] left-[16%]">
-          <FloatLayer floats={floats.filter((f) => f.side === "a")} />
-        </div>
-        <div className="pointer-events-none absolute bottom-[42%] right-[16%]">
-          <FloatLayer floats={floats.filter((f) => f.side === "b")} />
+        <div className="pointer-events-none absolute inset-0 z-20">
+          <AnimatePresence>
+            {floats.map((f) => (
+              <motion.div
+                key={f.id}
+                initial={{ opacity: 0, y: 6, scale: 0.8 }}
+                animate={{ opacity: [0, 1, 1, 0], y: -48, scale: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 1.2, ease: "easeOut" }}
+                style={{ left: `${f.x * 100}%`, top: `${f.y * 100}%` }}
+                className={`absolute -translate-x-1/2 whitespace-nowrap font-display font-black drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${
+                  f.kind === "note"
+                    ? "text-base text-cyan-300"
+                    : f.kind === "crit"
+                      ? "text-xl text-orange-400"
+                      : f.kind === "heal"
+                        ? "text-2xl text-emerald-400"
+                        : "text-2xl text-rose-400"
+                }`}
+              >
+                {f.value}
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
 
         <ArenaFX fx={fx} />
@@ -762,21 +768,7 @@ function ArenaFX({ fx }: { fx: FxKind }) {
       </div>
     );
   }
-  if (fx === "night" || fx === "bloodmoon") {
-    return (
-      <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden">
-        {Array.from({ length: 16 }, (_, i) => (
-          <motion.div
-            key={i}
-            animate={{ opacity: [0.15, 0.9, 0.15] }}
-            transition={{ repeat: Infinity, duration: 2 + (i % 3), delay: (i * 0.35) % 2 }}
-            className={`absolute h-1 w-1 rounded-full ${fx === "bloodmoon" ? "bg-red-300/80" : "bg-white/80"}`}
-            style={{ left: `${(i * 137) % 100}%`, top: `${(i * 89) % 45}%` }}
-          />
-        ))}
-      </div>
-    );
-  }
+  if (fx === "night" || fx === "bloodmoon") return null;
   if (fx === "sun") {
     return <div className="pointer-events-none absolute inset-0 z-[5] bg-gradient-to-b from-amber-200/10 to-transparent" />;
   }
@@ -802,33 +794,6 @@ function HpBar({ name, hp, maxHp, align }: { name: string; hp: number; maxHp: nu
   );
 }
 
-function FloatLayer({ floats }: { floats: FloatingNumber[] }) {
-  return (
-    <div className="pointer-events-none absolute -top-6 left-1/2 z-20 -translate-x-1/2">
-      <AnimatePresence>
-        {floats.slice(-3).map((f) => (
-          <motion.div
-            key={f.id}
-            initial={{ y: 0, opacity: 1 }}
-            animate={{ y: -55, opacity: 0 }}
-            transition={{ duration: 1.1 }}
-            className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap font-display font-black ${
-              f.kind === "note"
-                ? "text-lg text-cyan-300"
-                : f.kind === "crit"
-                  ? "text-xl text-orange-400"
-                  : f.kind === "heal"
-                    ? "text-2xl text-emerald-400"
-                    : "text-2xl text-rose-400"
-            }`}
-          >
-            {f.value}
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
 
 function Confetti() {
   const pieces = Array.from({ length: 26 }, (_, i) => i);
