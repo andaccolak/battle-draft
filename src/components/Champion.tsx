@@ -29,12 +29,21 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
         initial={{ scale: 0 }}
         animate={{ scale: 1, rotate: [0, -8, 8, 0] }}
         transition={{ type: "spring", damping: 8 }}
-        className="flex flex-col items-center"
+        className="relative flex flex-col items-center"
       >
-        <div className="text-6xl">👑</div>
         {champion && (
           <AvatarPortrait avatarId={champion.avatar} weapon={champion.equipment.weapon} equipment={champion.equipment} className="h-44 w-32 drop-shadow-2xl" />
         )}
+        <div className="absolute left-1/2 top-[3%] -translate-x-1/2">
+          <motion.div
+            initial={{ y: -18, opacity: 0, rotate: -14 }}
+            animate={{ y: 0, opacity: 1, rotate: -14 }}
+            transition={{ delay: 0.4, type: "spring", damping: 10 }}
+            className="text-3xl drop-shadow-[0_2px_6px_rgba(251,191,36,0.6)]"
+          >
+            👑
+          </motion.div>
+        </div>
       </motion.div>
       <div>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm font-bold uppercase tracking-[0.3em] text-amber-400">

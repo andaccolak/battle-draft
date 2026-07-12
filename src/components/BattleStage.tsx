@@ -508,30 +508,30 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-slate-950/90 px-4 backdrop-blur-sm"
+      className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-2 overflow-y-auto bg-slate-950/90 px-3 py-3 backdrop-blur-sm"
     >
       <motion.div
         initial={{ y: -30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        className="font-display text-center text-xl font-black text-amber-300"
+        className="font-display shrink-0 text-center text-lg font-black leading-tight text-amber-300"
       >
         {headline}
       </motion.div>
-      <div className={`flex w-full max-w-md items-center gap-4 ${side === "right" ? "flex-row-reverse" : ""}`}>
+      <div className={`flex min-h-0 w-full max-w-md items-center gap-3 ${side === "right" ? "flex-row-reverse" : ""}`}>
         <motion.div
           initial={{ x: fromX, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           transition={{ type: "spring", damping: 14 }}
           className="shrink-0"
         >
-          <AvatarPortrait avatarId={fighter.avatar} weapon={fighter.equipment.weapon} equipment={fighter.equipment} disabledItems={fighter.disabledItems} flip={side === "right"} className="h-40 w-28 drop-shadow-2xl" />
+          <AvatarPortrait avatarId={fighter.avatar} weapon={fighter.equipment.weapon} equipment={fighter.equipment} disabledItems={fighter.disabledItems} flip={side === "right"} className="h-32 w-24 drop-shadow-2xl" />
         </motion.div>
-        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           {items.length === 0 && (
             <motion.div
               initial={{ x: -fromX / 3, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              className="rounded-xl border border-gray-500/60 bg-gray-500/10 px-3 py-2 text-sm font-bold text-gray-200"
+              className="rounded-lg border border-gray-500/60 bg-gray-500/10 px-2.5 py-1.5 text-xs font-bold text-gray-200"
             >
               🤜 {t("bareHands")}
             </motion.div>
@@ -541,14 +541,14 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
               key={item.id}
               initial={{ x: -fromX / 3, opacity: 0, scale: 0.85 }}
               animate={{ x: 0, opacity: 1, scale: 1 }}
-              transition={{ delay: 0.25 + i * 0.3, type: "spring", damping: 15 }}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 ${RARITY_CHIP[item.rarity]} ${
+              transition={{ delay: 0.2 + i * 0.24, type: "spring", damping: 15 }}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 ${RARITY_CHIP[item.rarity]} ${
                 item.rarity === "legendary" ? "shadow-[0_0_18px_rgba(251,146,60,0.35)]" : ""
               }`}
             >
-              <span className="text-xl">{item.emoji}</span>
-              <span className="min-w-0 flex-1 truncate text-sm font-bold">{itemName(item)}</span>
-              <span className="shrink-0 text-[9px] font-black uppercase tracking-wider opacity-80">{t(item.rarity)}</span>
+              <span className="text-base">{item.emoji}</span>
+              <span className="min-w-0 flex-1 truncate text-xs font-bold">{itemName(item)}</span>
+              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider opacity-80">{t(item.rarity)}</span>
             </motion.div>
           ))}
         </div>
