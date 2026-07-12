@@ -153,7 +153,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
                   playerId={game.playerId}
                   spectators={snapshot.players
                     .filter((p) => p.nickname !== snapshot.battle?.a.nickname && p.nickname !== snapshot.battle?.b.nickname)
-                    .map((p) => ({ nickname: p.nickname, eliminated: p.eliminated }))}
+                    .map((p) => ({ nickname: p.nickname, eliminated: p.eliminated, avatar: p.avatar }))}
                   results={(snapshot.bracket ?? [])
                     .flatMap((r) => r.matches)
                     .filter((m): m is { a: string; b: string; winner: string } => !!m.winner && !!m.a && !!m.b)

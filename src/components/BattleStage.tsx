@@ -160,7 +160,7 @@ interface BattleStageProps {
   eventId?: string;
   arenaMap?: string;
   playerId: string;
-  spectators?: { nickname: string; eliminated: boolean }[];
+  spectators?: { nickname: string; eliminated: boolean; avatar?: string }[];
   results?: MatchResult[];
   onReact: (pass: boolean, score?: number) => void;
 }
@@ -468,30 +468,44 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       </div>
 
       {((spectators && spectators.length > 0) || (results && results.length > 0)) && (
-        <div className="mt-2 shrink-0 space-y-1 rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-snug">
-          {spectators && spectators.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-400">
-              <span className="font-bold uppercase tracking-wider text-slate-500">👀 {t("spectators")}:</span>
-              {spectators.map((s) => (
-                <span key={s.nickname} className={s.eliminated ? "line-through opacity-60" : ""}>
-                  {s.eliminated ? "💀 " : ""}
-                  {s.nickname}
-                </span>
+        <div className="mt-2 grid shrink-0 grid-cols-2 gap-2">
+          <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2">
+            <div className="mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">👀 {t("spectators")}</div>
+            <div className="max-h-20 space-y-1 overflow-y-auto">
+              {(spectators ?? []).length === 0 && <div className="text-xs text-slate-600">—</div>}
+              {(spectators ?? []).map((s) => (
+                <div key={s.nickname} className="flex items-center gap-1.5">
+                  <AvatarPortrait avatarId={s.avatar} className="h-6 w-5 shrink-0" />
+                  <span className={`min-w-0 truncate text-xs font-semibold ${s.eliminated ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                    {s.nickname}
+                  </span>
+                  {s.eliminated && <span className="shrink-0 text-[10px]">💀</span>}
+                </div>
               ))}
             </div>
-          )}
-          {results && results.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-slate-400">
-              <span className="font-bold uppercase tracking-wider text-slate-500">🏁 {t("results")}:</span>
-              {results.slice(-5).map((r, i) => (
-                <span key={i}>
-                  <span className={r.winner === r.a ? "font-bold text-emerald-300" : ""}>{r.a}</span>
-                  {" – "}
-                  <span className={r.winner === r.b ? "font-bold text-emerald-300" : ""}>{r.b}</span>
-                </span>
-              ))}
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-slate-950/70 px-3 py-2">
+            <div className="mb-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500">🏁 {t("results")}</div>
+            <div className="max-h-20 space-y-1 overflow-y-auto">
+              {(results ?? []).length === 0 && <div className="text-xs text-slate-600">—</div>}
+              {(results ?? [])
+                .slice(-8)
+                .reverse()
+                .map((r, i) => (
+                  <div key={i} className="flex items-center gap-1 text-xs">
+                    <span className={`min-w-0 flex-1 truncate text-right ${r.winner === r.a ? "font-bold text-emerald-300" : "text-slate-500"}`}>
+                      {r.winner === r.a ? "🏆 " : ""}
+                      {r.a}
+                    </span>
+                    <span className="shrink-0 text-[9px] font-black text-slate-600">vs</span>
+                    <span className={`min-w-0 flex-1 truncate ${r.winner === r.b ? "font-bold text-emerald-300" : "text-slate-500"}`}>
+                      {r.b}
+                      {r.winner === r.b ? " 🏆" : ""}
+                    </span>
+                  </div>
+                ))}
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>
