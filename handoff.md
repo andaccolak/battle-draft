@@ -1,8 +1,20 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the finisher camera-drama milestone (slow-mo death blows + victory orbit).
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the game-feel sprint milestones: finisher camera drama (slow-mo death blows + victory orbit) and the impact pack (hit-stop, sparks, flash, camera kick).
 
 # Last Completed Work
+
+## Impact pack (game-feel sprint, 2026-07-13)
+
+- Every connecting blow (hit/knockdown/block reactions) fires `impactFx` in Arena3D at the same moment the reaction pose applies: a reusable PointLight flash at the victim (warm for hits, orange for hard hits, steel-blue for blocks), a spark `Burst` (pooled THREE.Points, disposed after 0.45 s), and a camera distance kick (`kickRef`, exponential decay) that punches in and springs back.
+- Hard hits (crits and knockdowns) add an 85 ms hit-stop via `timeRef.freeze` — the render loop zeroes the sim delta while frozen; camera stays live.
+- Corpses kick up a grey dust burst 750 ms after the dead pose is first applied (timing matches the fall landing).
+- Weapon weight: strike clips play at 0.9× for heavy, 1.12× for dual/fists via `setEffectiveTimeScale` after `playAction` (which resets timeScale — order matters).
+- Looping clips start at a random phase (`target.time` randomized in playAction) so both fighters never idle/guard in robotic lock-step. Clip CHOICE stays seeded/synced across clients; phase offset is cosmetic.
+- Damage floats scale with magnitude (`floatMag`: ≥55 huge, ≥28 big) via `FLOAT_SIZES`, and all floats pop with a scale overshoot (0.55→1.18→1).
+- Verified: full driven tournament to champion, no new console errors, typecheck+build pass.
+
+## Finisher camera drama (2026-07-12)
 
 - The killing blow is now cinematic: when an attack entry's next timeline entry is a `death`, BattleStage flags it as the finisher (deterministic on every client since the timeline is known upfront).
 - At finisher impact (the same 620 ms mark where HP/sound land): a new deep `sfx.finisher()` boom replaces the normal hit sound, the screen shakes, the camera punch-in zoom holds 1.7 s (vs 0.6 s for crits), and phones with vibration support get a haptic pattern.
@@ -42,7 +54,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Suggested Next Step
 
-Owner phone test: watch a finisher land on a real device (slow-mo feel, orbit speed, zoom hold), then tune the constants in one place each — 0.3 target scale / 620–1980 ms window in Arena3D's finisher effect, orbit speeds in the animate loop, 1700 ms zoom hold in BattleStage.
+Owner phone test of the whole feel pass: finisher slow-mo, hit-stop weight, spark/flash intensity, camera kick strength, float sizes. Tuning knobs: `impactFx` intensities/counts, `kickRef` increments (0.22/0.55), freeze 0.085 s, heft scales in applyPose, 0.3 slow-mo scale / 620–1980 ms window, orbit speeds (0.5/0.16 rad/s), 1700 ms zoom hold and `floatMag` thresholds in BattleStage. Next feel candidates: windup anticipation micro-lean, block spark direction, victory confetti in 3D space.
 
 # Important Decisions
 
