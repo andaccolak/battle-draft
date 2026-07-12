@@ -196,6 +196,11 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   }, [index, entries.length]);
 
   useEffect(() => {
+    const expected = indexForElapsed(entriesRef.current, battle.elapsedMs ?? 0);
+    setIndex((i) => (Math.abs(expected - i) >= 2 ? expected : i));
+  }, [battle.elapsedMs]);
+
+  useEffect(() => {
     const entry = entriesRef.current[index];
     if (!entry) return;
     playSound(entry);
@@ -309,6 +314,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           beat={index}
           fx={fx}
           map={arenaMap ?? "colosseum"}
+          eventId={eventId}
           weaponLostA={weaponLost.a}
           weaponLostB={weaponLost.b}
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}

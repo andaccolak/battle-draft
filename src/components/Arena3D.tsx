@@ -233,6 +233,11 @@ function buildWeather(fx: string): Weather | null {
   return null;
 }
 
+const EVENT_VISUALS: Record<string, { charScale: number }> = {
+  giants_might: { charScale: 1.45 },
+  glass_cannon: { charScale: 0.9 }
+};
+
 const LIGHT_MOODS: Record<string, { tint: number; level: number }> = {
   none: { tint: 0xffffff, level: 1 },
   rain: { tint: 0xa8c4e0, level: 0.72 },
@@ -323,6 +328,7 @@ function acquireRenderer(): THREE.WebGLRenderer {
     sharedRenderer.shadowMap.enabled = true;
     sharedRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
     sharedRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    sharedRenderer.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault(), false);
   }
   return sharedRenderer;
 }
@@ -353,6 +359,7 @@ function attachNameSprite(rig: Rig, name: string, color: string): void {
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false }));
   sprite.scale.set(1.9, 0.475, 1);
   sprite.position.y = 2.95;
+  sprite.name = "namesprite";
   sprite.renderOrder = 5;
   rig.group.add(sprite);
 }
@@ -385,11 +392,11 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
   };
 }
 
-async function attachModel(rig: Rig, avatarId: string, fighter: FighterView): Promise<void> {
+async function attachModel(rig: Rig, avatarId: string, fighter: FighterView, charScale = 1): Promise<void> {
   const [base, library] = await Promise.all([loadBase(avatarId), loadAnimLibrary()]);
   if (!base) {
     const placeholder = buildPlaceholder(avatarId);
-    placeholder.scale.setScalar(CHAR_HEIGHT / 1.75);
+    placeholder.scale.setScalar((CHAR_HEIGHT / 1.75) * charScale);
     rig.group.add(placeholder);
     return;
   }
@@ -400,7 +407,7 @@ async function attachModel(rig: Rig, avatarId: string, fighter: FighterView): Pr
       child.frustumCulled = false;
     }
   });
-  normalizeSize(instance, CHAR_HEIGHT);
+  normalizeSize(instance, CHAR_HEIGHT * charScale);
   const weapon = activeWeapon(fighter);
   const gear = headgearFor(fighter.equipment, fighter.disabledItems);
   if (weaponVisualKindFor(weapon) === "bow") gear.push(QUIVER_GEAR);
@@ -620,6 +627,7 @@ interface Props {
   beat: number;
   fx: string;
   map: string;
+  eventId?: string;
   weaponLostA?: boolean;
   weaponLostB?: boolean;
   focus: "a" | "b" | "none";
@@ -627,7 +635,8 @@ interface Props {
   crit: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
+  const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
   const rigBRef = useRef<Rig | null>(null);
@@ -693,6 +702,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    cameraState.zoom = 2.8;
     const scene = new THREE.Scene();
     sceneRef.current = scene;
 
@@ -741,7 +751,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     ringRef.current = ring;
 
     const startAngle = 2.17;
-    const posA = new THREE.Vector3(Math.cos(startAngle) * RING_RADIUS, 0, Math.sin(startAngle) * RING_RADIUS);
+    const ringR = RING_RADIUS * charScale;
+    const posA = new THREE.Vector3(Math.cos(startAngle) * ringR, 0, Math.sin(startAngle) * ringR);
     const posB = posA.clone().negate();
     const dirAB = posB.clone().sub(posA).normalize();
     const rigA = makeRig(posA, dirAB);
@@ -754,11 +765,17 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     attachMarker(rigB, 0xf87171);
     attachNameSprite(rigA, a.nickname, "#a5b4fc");
     attachNameSprite(rigB, b.nickname, "#fca5a5");
-    void attachModel(rigA, avatarById(a.avatar).id, a).then(() => {
+    for (const rig of [rigA, rigB]) {
+      const sprite = rig.group.getObjectByName("namesprite");
+      if (sprite) sprite.position.y = 2.95 * charScale;
+      rig.radius = ringR;
+      rig.radiusTarget = ringR;
+    }
+    void attachModel(rigA, avatarById(a.avatar).id, a, charScale).then(() => {
       applyPose(rigA, "idle", kindRef.current.a, false);
       playAction(rigA, ["Spawn_Ground"], { once: true, backToIdle: true });
     });
-    void attachModel(rigB, avatarById(b.avatar).id, b).then(() => {
+    void attachModel(rigB, avatarById(b.avatar).id, b, charScale).then(() => {
       applyPose(rigB, "idle", kindRef.current.b, false);
       playAction(rigB, ["Spawn_Ground"], { once: true, backToIdle: true });
     });
@@ -832,8 +849,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
           circle.nextShift = circle.clock + 1.4 + Math.random() * 2.2;
           const r = Math.random();
           circle.omegaTarget = r < 0.3 ? 0 : (r < 0.65 ? 1 : -1) * (0.3 + Math.random() * 0.35);
-          rigA.radiusTarget = RING_RADIUS + (Math.random() - 0.5) * 0.5;
-          rigB.radiusTarget = RING_RADIUS + (Math.random() - 0.5) * 0.5;
+          rigA.radiusTarget = ringR + (Math.random() - 0.5) * 0.5;
+          rigB.radiusTarget = ringR + (Math.random() - 0.5) * 0.5;
         }
       } else {
         circle.omegaTarget = 0;
