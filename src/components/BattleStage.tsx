@@ -336,41 +336,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
         <ArenaFX fx={fx} />
 
-        <AnimatePresence mode="wait">
-          {current && current.t === "attack" && (
-            <motion.div
-              key={`hit-${index}`}
-              initial={{ opacity: 0, scale: 2 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, y: -24 }}
-              transition={{ type: "spring", damping: 14, stiffness: 300 }}
-              className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
-            >
-              <div
-                className={`font-display font-black drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] ${
-                  current.crit ? "text-4xl text-orange-300" : "text-3xl text-rose-400"
-                }`}
-              >
-                -{current.dmg ?? 0}
-              </div>
-            </motion.div>
-          )}
 
-          {current && current.t === "quirk" && current.dmg !== undefined && current.dmg > 0 && (
-            <motion.div
-              key={`quirkdmg-${index}`}
-              initial={{ opacity: 0, scale: 1.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, y: -24 }}
-              transition={{ type: "spring", damping: 14, stiffness: 300 }}
-              className="pointer-events-none absolute inset-x-0 top-[30%] z-20 text-center"
-            >
-              <div className="font-display text-3xl font-black text-rose-400 drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)]">
-                -{current.dmg}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <AnimatePresence>
           {showIntro && (

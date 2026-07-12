@@ -93,9 +93,12 @@ interface Props {
   onMode: (modeId: string) => void;
   onTourney: (modeId: string) => void;
   onRename: (nickname: string) => void;
+  onKick: (targetId: string) => void;
+  onShout: () => void;
 }
 
-export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode, onTourney, onRename }: Props) {
+export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, onMode, onTourney, onRename, onKick, onShout }: Props) {
+  const [shouted, setShouted] = useState(false);
   const [editingNick, setEditingNick] = useState<string | null>(null);
   const { t } = useI18n();
   const isHost = snapshot.hostId === playerId;
@@ -271,6 +274,11 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
               )}
               {p.id === playerId && editingNick === null && <span className="text-xs font-bold text-indigo-300">{t("you")}</span>}
               {!p.connected && !p.isBot && <span className="text-xs text-rose-400">{t("offline")}</span>}
+              {isHost && p.id !== playerId && !p.isBot && (
+                <button onClick={() => onKick(p.id)} className="shrink-0 rounded-lg px-1.5 py-0.5 text-sm text-rose-400 transition hover:bg-rose-500/20">
+                  ✕
+                </button>
+              )}
             </motion.div>
           ))}
         </div>
@@ -281,10 +289,22 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
           {solo ? t("startWithBots") : t("startDraft")}
         </button>
       ) : (
-        <div className="text-center text-sm text-slate-400">
+        <div className="flex flex-col items-center gap-3 text-center text-sm text-slate-400">
           <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.8 }}>
             {t("waitingHost")}
           </motion.span>
+          <button
+            onClick={() => {
+              if (shouted) return;
+              onShout();
+              setShouted(true);
+              setTimeout(() => setShouted(false), 30000);
+            }}
+            disabled={shouted}
+            className={`btn-ghost w-full ${shouted ? "opacity-50" : ""}`}
+          >
+            {shouted ? t("shoutSent") : t("shoutStart")}
+          </button>
         </div>
       )}
     </div>

@@ -95,6 +95,10 @@ export async function withRoom(
       if (err) return { error: err, state: entry.state };
       tick(entry.state, now);
     }
+    if (entry.state.phase === "lobby" && entry.state.players.length === 0) {
+      memStore().delete(code);
+      return { error: "err_not_found" };
+    }
     return { state: entry.state };
   }
   for (let attempt = 0; attempt < 4; attempt++) {
@@ -112,6 +116,10 @@ export async function withRoom(
       }
     }
     if (mutateError) return { error: mutateError, state };
+    if (state.phase === "lobby" && state.players.length === 0) {
+      await prisma.gameState.deleteMany({ where: { code } });
+      return { error: "err_not_found" };
+    }
     if (!dirty) return { state };
     const updated = await prisma.gameState.updateMany({
       where: { code, version: row.version },

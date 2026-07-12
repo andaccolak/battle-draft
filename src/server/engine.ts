@@ -192,6 +192,16 @@ export function joinState(state: RoomState, playerId: string, nickname: string, 
   return null;
 }
 
+export function kickPlayer(state: RoomState, playerId: string, targetId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  if (state.hostId !== playerId) return "err_host_start";
+  if (targetId === playerId) return null;
+  const target = findPlayer(state, targetId);
+  if (!target || target.isBot) return null;
+  state.players = state.players.filter((p) => p.id !== targetId);
+  return null;
+}
+
 export function renamePlayer(state: RoomState, playerId: string, nickname: string): string | null {
   if (state.phase !== "lobby") return null;
   const p = findPlayer(state, playerId);
@@ -824,7 +834,7 @@ export function playAgain(state: RoomState, playerId: string, now: number): stri
 export function tick(state: RoomState, now: number): boolean {
   let changed = false;
   const host = state.hostId ? findPlayer(state, state.hostId) : undefined;
-  if (!host || (!host.isBot && !isConnected(host, now))) {
+  if (!host || (!host.isBot && now - host.lastSeen > 60000)) {
     const candidate = state.players.find((p) => !p.isBot && !p.spectator && isConnected(p, now));
     if (candidate && candidate.id !== state.hostId) {
       state.hostId = candidate.id;

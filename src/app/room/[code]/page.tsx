@@ -100,6 +100,13 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
     }
   }, [error, snapshot, onExit]);
 
+  const kicked = !!snapshot && snapshot.players.length > 0 && !snapshot.players.some((p) => p.id === game.playerId);
+  useEffect(() => {
+    if (!kicked) return;
+    const timer = setTimeout(onExit, 2000);
+    return () => clearTimeout(timer);
+  }, [kicked, onExit]);
+
   if (!snapshot) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
@@ -118,6 +125,15 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
     );
   }
 
+  if (kicked) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="text-4xl">🚪</div>
+        <p className="font-semibold text-rose-300">{t("removedFromRoom")}</p>
+        <p className="text-sm text-slate-500">{t("headingHome")}</p>
+      </main>
+    );
+  }
   const inBattle = snapshot.phase === "battle" && !!snapshot.battle;
   return (
     <main className={`mx-auto max-w-2xl px-4 ${inBattle ? "py-3" : "min-h-dvh py-5"}`}>
@@ -144,7 +160,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
             exit={{ opacity: 0 }}
             className="mb-4 rounded-xl border border-amber-400/50 bg-amber-500/15 px-4 py-2.5 text-center text-sm font-bold text-amber-200"
           >
-            {t("shoutToast", { p: snapshot.shout.by })}
+            {snapshot.phase === "lobby" ? t("shoutStartToast", { p: snapshot.shout.by }) : t("shoutToast", { p: snapshot.shout.by })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -172,7 +188,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
         >
           {snapshot.phase === "lobby" && (
-            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} onTourney={game.chooseTourney} onRename={game.rename} />
+            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} onTourney={game.chooseTourney} onRename={game.rename} onKick={game.kick} onShout={game.shout} />
           )}
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />
