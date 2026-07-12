@@ -139,10 +139,12 @@ export interface WeaponModelDef {
   kind: WeaponVisualKind;
   scale?: number;
   hand?: "l" | "r";
+  tint?: number;
+  emissive?: number;
 }
 
 export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
-  w_rusty_sword: { model: "Skeleton_Blade", kind: "blade" },
+  w_rusty_sword: { model: "Skeleton_Blade", kind: "blade", tint: 0x8f6b42 },
   w_wooden_club: { model: "mug_full", kind: "blade" },
   w_battle_axe: { model: "axe_2handed", kind: "heavy" },
   w_dagger: { model: "dagger", kind: "blade" },
@@ -151,34 +153,34 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_twin_axe: { model: "Axe_Double", kind: "heavy", scale: 0.2 },
   w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27, hand: "l" },
   w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28, hand: "l" },
-  w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26, hand: "l" },
+  w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26, hand: "l", tint: 0x5e7a4a },
   w_hatchet: { model: "axe_1handed", kind: "blade" },
   w_tribal_shield: { model: "shield_round_barbarian", kind: "blade", hand: "l" },
   w_bone_crossbow: { model: "Skeleton_Crossbow", kind: "crossbow" },
   w_claymore: { model: "Claymore", kind: "heavy", scale: 0.27 },
   w_grimoire: { model: "spellbook_open", kind: "magic" },
-  w_shortsword: { model: "sword_1handed", kind: "blade" },
-  w_woodaxe: { model: "axe_1handed", kind: "blade" },
-  w_knight_sword: { model: "sword_1handed", kind: "blade" },
-  w_broadaxe: { model: "axe_2handed", kind: "heavy" },
-  w_assassin_dagger: { model: "dagger", kind: "blade" },
-  w_frost_staff: { model: "staff", kind: "magic" },
+  w_shortsword: { model: "sword_1handed", kind: "blade", tint: 0x9aa7b5 },
+  w_woodaxe: { model: "axe_1handed", kind: "blade", tint: 0xa07a4f },
+  w_knight_sword: { model: "sword_1handed", kind: "blade", tint: 0xd9c07a, emissive: 0x40350f },
+  w_broadaxe: { model: "axe_2handed", kind: "heavy", tint: 0xc2915a },
+  w_assassin_dagger: { model: "dagger", kind: "blade", tint: 0x6d5d8f },
+  w_frost_staff: { model: "staff", kind: "magic", tint: 0x9fd4ff, emissive: 0x123a5e },
   w_bonecleaver: { model: "Skeleton_Axe", kind: "heavy" },
   w_soul_staff: { model: "Skeleton_Staff", kind: "magic" },
-  w_warcleaver: { model: "axe_2handed", kind: "heavy" },
+  w_warcleaver: { model: "axe_2handed", kind: "heavy", tint: 0xa05a52 },
   w_kings_blade: { model: "sword_2handed_color", kind: "heavy" },
-  w_reaper_scythe: { model: "Skeleton_Blade", kind: "blade" },
+  w_reaper_scythe: { model: "Skeleton_Blade", kind: "blade", tint: 0x5f7a66, emissive: 0x0e2e1a },
   w_arcane_orb: { model: "wand", kind: "magic" },
-  w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
+  w_war_hammer: { model: "sword_2handed_color", kind: "heavy", tint: 0x8d97a3 },
   w_spiked_flail: { model: "shield_spikes", kind: "blade", hand: "l" },
   w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },
-  w_poison_fang: { model: "dagger", kind: "blade" },
+  w_poison_fang: { model: "dagger", kind: "blade", tint: 0x7ba05f, emissive: 0x143312 },
   w_crossbow: { model: "crossbow_2handed", kind: "crossbow" },
-  w_executioner: { model: "Skeleton_Axe", kind: "heavy" },
-  w_vampire_scythe: { model: "wand", kind: "magic" },
-  w_storm_spear: { model: "staff", kind: "magic" },
+  w_executioner: { model: "Skeleton_Axe", kind: "heavy", tint: 0x9c5a5a },
+  w_vampire_scythe: { model: "wand", kind: "magic", tint: 0xb56a6a, emissive: 0x3a0d0d },
+  w_storm_spear: { model: "staff", kind: "magic", tint: 0x8fa7d9, emissive: 0x1a2450 },
   w_dragonfang: { model: "sword_2handed", kind: "heavy" },
-  w_void_reaper: { model: "Skeleton_Staff", kind: "magic" }
+  w_void_reaper: { model: "Skeleton_Staff", kind: "magic", tint: 0x8a6dbf, emissive: 0x2a1050 }
 };
 
 export function weaponModelFor(item: Item | undefined): WeaponModelDef | undefined {

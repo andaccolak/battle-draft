@@ -56,7 +56,7 @@ export function avatarThumb(avatarId: string, weapon?: Item, equipment?: Partial
   const weaponDef = weaponModelFor(weapon);
   const shield = equipment ? shieldModelFor(equipment, disabledItems) : undefined;
   const headgear = equipment ? headgearFor(equipment, disabledItems) : [];
-  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") : ""}|${shield ?? ""}|${headgear.map((h) => h.meshes.join("+")).join(",")}`;
+  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") + (weaponDef.tint ?? "") + (weaponDef.emissive ?? "") : ""}|${shield ?? ""}|${headgear.map((h) => h.meshes.join("+")).join(",")}`;
   const cached = thumbCache.get(key);
   if (cached) return cached;
   const promise = (async () => {

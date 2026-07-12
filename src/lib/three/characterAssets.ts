@@ -87,15 +87,37 @@ function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D
   return found;
 }
 
-function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number, rotateY?: number, name = "weapon_main"): void {
+function mountWeapon(
+  slot: THREE.Object3D,
+  template: THREE.Group,
+  scale?: number,
+  rotateY?: number,
+  name = "weapon_main",
+  tiltX = 0,
+  tint?: number,
+  emissive?: number
+): void {
   const weapon = template.clone(true);
   weapon.name = name;
   if (scale) weapon.scale.setScalar(scale);
   if (rotateY) weapon.rotation.y = rotateY;
+  if (tiltX) weapon.rotation.x = tiltX;
   weapon.traverse((child) => {
-    if ((child as THREE.Mesh).isMesh) {
-      child.castShadow = true;
-      child.frustumCulled = false;
+    const mesh = child as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    mesh.castShadow = true;
+    mesh.frustumCulled = false;
+    if (tint !== undefined || emissive !== undefined) {
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      mesh.material = materials.length === 1 ? materials[0]!.clone() : materials.map((m) => m.clone());
+      for (const mat of Array.isArray(mesh.material) ? mesh.material : [mesh.material]) {
+        const std = mat as THREE.MeshStandardMaterial;
+        if (tint !== undefined && std.color) std.color.multiply(new THREE.Color(tint).multiplyScalar(1.35));
+        if (emissive !== undefined && std.emissive) {
+          std.emissive.set(emissive);
+          std.emissiveIntensity = 1;
+        }
+      }
     }
   });
   // Some converted weapons put their origin at the head; lift so the grip sits in the hand.
@@ -109,6 +131,12 @@ function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number
 }
 
 const TWO_HANDED_KINDS = new Set(["bow", "crossbow", "dual", "heavy"]);
+const UPRIGHT_MODELS = new Set(["Skeleton_Crossbow", "mug_full", "shield_round_barbarian", "shield_spikes", "spellbook_open"]);
+
+function tiltFor(kind: string, model: string): number {
+  if (kind === "bow" || UPRIGHT_MODELS.has(model)) return 0;
+  return -Math.PI / 2;
+}
 
 export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined, shieldModel?: string): Promise<void> {
   const def = weaponModelFor(weapon);
@@ -122,8 +150,8 @@ export async function attachWeapons(instance: THREE.Object3D, weapon: Item | und
   ]);
   const mainSlot = findHandSlot(instance, mainHand);
   const offSlot = findHandSlot(instance, mainHand === "l" ? "r" : "l");
-  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0);
-  if (off && offSlot) mountWeapon(offSlot, off, undefined, 0, "weapon_off");
+  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0, "weapon_main", tiltFor(def.kind, def.model), def.tint, def.emissive);
+  if (off && offSlot) mountWeapon(offSlot, off, undefined, 0, "weapon_off", offhandName === "dagger" ? -Math.PI / 2 : 0);
 }
 
 const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();

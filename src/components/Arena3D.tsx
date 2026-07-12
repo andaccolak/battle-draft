@@ -319,6 +319,7 @@ interface Projectile {
   to: THREE.Vector3;
   elapsed: number;
   duration: number;
+  burst: number;
 }
 
 interface Burst {
@@ -711,12 +712,13 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     if (!scene) return;
     const start = from.group.position.clone().setY(1.5).addScaledVector(from.dir, 0.6);
     const end = to.group.position.clone().setY(1.35);
+    const burst = kind === "magic" ? 0xb388ff : kind === "fists" ? 0x8d8d86 : 0xd8c49a;
     const launch = (mesh: THREE.Object3D) => {
       if (!sceneRef.current) return;
       mesh.position.copy(start);
       mesh.lookAt(end);
       sceneRef.current.add(mesh);
-      projectilesRef.current.push({ mesh, from: start, to: end, elapsed: 0, duration: 0.22 });
+      projectilesRef.current.push({ mesh, from: start, to: end, elapsed: 0, duration: 0.22, burst });
     };
     if (kind === "magic") {
       launch(
@@ -995,6 +997,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
         p.mesh.position.lerpVectors(p.from, p.to, t);
         p.mesh.position.y += Math.sin(t * Math.PI) * 0.32;
         if (t >= 1) {
+          if (sceneRef.current) spawnBurst(sceneRef.current, burstsRef.current, p.to.clone(), p.burst, 8, 1.5, 5);
           p.mesh.removeFromParent();
           projectiles.splice(i, 1);
         }
