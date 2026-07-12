@@ -32,7 +32,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
         className="flex flex-col items-center"
       >
         {champion && (
-          <AvatarPortrait avatarId={champion.avatar} weapon={champion.equipment.weapon} equipment={champion.equipment} className="h-44 w-32 drop-shadow-2xl" />
+          <AvatarPortrait avatarId={champion.avatar} weapon={champion.equipment.weapon} equipment={champion.equipment} className="h-40 w-[7.2rem] drop-shadow-2xl" />
         )}
       </motion.div>
       <div>

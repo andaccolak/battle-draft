@@ -56,6 +56,16 @@ const WALK_SPEED = 0.55;
 const RING_RADIUS = 1.65;
 const CALM_POSES = new Set<Pose>(["idle", "guard"]);
 
+const GUARD_POOLS: Partial<Record<FighterKind, string[]>> = {
+  bow: ["Ranged_Bow_Aiming_Idle", "Ranged_Bow_Idle"],
+  crossbow: ["Ranged_2H_Aiming", "Ranged_1H_Aiming"],
+  magic: ["Ranged_Magic_Spellcasting"]
+};
+
+function guardPoolFor(kind: FighterKind, idleClip: string): string[] {
+  return [...(GUARD_POOLS[kind] ?? ["Melee_Blocking", "Melee_Block"]), idleClip];
+}
+
 const IDLE_POOLS: Partial<Record<FighterKind, string[]>> = {
   fists: ["Melee_Unarmed_Idle", IDLE_CLIP],
   heavy: ["Melee_2H_Idle", IDLE_CLIP],
@@ -222,6 +232,21 @@ function buildWeather(fx: string): Weather | null {
   }
   return null;
 }
+
+const LIGHT_MOODS: Record<string, { tint: number; level: number }> = {
+  none: { tint: 0xffffff, level: 1 },
+  rain: { tint: 0xa8c4e0, level: 0.72 },
+  storm: { tint: 0x9aa8ff, level: 0.6 },
+  snow: { tint: 0xe8f2ff, level: 0.95 },
+  fog: { tint: 0xc0ccd8, level: 0.75 },
+  sun: { tint: 0xffd9a0, level: 1.1 },
+  night: { tint: 0x9fb4ff, level: 0.45 },
+  bloodmoon: { tint: 0xff8a7a, level: 0.5 },
+  poison: { tint: 0xa8e6b0, level: 0.68 },
+  wind: { tint: 0xbfeef5, level: 0.9 },
+  quake: { tint: 0xd8cfc0, level: 0.78 },
+  overcast: { tint: 0xc4ccd6, level: 0.72 }
+};
 
 function hexNum(hex: string): number {
   return parseInt(hex.slice(1), 16);
@@ -420,6 +445,7 @@ function playAction(
   if (!opts.once && rig.current === target && target.isRunning()) return;
   const fade = 0.22;
   target.reset();
+  target.setEffectiveTimeScale(1);
   if (opts.once) {
     target.setLoop(THREE.LoopOnce, 1);
     target.clampWhenFinished = true;
@@ -475,7 +501,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       break;
     case "guard":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.25);
-      playAction(rig, ["Melee_Blocking", "Melee_Block", IDLE_CLIP]);
+      playAction(rig, guardPoolFor(kind, rig.idleClip));
       break;
     case "taunt":
       rig.targetPos.copy(rig.base);
@@ -606,6 +632,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
   const weatherRef = useRef<Weather | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const mapRef = useRef(map);
+  const lightsRef = useRef<{ ambient: THREE.AmbientLight; hemi: THREE.HemisphereLight; sun: THREE.DirectionalLight } | null>(null);
   kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
   mapRef.current = map;
 
@@ -661,9 +688,11 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     const renderer = acquireRenderer();
     container.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    const ambient = new THREE.AmbientLight(0xffffff, 0.55);
+    scene.add(ambient);
     const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.1);
     scene.add(hemi);
+    
     const sun = new THREE.DirectionalLight(0xffffff, 2.2);
     sun.position.set(3, 6, 4);
     sun.castShadow = true;
@@ -676,6 +705,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     const rim = new THREE.PointLight(0x8899ff, 12, 20);
     rim.position.set(-3, 3, -3);
     scene.add(rim);
+    lightsRef.current = { ambient, hemi, sun };
 
     const floor = new THREE.Mesh(
       new THREE.CylinderGeometry(4.6, 4.9, 0.28, 48),
@@ -813,14 +843,17 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
         }
       }
       if (calm) {
-        const strafing = Math.abs(circle.omega) * RING_RADIUS > 0.18;
+        const strafeSpeed = Math.abs(circle.omega) * RING_RADIUS;
+        const strafing = strafeSpeed > 0.18;
+        const kindOf = (rig: Rig) => (rig === rigA ? kindRef.current.a : kindRef.current.b);
         for (const rig of [rigA, rigB]) {
           if (!rig.mixer) continue;
           if (strafing) {
             tangent.set(-rig.group.position.z, 0, rig.group.position.x).multiplyScalar(circle.omega);
             playAction(rig, [tangent.dot(rig.side) > 0 ? "Running_Strafe_Right" : "Running_Strafe_Left", "Walking_A"]);
+            rig.current?.setEffectiveTimeScale(Math.min(1, Math.max(0.55, strafeSpeed / 1.3)));
           } else if (rig.pose === "guard") {
-            playAction(rig, ["Melee_Blocking", "Melee_Block", rig.idleClip]);
+            playAction(rig, guardPoolFor(kindOf(rig), rig.idleClip));
           } else {
             playAction(rig, [rig.idleClip]);
           }
@@ -911,6 +944,16 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
     if (!scene || !colors) return;
     scene.background = new THREE.Color(colors.bg);
     scene.fog = new THREE.Fog(colors.fog, 12, 62);
+    const mood = LIGHT_MOODS[fx] ?? LIGHT_MOODS.none;
+    const lights = lightsRef.current;
+    if (mood && lights) {
+      lights.sun.color.set(mood.tint);
+      lights.hemi.color.set(mood.tint);
+      lights.ambient.color.set(mood.tint);
+      lights.sun.intensity = 2.2 * mood.level;
+      lights.hemi.intensity = 1.1 * mood.level;
+      lights.ambient.intensity = 0.55 * Math.max(0.65, mood.level);
+    }
     const floorMat = floorRef.current?.material as THREE.MeshStandardMaterial | undefined;
     if (floorMat) floorMat.color.set(colors.floor);
     const ringMat = ringRef.current?.material as THREE.MeshStandardMaterial | undefined;

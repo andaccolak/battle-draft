@@ -633,7 +633,7 @@ function maybeResolveDuel(state: RoomState, now: number, force: boolean): void {
   const defReady = battle.defScore !== undefined && battle.defScore !== null;
   const atkReady = !attackerHuman || (battle.atkScore !== undefined && battle.atkScore !== null);
   if (!force && (!defReady || !atkReady)) return;
-  const ZONE = 0.14;
+  const ZONE = 0.1;
   let dodged = false;
   if (defReady) {
     if (battle.defPass === true) {

@@ -475,8 +475,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
               {(spectators ?? []).length === 0 && <div className="text-xs text-slate-600">—</div>}
               {(spectators ?? []).map((s) => (
                 <div key={s.nickname} className="flex items-center gap-1.5">
-                  <AvatarPortrait avatarId={s.avatar} className="h-6 w-5 shrink-0" />
-                  <span className={`min-w-0 truncate text-xs font-semibold ${s.eliminated ? "text-slate-500 line-through" : "text-slate-200"}`}>
+                  <AvatarPortrait avatarId={s.avatar} className="h-5 w-4 shrink-0" />
+                  <span className={`min-w-0 truncate text-[11px] font-semibold ${s.eliminated ? "text-slate-500 line-through" : "text-slate-200"}`}>
                     {s.nickname}
                   </span>
                   {s.eliminated && <span className="shrink-0 text-[10px]">💀</span>}
@@ -492,15 +492,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
                 .slice(-8)
                 .reverse()
                 .map((r, i) => (
-                  <div key={i} className="flex items-center gap-1 text-xs">
+                  <div key={i} className="flex items-center gap-1 text-[11px]">
                     <span className={`min-w-0 flex-1 truncate text-right ${r.winner === r.a ? "font-bold text-emerald-300" : "text-slate-500"}`}>
-                      {r.winner === r.a ? "🏆 " : ""}
                       {r.a}
                     </span>
                     <span className="shrink-0 text-[9px] font-black text-slate-600">vs</span>
                     <span className={`min-w-0 flex-1 truncate ${r.winner === r.b ? "font-bold text-emerald-300" : "text-slate-500"}`}>
                       {r.b}
-                      {r.winner === r.b ? " 🏆" : ""}
                     </span>
                   </div>
                 ))}
@@ -605,7 +603,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
     if (doneRef.current) return;
     doneRef.current = true;
     const offset = Math.min(1, Math.abs(posRef.current - 0.5) * 2);
-    const pass = offset <= 0.14;
+    const pass = offset <= 0.1;
     setResult(pass);
     onResult(pass, offset);
   };
@@ -633,7 +631,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           </motion.div>
           <div className="mt-2 text-sm font-bold text-slate-300">{mode === "attack" ? t("qteAttackHint") : t("qteHint")}</div>
           <div className="relative mt-5 h-7 w-72 max-w-[85vw] overflow-hidden rounded-full border border-white/20 bg-white/10">
-            <div className={`absolute inset-y-0 left-[43%] w-[14%] rounded ${mode === "attack" ? "bg-amber-500/80" : "bg-emerald-500/70"}`} />
+            <div className={`absolute inset-y-0 left-[45%] w-[10%] rounded ${mode === "attack" ? "bg-amber-500/80" : "bg-emerald-500/70"}`} />
             <div
               className="absolute inset-y-0 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
               style={{ left: `${pos * 100}%` }}
@@ -647,7 +645,7 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
           transition={{ type: "spring", damping: 12 }}
           className={`font-display text-2xl font-black ${result ? "text-emerald-300" : "text-rose-400"}`}
         >
-          {result ? `✅ ${t("qtePerfect")}` : `❌ ${t("qteFailed")}`}
+          {result ? t("qtePerfect") : t("qteFailed")}
         </motion.div>
       )}
     </motion.div>
