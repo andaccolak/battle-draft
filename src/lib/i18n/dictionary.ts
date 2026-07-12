@@ -101,6 +101,8 @@ export const UI: Record<string, { en: string; tr: string }> = {
   spectators: { en: "Spectators", tr: "İzleyiciler" },
   results: { en: "Results", tr: "Sonuçlar" },
   noteCrit: { en: "CRITICAL!", tr: "KRİTİK!" },
+  disabledStamp: { en: "DISABLED", tr: "DEVRE DIŞI" },
+  matchHistory: { en: "Match history", tr: "Maç geçmişi" },
   quarterfinal: { en: "Quarterfinal", tr: "Çeyrek Final" },
   leg: { en: "Leg {n}", tr: "{n}. Maç" },
   qteAttackTitle: { en: "⚔️ STRIKE!", tr: "⚔️ SALDIR!" },

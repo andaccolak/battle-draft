@@ -451,7 +451,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
       <div
         ref={logRef}
-        className="mt-2 h-24 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-2 min-h-16 flex-1 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div
@@ -539,7 +539,7 @@ function FlyingItem({ emoji, label, fromRight, delay, top }: { emoji: string; la
 }
 
 function CardSwapFx({ entry, battle }: { entry: TimelineEntry; battle: BattlePayload }) {
-  const { itemName } = useI18n();
+  const { itemName, t: tGlobal } = useI18n();
   const ownerIsA = entry.params?.side === "a";
   if (entry.key === "trade") {
     const slot = entry.params?.slot as keyof typeof battle.a.equipment | undefined;
@@ -558,6 +558,29 @@ function CardSwapFx({ entry, battle }: { entry: TimelineEntry; battle: BattlePay
     itemId !== undefined
       ? [...Object.values(battle.a.equipment), ...Object.values(battle.b.equipment)].find((i) => i && i.id === itemId)
       : undefined;
+  if (entry.key === "magnet") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8, y: 16 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        className="pointer-events-none absolute inset-x-6 top-[32%] z-20 mx-auto max-w-sm"
+      >
+        <div className="rounded-2xl border-2 border-rose-500/60 bg-slate-950/90 p-3 text-center shadow-[0_0_30px_rgba(244,63,94,0.25)]">
+          <div className="text-2xl">🧲</div>
+          <motion.div
+            animate={{ x: [0, -5, 5, -3, 3, 0] }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+            className={`mt-2 flex items-center gap-2 rounded-lg border px-2.5 py-1.5 ${stolen ? RARITY_CHIP[stolen.rarity] : "border-white/10"}`}
+          >
+            <span className="text-xl">{emoji}</span>
+            <span className="min-w-0 flex-1 truncate text-left text-sm font-bold">{stolen ? itemName(stolen) : ""}</span>
+            <span className="shrink-0 rounded bg-rose-500/80 px-1.5 py-0.5 text-[9px] font-black text-white">{tGlobal("disabledStamp")}</span>
+          </motion.div>
+        </div>
+      </motion.div>
+    );
+  }
   return <FlyingItem emoji={emoji} label={stolen ? itemName(stolen) : ""} fromRight={ownerIsA} delay={0} top="34%" />;
 }
 

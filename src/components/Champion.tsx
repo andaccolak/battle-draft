@@ -66,18 +66,46 @@ export default function Champion({ snapshot, playerId, onPlayAgain }: Props) {
         <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">{t("finalStandings")}</div>
         <div className="space-y-1.5">
           {[...snapshot.players]
-            .sort((a, b) => Number(a.eliminated) - Number(b.eliminated) || b.wins - a.wins)
+            .sort(
+              (a, b) =>
+                Number(a.spectator ?? false) - Number(b.spectator ?? false) ||
+                Number(a.eliminated) - Number(b.eliminated) ||
+                b.wins - a.wins
+            )
             .map((p, i) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2 text-sm">
                 <span className="flex items-center gap-2 font-semibold">
                   <AvatarPortrait avatarId={p.avatar} className="h-9 w-7" />
-                  {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.isBot ? "🤖 " : ""}{p.nickname}
+                  {p.spectator ? "👀" : i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"} {p.isBot ? "🤖 " : ""}
+                  {p.nickname}
                 </span>
-                <span className="text-xs text-slate-400">{p.wins} {p.wins === 1 ? t("win") : t("wins")}</span>
+                <span className="text-xs text-slate-400">
+                  {p.spectator ? "" : `${p.wins} ${p.wins === 1 ? t("win") : t("wins")}`}
+                </span>
               </div>
             ))}
         </div>
       </div>
+
+      {snapshot.bracket && snapshot.bracket.some((r) => r.matches.some((m) => m.winner)) && (
+        <div className="card-surface w-full p-4">
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">🏁 {t("matchHistory")}</div>
+          <div className="max-h-40 space-y-1 overflow-y-auto">
+            {snapshot.bracket
+              .flatMap((r) => r.matches)
+              .filter((m) => m.winner && m.a && m.b)
+              .map((m, i) => (
+                <div key={i} className="flex items-center gap-1.5 rounded-lg bg-white/5 px-3 py-1.5 text-xs">
+                  <span className={`min-w-0 flex-1 truncate text-right ${m.winner === m.a ? "font-bold text-emerald-300" : "text-slate-500"}`}>
+                    {m.a}
+                  </span>
+                  <span className="shrink-0 text-[9px] font-black text-slate-600">vs</span>
+                  <span className={`min-w-0 flex-1 truncate ${m.winner === m.b ? "font-bold text-emerald-300" : "text-slate-500"}`}>{m.b}</span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {isHost ? (
         <button onClick={onPlayAgain} className="btn-primary w-full text-lg">

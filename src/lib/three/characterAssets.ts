@@ -101,18 +101,22 @@ function mountWeapon(slot: THREE.Object3D, template: THREE.Group, scale?: number
   slot.add(weapon);
 }
 
+const TWO_HANDED_KINDS = new Set(["bow", "crossbow", "dual", "heavy"]);
+
 export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined, shieldModel?: string): Promise<void> {
   const def = weaponModelFor(weapon);
-  const offhandName = def?.offhand ?? shieldModel;
-  if (!def && !offhandName) return;
+  const mainHand = def?.hand ?? "r";
+  const blocksShield = !!def && (TWO_HANDED_KINDS.has(def.kind) || mainHand === "l" || !!def.offhand);
+  const offhandName = def?.offhand ?? (blocksShield ? undefined : shieldModel);
+  if (!def && !shieldModel) return;
   const [main, off] = await Promise.all([
     def ? loadWeaponModel(def.model) : Promise.resolve(null),
-    offhandName ? loadWeaponModel(offhandName) : Promise.resolve(null)
+    (offhandName ?? (!def ? shieldModel : undefined)) ? loadWeaponModel((offhandName ?? shieldModel) as string) : Promise.resolve(null)
   ]);
-  const right = findHandSlot(instance, "r");
-  const left = findHandSlot(instance, "l");
-  if (main && right && def) mountWeapon(right, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0);
-  if (off && left) mountWeapon(left, off, undefined, 0, "weapon_off");
+  const mainSlot = findHandSlot(instance, mainHand);
+  const offSlot = findHandSlot(instance, mainHand === "l" ? "r" : "l");
+  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0);
+  if (off && offSlot) mountWeapon(offSlot, off, undefined, 0, "weapon_off");
 }
 
 const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();

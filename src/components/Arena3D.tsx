@@ -425,20 +425,21 @@ function getAction(rig: Rig, name: string): THREE.AnimationAction | null {
   return action;
 }
 
-function pickAvailable(rig: Rig, candidates: string[], random: boolean): string | null {
+function pickAvailable(rig: Rig, candidates: string[], random: boolean, seed?: number): string | null {
   const available = candidates.filter((name) => rig.clips?.has(name));
   if (available.length === 0) return null;
-  const pick = random && available.length > 1 ? available[Math.floor(Math.random() * available.length)] : available[0];
-  return pick ?? null;
+  if (!random || available.length === 1) return available[0] ?? null;
+  const index = seed !== undefined ? Math.abs(seed) % available.length : Math.floor(Math.random() * available.length);
+  return available[index] ?? null;
 }
 
 function playAction(
   rig: Rig,
   candidates: string[],
-  opts: { once?: boolean; backToIdle?: boolean; random?: boolean } = {}
+  opts: { once?: boolean; backToIdle?: boolean; random?: boolean; seed?: number } = {}
 ): void {
   if (!rig.mixer) return;
-  const pick = pickAvailable(rig, candidates, !!opts.random);
+  const pick = pickAvailable(rig, candidates, !!opts.random, opts.seed);
   if (!pick) return;
   const target = getAction(rig, pick);
   if (!target) return;
@@ -480,7 +481,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   }, ms);
 }
 
-function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig): void {
+function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig, seed = 0): void {
   if (pose === "dead" && rig.pose === "dead") return;
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
@@ -515,12 +516,12 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       break;
     case "taunt":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["Skeletons_Taunt", "Waving", IDLE_CLIP], { once: true, backToIdle: true, random: true });
+      playAction(rig, ["Skeletons_Taunt", "Waving", IDLE_CLIP], { once: true, backToIdle: true, random: true, seed });
       break;
     case "windup":
       if (kind === "magic") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP], { once: true, backToIdle: true, random: true });
+        playAction(rig, ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP], { once: true, backToIdle: true, random: true, seed });
       } else if (kind === "crossbow") {
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
         playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
@@ -545,8 +546,8 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       const pool = ATTACK_POOLS[kind];
       const strike =
         crit && MELEE_KINDS.has(kind)
-          ? (pickAvailable(rig, CRIT_POOL, true) ?? pickAvailable(rig, pool, true))
-          : pickAvailable(rig, pool, true);
+          ? (pickAvailable(rig, CRIT_POOL, true, seed) ?? pickAvailable(rig, pool, true, seed))
+          : pickAvailable(rig, pool, true, seed);
       if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
         rig.moveSpeed = RUN_SPEED;
         playAction(rig, ["Running_A"]);
@@ -576,17 +577,17 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
     case "block":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.15);
       if (rig.placeholder) rig.targetTilt = -0.12;
-      playAction(rig, ["Melee_Block_Hit", "Melee_Block_Attack", "Hit_A"], { once: true, backToIdle: true, random: true });
+      playAction(rig, ["Melee_Block_Hit", "Melee_Block_Attack", "Hit_A"], { once: true, backToIdle: true, random: true, seed });
       scheduleReturn(rig, 500);
       break;
     case "dodge":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 0.7);
-      playAction(rig, ["Dodge_Left", "Dodge_Right"], { once: true, backToIdle: true, random: true });
+      playAction(rig, ["Dodge_Left", "Dodge_Right"], { once: true, backToIdle: true, random: true, seed });
       scheduleReturn(rig, 600);
       break;
     case "roll":
       rig.targetPos.copy(rig.base).addScaledVector(rig.side, 1);
-      playAction(rig, ["Dodge_Backward", "Dodge_Forward", "Dodge_Left"], { once: true, backToIdle: true, random: true });
+      playAction(rig, ["Dodge_Backward", "Dodge_Forward", "Dodge_Left"], { once: true, backToIdle: true, random: true, seed });
       scheduleReturn(rig, 700);
       break;
     case "stun":
@@ -602,11 +603,11 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
     case "dead":
       rig.targetPos.copy(rig.base);
       if (rig.placeholder) rig.targetTilt = Math.PI / 2;
-      playAction(rig, ["Death_A", "Death_B"], { once: true, random: true });
+      playAction(rig, ["Death_A", "Death_B"], { once: true, random: true, seed });
       break;
     case "victory":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["Cheering", "Waving", "Push_Ups", "Jump_Full_Short"], { random: true });
+      playAction(rig, ["Cheering", "Waving", "Push_Ups", "Jump_Full_Short"], { random: true, seed });
       break;
   }
 }
@@ -1013,25 +1014,27 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, weaponLostA
       }
     }
     const kinds = kindRef.current;
-    const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind) => {
-      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender);
+    const seedA = beat * 2 + 1;
+    const seedB = beat * 2 + 2;
+    const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind, atkSeed: number, defSeed: number) => {
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed);
       const lead = reaction === "dodge" || reaction === "roll" ? 260 : 0;
       defender.reactTimer = setTimeout(
-        () => applyPose(defender, reaction, defenderKind, false),
+        () => applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed),
         Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead)
       );
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {
-      delayReaction(rigA, kinds.a, rigB, poseB, kinds.b);
+      delayReaction(rigA, kinds.a, rigB, poseB, kinds.b, seedA, seedB);
     } else if (poseB === "attack" && REACTION_POSES.has(poseA)) {
-      delayReaction(rigB, kinds.b, rigA, poseA, kinds.a);
+      delayReaction(rigB, kinds.b, rigA, poseA, kinds.a, seedB, seedA);
     } else {
-      if (poseA === "attack") applyPose(rigA, "attack", kinds.a, crit, () => spawnProjectile(rigA, rigB, kinds.a), rigB);
-      else if (poseA === "throw") applyPose(rigA, "throw", kinds.a, false, () => spawnProjectile(rigA, rigB, "fists"), rigB);
-      else applyPose(rigA, poseA, kinds.a, crit);
-      if (poseB === "attack") applyPose(rigB, "attack", kinds.b, crit, () => spawnProjectile(rigB, rigA, kinds.b), rigA);
-      else if (poseB === "throw") applyPose(rigB, "throw", kinds.b, false, () => spawnProjectile(rigB, rigA, "fists"), rigA);
-      else applyPose(rigB, poseB, kinds.b, crit);
+      if (poseA === "attack") applyPose(rigA, "attack", kinds.a, crit, () => spawnProjectile(rigA, rigB, kinds.a), rigB, seedA);
+      else if (poseA === "throw") applyPose(rigA, "throw", kinds.a, false, () => spawnProjectile(rigA, rigB, "fists"), rigB, seedA);
+      else applyPose(rigA, poseA, kinds.a, crit, undefined, undefined, seedA);
+      if (poseB === "attack") applyPose(rigB, "attack", kinds.b, crit, () => spawnProjectile(rigB, rigA, kinds.b), rigA, seedB);
+      else if (poseB === "throw") applyPose(rigB, "throw", kinds.b, false, () => spawnProjectile(rigB, rigA, "fists"), rigA, seedB);
+      else applyPose(rigB, poseB, kinds.b, crit, undefined, undefined, seedB);
     }
   }, [poseA, poseB, beat, crit]);
 

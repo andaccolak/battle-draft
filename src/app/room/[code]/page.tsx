@@ -166,7 +166,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "event" && snapshot.event && <EventReveal event={snapshot.event} />}
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
-              <div className="h-[calc(100dvh-8rem)] min-h-[540px]">
+              <div className="h-[calc(100dvh-8rem)] min-h-[540px] overflow-hidden">
                 <BattleStage
                   battle={snapshot.battle}
                   eventId={snapshot.event?.id}

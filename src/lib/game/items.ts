@@ -117,6 +117,7 @@ export interface WeaponModelDef {
   offhand?: string;
   kind: WeaponVisualKind;
   scale?: number;
+  hand?: "l" | "r";
 }
 
 export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
@@ -125,17 +126,17 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_battle_axe: { model: "axe_2handed", kind: "heavy" },
   w_dagger: { model: "dagger", kind: "blade" },
   w_rapier: { model: "sword_1handed", kind: "blade" },
-  w_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.28 },
+  w_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.28, hand: "l" },
   w_twin_axe: { model: "Axe_Double", kind: "heavy", scale: 0.27 },
-  w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27 },
-  w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28 },
-  w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26 },
+  w_cursed_bow: { model: "Bow_Evil", kind: "bow", scale: 0.27, hand: "l" },
+  w_golden_bow: { model: "Bow_Golden", kind: "bow", scale: 0.28, hand: "l" },
+  w_hunting_bow: { model: "Bow_Wooden", kind: "bow", scale: 0.26, hand: "l" },
   w_hatchet: { model: "axe_1handed", kind: "blade" },
   w_bone_crossbow: { model: "Skeleton_Crossbow", kind: "crossbow" },
   w_claymore: { model: "Claymore", kind: "heavy", scale: 0.27 },
   w_grimoire: { model: "spellbook_open", kind: "magic" },
   w_war_hammer: { model: "sword_2handed_color", kind: "heavy" },
-  w_spiked_flail: { model: "shield_spikes", kind: "blade" },
+  w_spiked_flail: { model: "shield_spikes", kind: "blade", hand: "l" },
   w_twin_blades: { model: "dagger", offhand: "dagger", kind: "dual" },
   w_poison_fang: { model: "dagger", kind: "blade" },
   w_crossbow: { model: "crossbow_2handed", kind: "crossbow" },

@@ -76,6 +76,7 @@ export interface PublicPlayer {
   luckCard: LuckCard | null;
   eliminated: boolean;
   wins: number;
+  spectator?: boolean;
 }
 
 export interface BracketMatch {

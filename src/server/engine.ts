@@ -53,6 +53,7 @@ export interface StatePlayer {
   eliminated: boolean;
   wins: number;
   botPickAt: number | null;
+  spectator?: boolean;
 }
 
 interface StateBracketMatch {
@@ -175,9 +176,16 @@ export function joinState(state: RoomState, playerId: string, nickname: string, 
     existing.lastSeen = now;
     return null;
   }
-  if (state.phase !== "lobby") return "err_started";
-  if (state.players.length >= 8) return "err_full";
   if (state.players.some((p) => p.nickname.toLowerCase() === nickname.toLowerCase())) return "err_taken";
+  if (state.phase !== "lobby") {
+    if (state.players.length >= 12) return "err_full";
+    const watcher = makePlayer(playerId, nickname, false, now);
+    watcher.spectator = true;
+    watcher.offerPicked = true;
+    state.players.push(watcher);
+    return null;
+  }
+  if (state.players.length >= 8) return "err_full";
   state.players.push(makePlayer(playerId, nickname, false, now));
   if (!state.hostId) state.hostId = playerId;
   return null;
@@ -348,6 +356,11 @@ function beginDraftRound(state: RoomState, now: number): void {
   state.draftRound++;
   state.deadline = now + DRAFT_TIME_MS;
   for (const p of state.players) {
+    if (p.spectator) {
+      p.offer = null;
+      p.offerPicked = true;
+      continue;
+    }
     p.offer = rollDraftHand((Object.keys(p.equipment) as Slot[]).filter((slot) => p.equipment[slot]), state.draftRound);
     p.offerPicked = false;
     p.botPickAt = p.isBot ? now : null;
@@ -390,6 +403,10 @@ function beginLuckPhase(state: RoomState, now: number): void {
   state.phase = "luck";
   state.deadline = now + LUCK_TIME_MS;
   for (const p of state.players) {
+    if (p.spectator) {
+      p.luckOffer = null;
+      continue;
+    }
     p.luckOffer = rollLuckHand();
     p.luckCard = null;
     p.botPickAt = p.isBot ? now : null;
@@ -428,7 +445,7 @@ function beginEventPhase(state: RoomState, now: number): void {
   state.eventId = event ? event.id : "rain";
   state.recentEventIds = [...recent, state.eventId].slice(-4);
   state.deadline = now + EVENT_REVEAL_MS;
-  const ids = state.players.map((p) => p.id);
+  const ids = state.players.filter((p) => !p.spectator).map((p) => p.id);
   for (let i = ids.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     const a = ids[i];
@@ -471,7 +488,7 @@ function advanceBattles(state: RoomState, now: number): void {
           state.currentMatch = 0;
           continue;
         }
-        const standings = [...state.players].sort(
+        const standings = state.players.filter((pl) => !pl.spectator).sort(
           (x, y) =>
             y.wins - x.wins ||
             headToHeadDiff(state, x.id, y.id) ||
@@ -759,8 +776,9 @@ export function playAgain(state: RoomState, playerId: string, now: number): stri
   if (state.phase !== "champion") return null;
   if (state.hostId !== playerId) return "err_host_restart";
   state.phase = "lobby";
-  state.players = state.players.filter((p) => !p.isBot);
+  state.players = state.players.filter((p) => !p.isBot).slice(0, 8);
   for (const p of state.players) {
+    p.spectator = false;
     p.equipment = {};
     p.offer = null;
     p.offerPicked = false;
@@ -803,7 +821,7 @@ export function tick(state: RoomState, now: number): boolean {
         changed = true;
       }
     }
-    const allDone = state.players.every((p) => p.offerPicked || !isConnected(p, now));
+    const allDone = state.players.every((p) => p.spectator || p.offerPicked || !isConnected(p, now));
     if ((state.deadline !== null && now >= state.deadline) || allDone) {
       finishDraftRound(state, now);
       changed = true;
@@ -820,7 +838,7 @@ export function tick(state: RoomState, now: number): boolean {
         changed = true;
       }
     }
-    const allDone = state.players.every((p) => p.luckCard !== null || !isConnected(p, now));
+    const allDone = state.players.every((p) => p.spectator || p.luckCard !== null || !isConnected(p, now));
     if ((state.deadline !== null && now >= state.deadline) || allDone) {
       finishLuckPhase(state, now);
       changed = true;
@@ -924,7 +942,8 @@ export function snapshotFor(
       isHost: p.id === state.hostId,
       isBot: p.isBot,
       connected: isConnected(p, now),
-      hasPicked: state.phase === "draft" ? p.offerPicked : state.phase === "luck" ? p.luckCard !== null : false,
+      hasPicked: p.spectator ? true : state.phase === "draft" ? p.offerPicked : state.phase === "luck" ? p.luckCard !== null : false,
+      spectator: p.spectator ?? false,
       equipment: p.equipment,
       luckCard: state.phase === "lobby" || state.phase === "draft" ? null : p.luckCard,
       eliminated: p.eliminated,
