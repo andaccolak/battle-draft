@@ -429,7 +429,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
                             : "text-slate-200"
             }`}
           >
-            {atPause && !qteMine && pending ? t("qteWaiting", { p: pending.nickname }) : current ? logLine(current) : ""}
+            {atPause && !qteMine && pending ? t("qteWaiting", { p: pending.nickname }) : current ? logLine(current, true) : ""}
             {(current?.t === "windup" || (atPause && !qteMine)) && (
               <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="ml-1">
                 ●●●
@@ -635,9 +635,9 @@ function Showcase({ fighter, side, headline }: { fighter: FighterView; side: "le
 
 function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: (pass: boolean, score?: number) => void }) {
   const { t } = useI18n();
-  const [pos, setPos] = useState(0);
   const [result, setResult] = useState<"perfect" | "good" | "bad" | null>(null);
   const posRef = useRef(0);
+  const markerRef = useRef<HTMLDivElement>(null);
   const histRef = useRef<{ t: number; p: number }[]>([]);
   const doneRef = useRef(false);
   const startRef = useRef<number | null>(null);
@@ -658,22 +658,23 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
       const p = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
       posRef.current = p;
       histRef.current.push({ t: ts, p });
-      if (histRef.current.length > 30) histRef.current.shift();
-      setPos(p);
+      if (histRef.current.length > 60) histRef.current.shift();
+      if (markerRef.current) markerRef.current.style.left = `${p * 100}%`;
       raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
     return () => cancelAnimationFrame(raf);
   }, [onResult]);
 
-  const tap = () => {
+  const tap = (e: { timeStamp?: number }) => {
     if (doneRef.current) return;
     doneRef.current = true;
-    const target = performance.now() - 110;
+    const last = histRef.current[histRef.current.length - 1];
+    const evT = e.timeStamp && last && Math.abs(e.timeStamp - last.t) < 600 ? e.timeStamp : performance.now() - 90;
     let sampled = posRef.current;
     let bestDiff = Infinity;
     for (const h of histRef.current) {
-      const diff = Math.abs(h.t - target);
+      const diff = Math.abs(h.t - evT);
       if (diff < bestDiff) {
         bestDiff = diff;
         sampled = h.p;
@@ -711,8 +712,9 @@ function QteChallenge({ mode, onResult }: { mode: "dodge" | "attack"; onResult: 
             <div className={`absolute inset-y-0 left-[45%] w-[10%] rounded ${mode === "attack" ? "bg-amber-500/80" : "bg-emerald-500/70"}`} />
             <div className="absolute inset-y-0 left-[49.5%] w-[1%] rounded bg-white/90" />
             <div
+              ref={markerRef}
               className="absolute inset-y-0 w-2 -translate-x-1/2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)]"
-              style={{ left: `${pos * 100}%` }}
+              style={{ left: "0%" }}
             />
           </div>
         </>

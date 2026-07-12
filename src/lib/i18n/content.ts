@@ -27,6 +27,7 @@ export const ITEM_NAMES_TR: Record<string, string> = {
   h_old_helmet: "Eski Miğfer",
   h_hunter_hood: "Avcı Kukuletası",
   h_veteran_hood: "Emektar Kukuleta",
+  h_juggernaut: "Koçbaşı Miğferi",
   h_leather_cap: "Deri Kukuleta",
   h_bucket: "Kova Miğfer",
   h_iron_helm: "Demir Miğfer",
@@ -79,6 +80,7 @@ export const ITEM_NAMES_TR: Record<string, string> = {
   c_frost_charm: "Buz Tılsımı",
   c_smoke_bomb: "Sis Bombası",
   c_lucky_dice: "Şanslı Zarlar",
+  c_war_banner: "Savaş Sancağı",
   c_bone_ward: "Kemik Tılsım",
   c_duel_buckler: "Düello Kalkanı",
   c_iron_band: "Demir Halka",
@@ -167,6 +169,8 @@ export const LUCK_CARDS_TR: Record<string, { name: string; description: string }
 };
 
 export const PASSIVE_TEMPLATES: Record<string, { en: string; tr: string }> = {
+  sturdy: { en: "Never loses more than {v}% max HP in one hit", tr: "Tek vuruşta en fazla %{v} can kaybeder" },
+  momentum: { en: "+{v}% attack every round", tr: "Her tur +%{v} saldırı" },
   firstStrike: { en: "Always attacks first", tr: "Her zaman ilk saldırır" },
   lifesteal: { en: "Heals {v}% of damage dealt", tr: "Verdiği hasarın %{v} kadarını can olarak çalar" },
   reflect: { en: "Reflects {v}% of damage taken", tr: "Aldığı hasarın %{v} kadarını yansıtır" },

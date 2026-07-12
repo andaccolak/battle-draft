@@ -49,6 +49,8 @@ interface Combatant {
   poisonOnHit: number;
   extraAttack: number;
   healPerTurn: number;
+  sturdy: number;
+  momentum: number;
   executioner: number;
   berserk: number;
   ignoreDefense: number;
@@ -207,6 +209,8 @@ function buildCombatant(
     poisonOnHit: 0,
     extraAttack: 0,
     healPerTurn: 0,
+    sturdy: 0,
+    momentum: 0,
     executioner: 0,
     berserk: 0,
     ignoreDefense: 0,
@@ -283,6 +287,8 @@ function buildCombatant(
       if (p.type === "poisonOnHit") c.poisonOnHit += p.value;
       if (p.type === "extraAttack") c.extraAttack += p.value;
       if (p.type === "healPerTurn") c.healPerTurn += p.value;
+      if (p.type === "sturdy") c.sturdy = Math.max(c.sturdy, p.value);
+      if (p.type === "momentum") c.momentum += p.value;
       if (p.type === "executioner") c.executioner += p.value;
       if (p.type === "berserk") c.berserk += p.value;
       if (p.type === "ignoreDefense") c.ignoreDefense += p.value;
@@ -915,6 +921,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     const effDef = def.defense * (1 - att.ignoreDefense / 100);
     dmg -= effDef * 0.5;
     dmg = Math.max(3, dmg);
+    if (def.sturdy > 0) dmg = Math.min(dmg, (def.maxHp * def.sturdy) / 100);
     let blocked = false;
     if (def.block > 0 && roll(def.block)) {
       dmg *= 0.5;
@@ -1014,7 +1021,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         params: { d: def.nickname }
       });
     }
-    if (att.stunChance > 0 && def.hp > 0 && roll(att.stunChance) && !def.stunImmune) {
+    if (def.hp > 0 && roll(5 + att.stunChance) && !def.stunImmune) {
       def.stunned = true;
       push({
         t: "passive",
@@ -1226,6 +1233,9 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
             dmg: dot
           });
           if (!tryRevive(c)) break;
+        }
+        if (c.momentum > 0 && c.hp > 0) {
+          c.attack *= 1 + c.momentum / 100;
         }
         if (c.healPerTurn > 0 && !event.hooks.noHealing && c.hp > 0 && c.hp < c.maxHp) {
           const heal = Math.min(c.healPerTurn, c.maxHp - c.hp);

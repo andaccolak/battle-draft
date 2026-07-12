@@ -29,7 +29,9 @@ export type PassiveType =
   | "lastStand"
   | "block"
   | "chaos"
-  | "shield";
+  | "shield"
+  | "sturdy"
+  | "momentum";
 
 export interface Passive {
   type: PassiveType;

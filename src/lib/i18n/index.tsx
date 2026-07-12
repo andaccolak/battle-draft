@@ -17,7 +17,7 @@ interface I18n {
   cardText: (card: LuckCard) => { name: string; description: string };
   passiveLabel: (passive: Passive) => string;
   slotLabel: (slot: Slot) => string;
-  logLine: (entry: TimelineEntry) => string;
+  logLine: (entry: TimelineEntry, compact?: boolean) => string;
 }
 
 const I18nContext = createContext<I18n | null>(null);
@@ -90,7 +90,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
     const slotLabel = (slot: Slot): string => t(`slot_${slot}`);
 
-    const logLine = (entry: TimelineEntry): string => {
+    const logLine = (entry: TimelineEntry, compact = false): string => {
       if (!entry.key || !entry.params) return entry.text;
       if (entry.key === "eventLine") {
         const ev = eventText(String(entry.params.event));
@@ -104,7 +104,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       if (typeof params.slot === "string") params.slot = slotLabel(params.slot as Slot);
       let line = fill(template[lang], params);
       if (entry.extra) line = t("extraAttackPrefix") + line;
-      if (entry.key === "strike") {
+      if (entry.key === "strike" && !compact) {
         const bits: string[] = [];
         if (entry.crit) bits.push(t("critBit"));
         if (entry.blocked) bits.push(t("blockBit"));
