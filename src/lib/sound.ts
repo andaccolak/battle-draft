@@ -92,5 +92,11 @@ export const sfx = {
     tone(190, 0.12, "sine", 0.06, 0.35);
     tone(240, 0.15, "sine", 0.07, 0.7);
     tone(300, 0.25, "sine", 0.05, 1.0);
+  },
+  finisher(): void {
+    tone(700, 0.06, "square", 0.14);
+    tone(110, 0.5, "sawtooth", 0.2);
+    tone(55, 0.9, "sine", 0.22, 0.05);
+    tone(330, 0.7, "sine", 0.05, 0.3);
   }
 };

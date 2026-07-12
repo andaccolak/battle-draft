@@ -1,23 +1,25 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the draft and luck choice-lock feedback milestone.
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the finisher camera-drama milestone (slow-mo death blows + victory orbit).
 
 # Last Completed Work
 
-- Added local, one-shot choice locks to item draft and luck-card picks, preventing accidental duplicate taps while the API request is in flight.
-- The chosen card now receives a green, animated confirmation stamp; alternative choices fade and disable immediately, giving each pick a satisfying, unambiguous resolution.
-- Choice locks automatically release after four seconds if no authoritative snapshot arrives, so a dropped request never traps the player.
-- Added localized choice-lock copy and kept the server as the sole authority for game state.
+- The killing blow is now cinematic: when an attack entry's next timeline entry is a `death`, BattleStage flags it as the finisher (deterministic on every client since the timeline is known upfront).
+- At finisher impact (the same 620 ms mark where HP/sound land): a new deep `sfx.finisher()` boom replaces the normal hit sound, the screen shakes, the camera punch-in zoom holds 1.7 s (vs 0.6 s for crits), and phones with vibration support get a haptic pattern.
+- Arena3D runs a visual time-scale (`timeRef`): on the finisher beat it ramps to 0.3× at impact +620 ms and back to 1× at +1980 ms, slowing mixers, fighter movement, projectiles, and weather — the strike follow-through and the victim's crumple play in slow motion, usually bleeding into the death beat's fall.
+- The beat clock, server sync, and camera responsiveness are never slowed: BattleStage timers and `elapsedMs` snapping are untouched, and camera smoothing uses a separate real-time damp (`camDamp`).
+- Cinematic camera orbit, only while the user is not dragging (`pointers.size === 0`): fast drift (0.5 rad/s) during slow-mo, slow showcase drift (0.16 rad/s) whenever a fighter is in the victory pose.
+- Verified end-to-end with a driven 4-player tournament (3 battles to champion) + puppeteer screenshots: punch-in and orbit visible frame-to-frame, floats/HP at impact, QTE answered, no new console errors.
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens now use short-lived local pending IDs to provide optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather); the slow-mo ramp timers live in `slowTimersRef` and deliberately survive beat changes so the ramp-back can overhang into the death beat — they are cleared and the scale reset only on unmount.
 
 # Remaining Tasks
 
-- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking.
-- [ ] Continue targeted combat polish while preserving the current 3D asset and frame-time budgets.
-- [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets.
+- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking; owner should also taste-check the finisher slow-mo timing and orbit speeds.
+- [ ] Sound design for remaining 3D beats (per-weapon whooshes, footsteps) if the owner wants more.
+- [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets; more kit-built maps.
 
 # Known Bugs
 
@@ -33,21 +35,22 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Files Recently Modified
 
+- `src/components/Arena3D.tsx`
 - `src/components/BattleStage.tsx`
-- `src/components/DraftPhase.tsx`
-- `src/components/LuckPhase.tsx`
-- `src/components/ItemCard.tsx`
-- `src/lib/i18n/dictionary.ts`
+- `src/lib/sound.ts`
 - `handoff.md`
 
 # Suggested Next Step
 
-Run a physical mobile multiplayer smoke test focused on draft/luck lock feedback and the QTE overlay, then take the next small combat-presentation improvement from the prioritized list above.
+Owner phone test: watch a finisher land on a real device (slow-mo feel, orbit speed, zoom hold), then tune the constants in one place each — 0.3 target scale / 620–1980 ms window in Arena3D's finisher effect, orbit speeds in the animate loop, 1700 ms zoom hold in BattleStage.
 
 # Important Decisions
 
+- Finisher detection is pure timeline lookahead (`attack` with dmg > 0 followed by `death`) — no server or sim changes, so determinism and cross-client sync are untouched.
+- Slow-mo is visual-only time dilation inside Arena3D; the timeline beat scheduler must never be slowed or battles would desync from `elapsedMs`.
+- Poison/quirk deaths get no slow-mo on purpose — there is no strike animation to dramatize.
+- Auto-orbit yields to the player instantly: any active pointer on the arena suppresses the drift that frame.
 - QTE scoring remains based on the displayed rAF marker position; no timing thresholds or server rules changed.
-- The QTE resolves on `pointerdown` to retain the lowest possible touch latency. Its semantic button also resolves keyboard activation through `click`; the one-shot guard makes the paired browser events harmless.
 - Local pick locks are presentation-only and have a four-second escape hatch. They never assume a pick was accepted; only the next server snapshot advances the phase.
 
 # Notes For Next Session

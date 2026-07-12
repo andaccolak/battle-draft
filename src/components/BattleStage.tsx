@@ -247,14 +247,18 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         });
       }, delay);
     };
+    const next = entriesRef.current[index + 1];
+    const finisher = entry.t === "attack" && (entry.dmg ?? 0) > 0 && next?.t === "death";
     // HP bar + sound land together with the visual hit
     at(() => {
       setDispHp({ a: entry.hpA, b: entry.hpB });
-      playSound(entry);
-      if (entry.t === "attack" && entry.crit) {
+      if (finisher) sfx.finisher();
+      else playSound(entry);
+      if (entry.t === "attack" && (entry.crit || finisher)) {
         setShake((sh) => sh + 1);
         setZoom(true);
-        pendingRef.current.push(setTimeout(() => setZoom(false), 600));
+        pendingRef.current.push(setTimeout(() => setZoom(false), finisher ? 1700 : 600));
+        if (finisher) navigator.vibrate?.([24, 60, 40]);
       }
     }, impact);
     if (jumped) setFloats([]);
@@ -299,6 +303,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   };
   const weaponLost = { a: weaponLostFor("a"), b: weaponLostFor("b") };
   const actor = current?.actor ?? "none";
+  const nextEntry = entries[index + 1];
+  const finisherNow = !!current && current.t === "attack" && (current.dmg ?? 0) > 0 && nextEntry?.t === "death";
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -345,6 +351,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           focus={suspense || current?.t === "attack" ? (actor === "a" || actor === "b" ? actor : "none") : "none"}
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}
+          finisher={finisherNow}
         />
         <div className="pointer-events-none absolute inset-0 z-20">
           <AnimatePresence>

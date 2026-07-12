@@ -641,9 +641,10 @@ interface Props {
   focus: "a" | "b" | "none";
   zoom: boolean;
   crit: boolean;
+  finisher?: boolean;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit, finisher }: Props) {
   const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
@@ -663,6 +664,8 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
   const revealRef = useRef(!!revealed);
   const revealedOnceRef = useRef(false);
   const lightsRef = useRef<{ ambient: THREE.AmbientLight; hemi: THREE.HemisphereLight; sun: THREE.DirectionalLight } | null>(null);
+  const timeRef = useRef({ scale: 1, target: 1 });
+  const slowTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
   mapRef.current = map;
 
@@ -853,8 +856,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const shortestAngle = (d: number) => ((d + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
     const animate = () => {
       frame = requestAnimationFrame(animate);
-      const delta = clock.getDelta();
+      const rawDelta = clock.getDelta();
+      const time = timeRef.current;
+      time.scale += (time.target - time.scale) * Math.min(1, rawDelta * 7);
+      const delta = rawDelta * time.scale;
       const damp = 1 - Math.pow(0.0001, delta);
+      const camDamp = 1 - Math.pow(0.0001, rawDelta);
       const calm = CALM_POSES.has(rigA.pose) && CALM_POSES.has(rigB.pose);
       circle.clock += delta;
       if (calm) {
@@ -937,11 +944,15 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
         }
       }
       weatherRef.current?.update(delta);
-      orbit.azimuth += (cameraState.azimuth - orbit.azimuth) * damp * 0.9;
-      orbit.elev += (cameraState.elev - orbit.elev) * damp * 0.9;
+      if (pointers.size === 0) {
+        if (time.scale < 0.85) cameraState.azimuth += rawDelta * 0.5;
+        else if (rigA.pose === "victory" || rigB.pose === "victory") cameraState.azimuth += rawDelta * 0.16;
+      }
+      orbit.azimuth += (cameraState.azimuth - orbit.azimuth) * camDamp * 0.9;
+      orbit.elev += (cameraState.elev - orbit.elev) * camDamp * 0.9;
       const maxDist = mapRef.current === "dungeon" ? 18 : 34;
-      orbit.dist += (Math.min(maxDist, camTarget.current.z * cameraState.zoom) - orbit.dist) * damp * 0.6;
-      orbit.lookX += (camTarget.current.x - orbit.lookX) * damp * 0.6;
+      orbit.dist += (Math.min(maxDist, camTarget.current.z * cameraState.zoom) - orbit.dist) * camDamp * 0.6;
+      orbit.lookX += (camTarget.current.x - orbit.lookX) * camDamp * 0.6;
       camera.position.set(orbit.lookX + Math.sin(orbit.azimuth) * orbit.dist, orbit.elev, Math.cos(orbit.azimuth) * orbit.dist);
       lookAt.set(orbit.lookX, 1.15, 0);
       camera.lookAt(lookAt);
@@ -999,6 +1010,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       if (rigB.reactTimer) clearTimeout(rigB.reactTimer);
       for (const p of projectilesRef.current) p.mesh.removeFromParent();
       projectilesRef.current = [];
+      for (const timer of slowTimersRef.current) clearTimeout(timer);
+      slowTimersRef.current = [];
+      timeRef.current.scale = 1;
+      timeRef.current.target = 1;
       arenaRef.current?.removeFromParent();
       arenaRef.current = null;
       renderer.domElement.remove();
@@ -1083,6 +1098,18 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       else applyPose(rigB, poseB, kinds.b, crit, undefined, undefined, seedB);
     }
   }, [poseA, poseB, beat, crit]);
+
+  useEffect(() => {
+    if (!finisher) return;
+    slowTimersRef.current.push(
+      setTimeout(() => {
+        timeRef.current.target = 0.3;
+      }, 620),
+      setTimeout(() => {
+        timeRef.current.target = 1;
+      }, 1980)
+    );
+  }, [finisher, beat]);
 
   useEffect(() => {
     const dropWeapon = (rig: Rig | null, lost: boolean | undefined) => {
