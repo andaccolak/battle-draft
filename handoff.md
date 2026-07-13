@@ -1,6 +1,6 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits. Vercel production is currently wired to the legacy `claude/multiplayer-party-game-5dip9w` branch, so releases must temporarily fast-forward that branch from `main` until a repository/Vercel administrator changes the Production Branch setting to `main`.
+Battle Draft is live and healthy on the public `https://battle-draft.vercel.app` production alias after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits. Vercel production is currently wired to the legacy `claude/multiplayer-party-game-5dip9w` branch, so releases must temporarily fast-forward that branch from `main` until a repository/Vercel administrator changes the Production Branch setting to `main`.
 
 # Last Completed Work
 
@@ -9,6 +9,7 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 - Confirmed that commits `dc1d13e` and `71c9edc` built successfully on Vercel but were classified as authenticated Preview deployments only. The public `battle-draft.vercel.app` alias remained on old commit `927d75f`, explaining why none of the reported changes were visible to players.
 - GitHub still reports `claude/multiplayer-party-game-5dip9w` as the repository default branch and Vercel production follows it. The current GitHub credential can push code but cannot change repository administration settings (`gh repo edit --default-branch main` returns 404), and no local Vercel credential is available.
 - Temporary safe release procedure: keep development and canonical history on `main`, then fast-forward the legacy production branch with `git push origin main:claude/multiplayer-party-game-5dip9w`. Never develop independently on the legacy branch and never force-push it.
+- Fast-forwarded production from `927d75f` to the canonical `main` history. GitHub recorded a successful Vercel Production deployment; the public alias returned HTTP 200 with a fresh cache and its served JavaScript contains `aspectRatio:"1 / 1"`, `Current fighter stats`, `Base`, `Gear`, and `Your total after this pick`.
 
 ## Explicit square arena + useful pre-pick stat comparisons (UX correction, 2026-07-13)
 
@@ -94,7 +95,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck` and `npm run build` passed on 2026-07-13 after the square-arena/stat-comparison correction. All 110 items passed base + item projected-total assertions. Compiled bundles contain the aspect-ratio and localized comparison UI.
+`npm run typecheck` and `npm run build` passed on 2026-07-13 after the square-arena/stat-comparison correction. All 110 items passed base + item projected-total assertions. Vercel Production completed successfully and `https://battle-draft.vercel.app` serves the corrected aspect-ratio and draft-comparison bundle.
 
 # Files Recently Modified
 
