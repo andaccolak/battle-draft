@@ -4,6 +4,14 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Graveyard arena (KayKit Halloween Bits, 2026-07-13)
+
+- Third selectable map `graveyard` (host lobby card, 🪦, en/tr `map_graveyard`): fenced moonlit graveyard built in `buildGraveyardArena()` (arenaKits.ts) from 22 Halloween Bits pieces (CC0, 548 KB, `public/models3d/kaykit/halloween/` as .gltf+.bin+shared texture). Dirt floor with dug-open `floor_dirt_grave` pits outside the fight circle, perimeter fence with broken sections + gate, crypt backdrop with a green PointLight glow, 4 warm lantern-post lights, gravestones, dead trees, skull posts, jack-o-lanterns.
+- Same template-once/clone-per-mount pattern as the dungeon; world units, no normalization; camera `maxDist` clamps to 18 for graveyard like dungeon.
+- Confetti spawns at 8-92% width — pieces used to fall along the extreme left edge and read as corner garbage (this was the remaining "colorful things at top-left" sighting during victory).
+- Playtest note: driver supports `MAP=graveyard node drive.js`; errors.log now records HTTP status + URL (the recurring mystery 404s were just favicon.ico).
+- Verified: full driven tournament on the graveyard to champion, all pieces render, no asset 404s.
+
 ## New content: seven items on fresh Quaternius CC0 models (2026-07-13)
 
 - Eight new GLBs (40-105 KB each) in `public/models3d/kaykit/weapons/`, sourced from the Quaternius Medieval Weapons pack (CC0 — same pack as the existing bows/Claymore) via the `trebeljahr/quaternius-showcase` GitHub mirror: Scythe, Spear, Hammer_Double, Hammer_Small, Sword_Golden, Dagger_2, Shield_Heater, Shield_Celtic_Golden.
