@@ -8,7 +8,7 @@ import { avatarById } from "@/lib/game/avatars";
 import { headgearFor, shieldModelFor, weaponVisualKindFor, QUIVER_GEAR, type WeaponVisualKind } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 import { gltfLoader, loadBase, loadAnimLibrary, normalizeSize, attachWeapons, attachHeadgear, loadWeaponModel } from "@/lib/three/characterAssets";
-import { buildDungeonArena } from "@/lib/three/arenaKits";
+import { buildDungeonArena, buildGraveyardArena } from "@/lib/three/arenaKits";
 import type { Pose } from "./Fighter";
 
 interface ArenaColors {
@@ -1112,7 +1112,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       }
       orbit.azimuth += (cameraState.azimuth - orbit.azimuth) * camDamp * 0.9;
       orbit.elev += (cameraState.elev - orbit.elev) * camDamp * 0.9;
-      const maxDist = mapRef.current === "dungeon" ? 18 : 34;
+      const maxDist = mapRef.current === "dungeon" || mapRef.current === "graveyard" ? 18 : 34;
       orbit.dist += (Math.min(maxDist, camTarget.current.z * cameraState.zoom) - orbit.dist) * camDamp * 0.6;
       orbit.lookX += (camTarget.current.x - orbit.lookX) * camDamp * 0.6;
       const camDist = Math.max(2.5, orbit.dist - kickRef.current);
@@ -1225,7 +1225,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const arenaPromise =
       map === "dungeon"
         ? buildDungeonArena()
-        : loadArenaModel(fx).then((template) => (template ? prepareArena(template) : null));
+        : map === "graveyard"
+          ? buildGraveyardArena()
+          : loadArenaModel(fx).then((template) => (template ? prepareArena(template) : null));
     void arenaPromise.then((arena) => {
       if (cancelled || !arena || !sceneRef.current) return;
       arenaRef.current?.removeFromParent();

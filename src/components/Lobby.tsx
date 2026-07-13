@@ -14,7 +14,8 @@ const Avatar3DThumb = dynamic(() => import("./Avatar3DThumb"), { ssr: false });
 
 const MAP_EMOJI: Record<string, string> = {
   colosseum: "🏟️",
-  dungeon: "🏰"
+  dungeon: "🏰",
+  graveyard: "🪦"
 };
 
 async function copyText(text: string): Promise<boolean> {

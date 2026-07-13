@@ -156,7 +156,7 @@ export interface BattlePayload {
   stepMs: number;
 }
 
-export const ARENA_MAPS = ["colosseum", "dungeon"] as const;
+export const ARENA_MAPS = ["colosseum", "dungeon", "graveyard"] as const;
 export type ArenaMap = (typeof ARENA_MAPS)[number];
 
 export const MATCH_MODES = ["single", "homeAway"] as const;

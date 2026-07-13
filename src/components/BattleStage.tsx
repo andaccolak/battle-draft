@@ -954,7 +954,7 @@ function Confetti() {
       {pieces.map((i) => (
         <motion.div
           key={i}
-          initial={{ y: -20, x: `${(i * 137) % 100}%`, rotate: 0, opacity: 1 }}
+          initial={{ y: -20, x: `${8 + ((i * 137) % 84)}%`, rotate: 0, opacity: 1 }}
           animate={{ y: "110%", rotate: 360 + i * 40, opacity: [1, 1, 0.6] }}
           transition={{ duration: 1.8 + (i % 5) * 0.3, ease: "easeIn" }}
           className="absolute h-2.5 w-2.5 rounded-sm"

@@ -109,6 +109,7 @@ export const UI: Record<string, { en: string; tr: string }> = {
   mapHostOnly: { en: "The host picks the arena", tr: "Arenayı kurucu seçer" },
   map_colosseum: { en: "Colosseum", tr: "Kolezyum" },
   map_dungeon: { en: "Dungeon", tr: "Zindan" },
+  map_graveyard: { en: "Graveyard", tr: "Mezarlık" },
   chooseMode: { en: "Match format", tr: "Maç formatı" },
   mode_single: { en: "Single match", tr: "Tek maç" },
   mode_homeAway: { en: "Home & away", tr: "Rövanşlı" },
