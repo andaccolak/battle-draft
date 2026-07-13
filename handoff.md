@@ -4,6 +4,16 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Arena proportions, beat-budgeted attacks, axe edges, compact draft (2026-07-13)
+
+- Arena is `max-w-[430px]` with `aspectRatio: "1 / 0.85"` — full width, 15% shorter. Do not shrink WIDTH to resize the battle view; the owner reads that as horizontal cropping.
+- MISSING-ATTACK ROOT CAUSE: the 38 s timeline cap compresses beat `ms` below the fixed melee choreography (run-in + strike ≈ 500-840 ms), so strikes were cut before contact and read as "he never attacked". Arena3D now takes `beatMs`: contact = min(choreography, 60% of the beat); beats too short for the run-in skip Running_A, close at RUN_SPEED while swinging at 1.18× (`quick` arg on applyPose). Keep any future timing inside the beat budget.
+- KayKit axe models (`axe_1handed`, `axe_2handed`) are authored edge-BACK for the handslot; both grips rotate `[0, Math.PI, 0]` so the sharp edge leads down-forward (owner reference sheet).
+- Draft ItemCards are half height: single-line stat chips (STAT +N before→after), smaller emoji/padding.
+- Floats skip corner-degenerate projections (x≤0.11 ∧ y≤0.13) and clear on death/victory — kills the colorful stack at the arena's top-left.
+- Event reel: SPIN_MS 6400 inside EVENT_REVEAL_MS 12000 (server phase; constant shared via types.ts).
+- Bug sweep: typecheck/build clean, no leftover sample+synth doubling, poisoned param wiring verified, no TODOs. Full driven tournament to champion verified.
+
 ## Nine player-reported presentation fixes (2026-07-13)
 
 - Weapon grips: KayKit weapons are authored FOR the handslots — the correct base grip rotation is `[0, 0, 0]` (the prior release's +90° X tilt pointed blades into the body). Bows use `[0, HALF_PI, HALF_PI]` to stand vertical in the left hand per the owner's reference sheet. Hatchet tinted steel (it vanished against gray armor). Audit with `/dev/weapons?start=N&count=8` (per-kind combat stances, two view angles).
