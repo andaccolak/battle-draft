@@ -325,7 +325,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         for (const task of impactTasks) task();
       };
       impactRef.current = { beat: scheduledAt, fire };
-      pendingRef.current.push(setTimeout(fire, 900));
+      const fallbackMs = Math.min(720, Math.max(160, entryDuration(entry) * 0.62));
+      pendingRef.current.push(setTimeout(fire, fallbackMs));
     }
   }, [index]);
 
@@ -444,6 +445,21 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           </AnimatePresence>
         </div>
 
+        <AnimatePresence mode="wait">
+          {(current?.t === "miss" || current?.t === "dodge") && (
+            <motion.div
+              key={`evasion-${index}`}
+              initial={{ opacity: 0, scale: 0.65, y: 8 }}
+              animate={{ opacity: [0, 1, 1], scale: [0.65, 1.1, 1], y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.28, ease: "easeOut" }}
+              className="pointer-events-none absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded-full border border-cyan-200/35 bg-slate-950/85 px-4 py-2 font-display text-xl font-black tracking-wide text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.28)]"
+            >
+              {current.t === "miss" ? `💨 ${t("noteMiss")}` : `↪ ${t("noteDodge")}`}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <ArenaFX fx={fx} />
 
 
@@ -543,7 +559,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           const log = event.currentTarget;
           logPinnedRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
         }}
-        className="mt-2 h-24 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-2 h-48 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div

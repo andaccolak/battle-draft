@@ -1125,10 +1125,12 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
           projVec.copy(rig.group.position);
           projVec.y += 2.2 * charScale;
           projVec.project(camera);
-          if (projVec.z < 1 && Math.abs(projVec.x) < 1.4 && Math.abs(projVec.y) < 1.4) {
+          const screenX = (projVec.x + 1) / 2;
+          const screenY = (1 - projVec.y) / 2;
+          if (projVec.z > -1 && projVec.z < 1 && screenX >= 0.12 && screenX <= 0.88 && screenY >= 0.12 && screenY <= 0.72) {
             screenPosRef.current[key] = {
-              x: Math.min(0.9, Math.max(0.1, (projVec.x + 1) / 2)),
-              y: Math.min(0.72, Math.max(0.12, (1 - projVec.y) / 2))
+              x: screenX,
+              y: screenY
             };
           }
         }

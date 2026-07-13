@@ -54,8 +54,9 @@ export default function EventReveal({ event, player, seed, deadline, serverNow }
   const spinProgress = Math.min(1, elapsedAtMount / SPIN_MS);
   const [settled, setSettled] = useState(!!reducedMotion || spinProgress >= 1);
   const localized = eventText(event.id);
-  const reel = useMemo(() => reelEvents(event, seed), [event, seed]);
   const eventDef = EVENTS.find((candidate) => candidate.id === event.id);
+  const selectedEvent = eventDef ?? event;
+  const reel = useMemo(() => reelEvents(selectedEvent, seed), [selectedEvent.id, seed]);
   const preEventProfile = useMemo(
     () => combatProfile(player?.equipment ?? {}, player?.luckCard, null),
     [player?.equipment, player?.luckCard]
@@ -89,8 +90,8 @@ export default function EventReveal({ event, player, seed, deadline, serverNow }
   }, [event.id, reducedMotion, spinStartedAt]);
 
   const startIndex = 2 + (STOP_INDEX - 2) * spinProgress;
-  const startX = `calc(50% - ${TILE_WIDTH / 2 + TILE_STEP * startIndex}px)`;
-  const stopX = `calc(50% - ${TILE_WIDTH / 2 + TILE_STEP * STOP_INDEX}px)`;
+  const startX = -(TILE_WIDTH / 2 + TILE_STEP * startIndex);
+  const stopX = -(TILE_WIDTH / 2 + TILE_STEP * STOP_INDEX);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-5 pb-5 text-center">
@@ -108,8 +109,8 @@ export default function EventReveal({ event, player, seed, deadline, serverNow }
           initial={{ x: reducedMotion ? stopX : startX }}
           animate={{ x: stopX }}
           transition={reducedMotion || spinProgress >= 1 ? { duration: 0 } : { duration: (SPIN_MS * (1 - spinProgress)) / 1000, ease: [0.08, 0.72, 0.08, 1] }}
-          className="flex"
-          style={{ gap: TILE_GAP, width: "max-content" }}
+          className="relative flex"
+          style={{ left: "50%", gap: TILE_GAP, width: "max-content" }}
         >
           {reel.map((candidate, index) => {
             const winner = index === STOP_INDEX;

@@ -69,13 +69,15 @@ export default function ItemCard({ item, locked = false, pending = false, select
           {!compact && comparisons.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {comparisons.map(({ key, before, after, delta }) => (
-                <span key={key} className="inline-flex items-center gap-1 rounded-lg border border-white/[0.06] bg-slate-950/35 px-2 py-1 text-[11px] font-black tabular-nums">
-                  <span className="text-slate-500">{t(`stat_${key}`)}</span>
-                  <span className="text-slate-400">{before}</span>
-                  <span className="text-slate-600">→</span>
-                  <span className={delta > 0 ? "text-emerald-300" : "text-rose-400"}>{after}</span>
-                  <span className={`rounded px-1 py-0.5 text-[9px] ${delta > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>
-                    {delta > 0 ? "+" : ""}{delta}
+                <span key={key} className={`inline-flex min-w-[5.5rem] flex-col rounded-lg border px-2 py-1.5 tabular-nums ${delta > 0 ? "border-emerald-400/20 bg-emerald-500/[0.08]" : "border-rose-400/20 bg-rose-500/[0.08]"}`}>
+                  <span className="flex items-center justify-between gap-1.5">
+                    <span className={`font-display text-sm font-black ${delta > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                      {delta > 0 ? "+" : ""}{delta}
+                    </span>
+                    <span className="text-[8px] font-black uppercase tracking-wide text-slate-500">{t(`stat_${key}`)}</span>
+                  </span>
+                  <span className="mt-0.5 text-[10px] font-bold text-slate-400">
+                    {before} <span className="px-0.5 text-slate-600">→</span> <span className="text-slate-200">{after}</span>
                   </span>
                 </span>
               ))}

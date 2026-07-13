@@ -192,6 +192,7 @@ export interface WeaponGripTransform {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
+  inwardAim?: number;
 }
 
 export interface WeaponModelDef {
@@ -207,28 +208,28 @@ export interface WeaponModelDef {
 const HALF_PI = Math.PI / 2;
 
 export const WEAPON_GRIPS: Record<string, WeaponGripTransform> = {
-  Skeleton_Blade: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.82 },
+  Skeleton_Blade: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.82, inwardAim: 0.14 },
   mug_full: { position: [-0.25, -0.02, 0], rotation: [0, 0, 0], scale: 0.9 },
-  axe_2handed: { position: [0, 0.04, 0], rotation: [HALF_PI, 0, 0], scale: 0.88 },
-  dagger: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.78 },
-  sword_1handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.78 },
+  axe_2handed: { position: [0, 0.04, 0], rotation: [HALF_PI, 0, 0], scale: 0.88, inwardAim: 0.1 },
+  dagger: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.78, inwardAim: 0.16 },
+  sword_1handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.78, inwardAim: 0.14 },
   Bow_Wooden: { position: [0, 0, 0.29], rotation: [0, HALF_PI, 0], scale: 0.28 },
-  Axe_Double: { position: [-0.13, -0.05, 0.2], rotation: [HALF_PI, 0, 0], scale: 0.2 },
+  Axe_Double: { position: [-0.13, -0.05, 0.2], rotation: [HALF_PI, 0, 0], scale: 0.2, inwardAim: 0.08 },
   Bow_Evil: { position: [0, 0, 0.28], rotation: [0, HALF_PI, 0], scale: 0.27 },
   Bow_Golden: { position: [0, 0, 0.29], rotation: [0, HALF_PI, 0], scale: 0.28 },
-  axe_1handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.82 },
+  axe_1handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.82, inwardAim: 0.14 },
   shield_round_barbarian: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.9 },
   Skeleton_Crossbow: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.9 },
-  Claymore: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.25 },
+  Claymore: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.25, inwardAim: 0.1 },
   spellbook_open: { position: [0, 0, 0.12], rotation: [0, 0, 0], scale: 0.88 },
-  staff: { position: [0, 0, 0.38], rotation: [HALF_PI, 0, 0], scale: 0.68 },
-  Skeleton_Axe: { position: [0, 0, 0.08], rotation: [HALF_PI, 0, 0], scale: 0.8 },
-  Skeleton_Staff: { position: [0, 0, 0.38], rotation: [HALF_PI, 0, 0], scale: 0.68 },
-  sword_2handed_color: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.7 },
-  wand: { position: [0, 0, 0.04], rotation: [HALF_PI, 0, 0], scale: 0.92 },
+  staff: { position: [0, 0, 0.38], rotation: [HALF_PI, 0, 0], scale: 0.68, inwardAim: 0.08 },
+  Skeleton_Axe: { position: [0, 0, 0.08], rotation: [HALF_PI, 0, 0], scale: 0.8, inwardAim: 0.1 },
+  Skeleton_Staff: { position: [0, 0, 0.38], rotation: [HALF_PI, 0, 0], scale: 0.68, inwardAim: 0.08 },
+  sword_2handed_color: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.7, inwardAim: 0.1 },
+  wand: { position: [0, 0, 0.04], rotation: [HALF_PI, 0, 0], scale: 0.92, inwardAim: 0.12 },
   shield_spikes: { position: [0, 0, 0.12], rotation: [0, 0, 0], scale: 0.82 },
   crossbow_2handed: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.82 },
-  sword_2handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.68 },
+  sword_2handed: { position: [0, 0, 0], rotation: [HALF_PI, 0, 0], scale: 0.68, inwardAim: 0.1 },
   shield_round: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.86 },
   shield_badge: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.86 },
   shield_square: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.82 },

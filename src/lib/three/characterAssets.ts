@@ -89,6 +89,7 @@ function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D
 
 function mountWeapon(
   slot: THREE.Object3D,
+  side: "r" | "l",
   template: THREE.Group,
   model: string,
   gripOverride?: Partial<WeaponGripTransform>,
@@ -100,12 +101,14 @@ function mountWeapon(
   const grip: WeaponGripTransform = {
     position: gripOverride?.position ?? baseGrip.position,
     rotation: gripOverride?.rotation ?? baseGrip.rotation,
-    scale: gripOverride?.scale ?? baseGrip.scale
+    scale: gripOverride?.scale ?? baseGrip.scale,
+    inwardAim: gripOverride?.inwardAim ?? baseGrip.inwardAim
   };
   const mount = new THREE.Group();
   mount.name = name;
   mount.position.set(...grip.position);
   mount.rotation.set(...grip.rotation);
+  mount.rotateZ((side === "r" ? -1 : 1) * (grip.inwardAim ?? 0));
   mount.scale.setScalar(grip.scale);
   const weapon = template.clone(true);
   weapon.name = `${name}_mesh`;
@@ -145,8 +148,8 @@ export async function attachWeapons(instance: THREE.Object3D, weapon: Item | und
   ]);
   const mainSlot = findHandSlot(instance, mainHand);
   const offSlot = findHandSlot(instance, mainHand === "l" ? "r" : "l");
-  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.model, def.grip, "weapon_main", def.tint, def.emissive);
-  if (off && offSlot && offhandName) mountWeapon(offSlot, off, offhandName, undefined, "weapon_off");
+  if (main && mainSlot && def) mountWeapon(mainSlot, mainHand, main, def.model, def.grip, "weapon_main", def.tint, def.emissive);
+  if (off && offSlot && offhandName) mountWeapon(offSlot, mainHand === "l" ? "r" : "l", off, offhandName, undefined, "weapon_off");
 }
 
 const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();

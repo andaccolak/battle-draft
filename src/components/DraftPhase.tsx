@@ -26,6 +26,10 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
   const [pendingId, setPendingId] = useState<string | null>(null);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [offer?.round]);
+
+  useEffect(() => {
     setPendingId(null);
   }, [offer?.round, offer?.picked]);
 
