@@ -4,6 +4,13 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Chaos Draft compaction + lobby settings card (2026-07-13)
+
+- Chaos Draft renamed to "Chaos Draft" in BOTH languages (owner request; TR no longer "Kapışma Draftı").
+- Chaos pool is now 10 items minimum (`Math.max(10, players + 3)`), rendered as a 2-column grid of mini cards in DraftPhase (custom inline cards, NOT ItemCard): rarity border, emoji + truncated name + slot emoji, stat chips as "⚔️+16" (STAT_EMOJI + value only), one-line passive, smaller claim badge. Fits a 430x900 viewport with zero scroll (verified: body scrollHeight 900). RARITY_STYLES and STAT_EMOJI are now exported from ItemCard.
+- Lobby host settings collapsed from four cards into ONE "Maç Ayarları" card with stacked labeled rows: Arena (3 buttons in one grid-cols-3 row), Seçim Tarzı, Turnuva, Maç Formatı (grid-cols-2 each, compact py-2 buttons, no hint subtitles).
+- Verified: typecheck + prod build clean; host lobby + chaos board screenshots at 430px.
+
 ## Double feedback fix + Chaos Draft mode (2026-07-13)
 
 - Miss/dodge feedback showed twice (centered pill AND a corner note float, both saying ISKA!/KAÇTI!) — removed the noteMiss/noteDodge floats in BattleStage; the pill is the single source now.

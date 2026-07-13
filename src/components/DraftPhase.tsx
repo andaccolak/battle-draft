@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { DraftOffer, RoomSnapshot } from "@/lib/game/types";
 import { CHAOS_TIME_MS, DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
-import ItemCard from "./ItemCard";
+import ItemCard, { RARITY_STYLES, STAT_EMOJI } from "./ItemCard";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 import TimerBar from "./TimerBar";
@@ -21,7 +21,7 @@ interface Props {
 }
 
 export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props) {
-  const { t } = useI18n();
+  const { t, itemName, passiveLabel } = useI18n();
   const me = snapshot.players.find((p) => p.id === playerId);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
@@ -104,43 +104,63 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
             exit={{ opacity: 0, y: -24 }}
             className="space-y-2.5"
           >
-            <p className="text-center text-sm font-bold text-amber-300">⚡ {t("chaosHint")}</p>
-            {offer.items.map((item, i) => {
-              const claim = claims.get(item.id);
-              const slotLocked = offer.lockedSlots.includes(item.slot);
-              return (
-                <motion.div
-                  key={item.id}
-                  initial={{ opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="relative"
-                >
-                  <div className={claim && !claim.mine ? "opacity-45 grayscale" : ""}>
-                    <ItemCard
-                      item={item}
-                      locked={slotLocked && !claim}
-                      pending={offer.picked || pendingId !== null || (!!claim && !claim.mine)}
-                      selected={claim?.mine ?? false}
-                      currentStats={currentStats}
-                      projectedStats={projectedStats[item.id]}
-                      onPick={claim || offer.picked || slotLocked ? undefined : () => pick(item.id)}
-                    />
-                  </div>
-                  {claim && (
-                    <motion.span
-                      initial={{ scale: 1.6, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow-lg ${
-                        claim.mine ? "bg-emerald-500 text-white" : "bg-slate-900/95 text-amber-300 ring-1 ring-amber-400/40"
-                      }`}
-                    >
-                      {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
-                    </motion.span>
-                  )}
-                </motion.div>
-              );
-            })}
+            <p className="text-center text-xs font-bold text-amber-300">⚡ {t("chaosHint")}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {offer.items.map((item, i) => {
+                const claim = claims.get(item.id);
+                const slotLocked = offer.lockedSlots.includes(item.slot);
+                const style = RARITY_STYLES[item.rarity];
+                const disabled = !!claim || offer.picked || slotLocked || pendingId !== null;
+                const itemStats = BUILD_STAT_KEYS.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0);
+                return (
+                  <motion.button
+                    key={item.id}
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.03 }}
+                    whileTap={disabled ? undefined : { scale: 0.95 }}
+                    disabled={disabled}
+                    onClick={disabled ? undefined : () => pick(item.id)}
+                    className={`relative rounded-xl border-2 p-1.5 text-left ${style.border} ${style.bg} ${
+                      claim && !claim.mine
+                        ? "opacity-45 grayscale"
+                        : claim?.mine
+                          ? "border-emerald-300 ring-2 ring-emerald-300/40"
+                          : slotLocked
+                            ? "opacity-50 grayscale"
+                            : pendingId === item.id
+                              ? "ring-2 ring-indigo-300/60"
+                              : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-lg leading-none">{item.emoji}</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] font-bold leading-tight">{itemName(item)}</span>
+                      <span className="text-[10px] opacity-60">{SLOT_META[item.slot].emoji}</span>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-1.5 gap-y-0.5">
+                      {itemStats.map((k) => (
+                        <span key={k} className={`text-[9px] font-bold tabular-nums ${(item.stats[k] as number) < 0 ? "text-rose-400" : "text-emerald-300"}`}>
+                          {STAT_EMOJI[k]}{(item.stats[k] as number) > 0 ? "+" : ""}{item.stats[k]}
+                        </span>
+                      ))}
+                    </div>
+                    {item.passive && <div className="mt-0.5 truncate text-[8px] font-medium leading-tight text-amber-300">✦ {passiveLabel(item.passive)}</div>}
+                    {claim && (
+                      <motion.span
+                        initial={{ scale: 1.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className={`absolute -right-1 -top-1.5 z-10 max-w-[90%] truncate rounded-full px-1.5 py-0.5 text-[9px] font-black shadow-lg ${
+                          claim.mine ? "bg-emerald-500 text-white" : "bg-slate-900/95 text-amber-300 ring-1 ring-amber-400/40"
+                        }`}
+                      >
+                        {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
+                      </motion.span>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
             {!offer.picked && !offer.canPickAny && (
               <button onClick={() => pick(null)} disabled={pendingId !== null} className="btn-ghost w-full disabled:opacity-40">
                 {t("skipRound")}

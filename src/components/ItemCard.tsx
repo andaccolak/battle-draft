@@ -18,7 +18,7 @@ export const STAT_EMOJI: Record<string, string> = {
   initiative: "⚡"
 };
 
-const RARITY_STYLES: Record<Rarity, { border: string; text: string; bg: string }> = {
+export const RARITY_STYLES: Record<Rarity, { border: string; text: string; bg: string }> = {
   common: { border: "border-gray-500/60", text: "text-gray-300", bg: "bg-gray-500/10" },
   uncommon: { border: "border-green-400/60", text: "text-green-300", bg: "bg-green-500/10" },
   rare: { border: "border-blue-400/60", text: "text-blue-300", bg: "bg-blue-500/10" },

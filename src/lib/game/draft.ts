@@ -59,7 +59,7 @@ export function rollDraftHand(lockedSlots: Slot[] = [], round = 1): Item[] {
 
 export function rollChaosPool(missingSlots: Slot[][], round = 1): Item[] {
   const weights = ROUND_RARITY_WEIGHTS[Math.min(Math.max(round, 1), ROUND_RARITY_WEIGHTS.length) - 1] ?? ROUND_RARITY_WEIGHTS[0];
-  const size = missingSlots.length + 3;
+  const size = Math.max(10, missingSlots.length + 3);
   const slotBag: Slot[] = [];
   for (const slot of SLOTS) {
     const need = missingSlots.filter((m) => m.includes(slot)).length;

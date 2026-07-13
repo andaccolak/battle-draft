@@ -177,112 +177,49 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
       )}
 
       {isHost && (
-      <div className="card-surface p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold">{t("chooseMap")}</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {ARENA_MAPS.map((mapId) => {
-            const selected = snapshot.arenaMap === mapId;
-            return (
-              <motion.button
-                key={mapId}
-                whileTap={isHost ? { scale: 0.95 } : undefined}
-                disabled={!isHost}
-                onClick={() => onMap(mapId)}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
-                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
-                } ${isHost ? "" : "cursor-default opacity-80"}`}
-              >
-                <span className="text-xl">{MAP_EMOJI[mapId]}</span>
-                {t(`map_${mapId}`)}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {isHost && (
-      <div className="card-surface p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold">{t("chooseTourney")}</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {TOURNEY_MODES.map((modeId) => {
-            const selected = snapshot.tourneyMode === modeId;
-            return (
-              <motion.button
-                key={modeId}
-                whileTap={isHost ? { scale: 0.95 } : undefined}
-                disabled={!isHost}
-                onClick={() => onTourney(modeId)}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
-                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
-                } ${isHost ? "" : "cursor-default opacity-80"}`}
-              >
-                <span className="text-xl">{modeId === "knockout" ? "🏆" : "📊"}</span>
-                {t(`tourney_${modeId}`)}
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {isHost && (
-      <div className="card-surface p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold">{t("chooseDraft")}</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {DRAFT_MODES.map((modeId) => {
-            const selected = snapshot.draftMode === modeId;
-            return (
-              <motion.button
-                key={modeId}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => onDraftMode(modeId)}
-                className={`flex flex-col items-center justify-center gap-1 rounded-xl border-2 py-3 font-bold transition ${
-                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className="text-xl">{modeId === "chaos" ? "⚡" : "🃏"}</span>
-                  {t(`draft_${modeId}`)}
-                </span>
-                <span className="text-[10px] font-medium text-slate-400">{t(`draft_${modeId}_hint`)}</span>
-              </motion.button>
-            );
-          })}
-        </div>
-      </div>
-      )}
-
-      {isHost && (
-      <div className="card-surface p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-bold">{t("chooseMode")}</h2>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {MATCH_MODES.map((modeId) => {
-            const selected = snapshot.matchMode === modeId;
-            return (
-              <motion.button
-                key={modeId}
-                whileTap={isHost ? { scale: 0.95 } : undefined}
-                disabled={!isHost}
-                onClick={() => onMode(modeId)}
-                className={`flex items-center justify-center gap-2 rounded-xl border-2 py-3 font-bold transition ${
-                  selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
-                } ${isHost ? "" : "cursor-default opacity-80"}`}
-              >
-                <span className="text-xl">{modeId === "single" ? "⚔️" : "🔁"}</span>
-                {t(`mode_${modeId}`)}
-              </motion.button>
-            );
-          })}
-        </div>
+      <div className="card-surface space-y-3 p-4">
+        <h2 className="font-bold">{t("roomSettings")}</h2>
+        {[
+          {
+            label: t("chooseMap"),
+            cols: "grid-cols-3",
+            options: ARENA_MAPS.map((id) => ({ id, emoji: MAP_EMOJI[id] ?? "🏟️", text: t(`map_${id}`), selected: snapshot.arenaMap === id, onTap: () => onMap(id) }))
+          },
+          {
+            label: t("chooseDraft"),
+            cols: "grid-cols-2",
+            options: DRAFT_MODES.map((id) => ({ id, emoji: id === "chaos" ? "⚡" : "🃏", text: t(`draft_${id}`), selected: snapshot.draftMode === id, onTap: () => onDraftMode(id) }))
+          },
+          {
+            label: t("chooseTourney"),
+            cols: "grid-cols-2",
+            options: TOURNEY_MODES.map((id) => ({ id, emoji: id === "knockout" ? "🏆" : "📊", text: t(`tourney_${id}`), selected: snapshot.tourneyMode === id, onTap: () => onTourney(id) }))
+          },
+          {
+            label: t("chooseMode"),
+            cols: "grid-cols-2",
+            options: MATCH_MODES.map((id) => ({ id, emoji: id === "single" ? "⚔️" : "🔁", text: t(`mode_${id}`), selected: snapshot.matchMode === id, onTap: () => onMode(id) }))
+          }
+        ].map((row) => (
+          <div key={row.label}>
+            <div className="mb-1 text-[10px] font-black uppercase tracking-wider text-slate-500">{row.label}</div>
+            <div className={`grid gap-1.5 ${row.cols}`}>
+              {row.options.map((opt) => (
+                <motion.button
+                  key={opt.id}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={opt.onTap}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-[13px] font-bold transition ${
+                    opt.selected ? "border-indigo-400 bg-indigo-500/20 text-indigo-200" : "border-white/10 bg-white/5 text-slate-300"
+                  }`}
+                >
+                  <span className="text-base">{opt.emoji}</span>
+                  <span className="truncate">{opt.text}</span>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
       )}
 

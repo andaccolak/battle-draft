@@ -119,7 +119,7 @@ export const UI: Record<string, { en: string; tr: string }> = {
   chooseTourney: { en: "Tournament", tr: "Turnuva" },
   chooseDraft: { en: "Draft style", tr: "Seçim tarzı" },
   draft_classic: { en: "Classic", tr: "Klasik" },
-  draft_chaos: { en: "Chaos Draft", tr: "Kapışma Draftı" },
+  draft_chaos: { en: "Chaos Draft", tr: "Chaos Draft" },
   draft_classic_hint: { en: "Everyone gets their own hand", tr: "Herkese kendi eli gelir" },
   draft_chaos_hint: { en: "Shared pool, fastest finger wins", tr: "Ortak havuz, hızlı olan kapar" },
   chaosHint: { en: "Shared pool — first tap claims it!", tr: "Ortak havuz — ilk dokunan kapar!" },
