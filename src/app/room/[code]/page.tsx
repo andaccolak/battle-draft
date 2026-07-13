@@ -136,7 +136,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
   }
   const inBattle = snapshot.phase === "battle" && !!snapshot.battle;
   return (
-    <main className={`mx-auto max-w-2xl px-4 ${inBattle ? "py-3" : "min-h-dvh py-5"}`}>
+    <main className={`mx-auto max-w-2xl px-4 ${inBattle ? "min-h-dvh overflow-visible pb-12 pt-3" : "min-h-dvh py-5"}`}>
       <header className={`${inBattle ? "mb-3" : "mb-5"} flex items-center justify-between`}>
         <button onClick={() => { game.leaveRoom(); onExit(); }} className="text-sm font-semibold text-slate-500 transition hover:text-slate-300">
           {t("leave")}

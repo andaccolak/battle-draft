@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { Item, Rarity } from "@/lib/game/types";
 import { SLOT_META } from "@/lib/game/types";
 import { useI18n } from "@/lib/i18n";
+import { BUILD_STAT_KEYS, type BuildStats } from "@/lib/game/buildStats";
 
 const RARITY_STYLES: Record<Rarity, { border: string; text: string; bg: string }> = {
   common: { border: "border-gray-500/60", text: "text-gray-300", bg: "bg-gray-500/10" },
@@ -20,22 +21,34 @@ interface Props {
   selected?: boolean;
   onPick?: () => void;
   compact?: boolean;
+  currentStats?: BuildStats;
+  projectedStats?: BuildStats;
 }
 
-export default function ItemCard({ item, locked = false, pending = false, selected = false, onPick, compact = false }: Props) {
+export default function ItemCard({ item, locked = false, pending = false, selected = false, onPick, compact = false, currentStats, projectedStats }: Props) {
   const { t, itemName, passiveLabel, slotLabel } = useI18n();
   const style = RARITY_STYLES[item.rarity];
   const slot = SLOT_META[item.slot];
   const unavailable = locked || pending;
-  const STAT_ORDER = ["attack", "defense", "hp", "speed", "critChance", "critDamage", "accuracy", "dodge", "initiative"] as const;
-  const stats = STAT_ORDER.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map(
+  const stats = BUILD_STAT_KEYS.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map(
     (k) => `${(item.stats[k] as number) > 0 ? "+" : ""}${item.stats[k]} ${t(`stat_${k}`)}`
   );
+  const comparisons =
+    currentStats && projectedStats
+      ? BUILD_STAT_KEYS.filter((key) => currentStats[key] !== projectedStats[key]).map((key) => ({
+          key,
+          before: Math.round(currentStats[key]),
+          after: Math.round(projectedStats[key]),
+          delta: Math.round(projectedStats[key] - currentStats[key])
+        }))
+      : [];
 
   return (
     <motion.button
       layout
       whileTap={unavailable || !onPick ? undefined : { scale: 0.96 }}
+      whileHover={unavailable || !onPick ? undefined : { y: -2 }}
+      transition={{ type: "spring", stiffness: 420, damping: 28 }}
       onClick={unavailable ? undefined : onPick}
       disabled={unavailable || !onPick}
       className={`relative w-full rounded-2xl border-2 p-3 text-left transition ${style.border} ${style.bg} ${
@@ -49,10 +62,29 @@ export default function ItemCard({ item, locked = false, pending = false, select
             <span className="truncate font-bold">{itemName(item)}</span>
             <span className={`shrink-0 text-[10px] font-black uppercase tracking-wider ${style.text}`}>{t(item.rarity)}</span>
           </div>
-          <div className="text-[11px] text-slate-400">
-            {slot.emoji} {slotLabel(item.slot)}
+          <div className="flex items-center justify-between gap-2 text-[11px] text-slate-400">
+            <span>{slot.emoji} {slotLabel(item.slot)}</span>
+            {locked && <span className="rounded-full bg-slate-900/90 px-2 py-0.5 text-[9px] font-black text-slate-300">{t("slotOccupied")}</span>}
           </div>
-          {!compact && (
+          {!compact && comparisons.length > 0 && (
+            <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/45 px-2.5 py-2">
+              <div className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500">{t("afterPick")}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {comparisons.map(({ key, before, after, delta }) => (
+                  <span key={key} className="inline-flex items-center gap-1 rounded-lg bg-white/[0.055] px-2 py-1 text-[11px] font-black tabular-nums">
+                    <span className="text-slate-500">{t(`stat_${key}`)}</span>
+                    <span className="text-slate-400">{before}</span>
+                    <span className="text-slate-600">→</span>
+                    <span className={delta > 0 ? "text-emerald-300" : "text-rose-400"}>{after}</span>
+                    <span className={`rounded px-1 py-0.5 text-[9px] ${delta > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>
+                      {delta > 0 ? "+" : ""}{delta}
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {!compact && comparisons.length === 0 && stats.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold text-slate-200">
               {stats.map((line) => (
                 <span key={line} className={line.startsWith("-") ? "text-rose-400" : "text-emerald-300"}>
@@ -66,13 +98,6 @@ export default function ItemCard({ item, locked = false, pending = false, select
           )}
         </div>
       </div>
-      {locked && (
-        <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-950/60">
-          <span className="rounded-full bg-slate-900/90 px-3 py-1.5 text-xs font-bold text-slate-300">
-            {t("slotOccupied")}
-          </span>
-        </div>
-      )}
       {selected && !locked && (
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute inset-0 flex items-center justify-center rounded-2xl bg-emerald-950/70">
           <span className="rounded-full bg-emerald-500/90 px-3 py-1.5 text-xs font-black text-white">{t("choiceLocked")}</span>

@@ -1,8 +1,17 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after a six-part gameplay/UX milestone: Pirate and Magnet are limited to two opponent attack attempts, the arena is a consistent square on phones, combat audio has weapon/defense/body/environment/death identities, draft stats are immediately visible, manual battle-log reading is preserved, and poison has explicit HP-bar feedback.
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits.
 
 # Last Completed Work
+
+## Explicit square arena + useful pre-pick stat comparisons (UX correction, 2026-07-13)
+
+- Replaced the separate Tailwind width/height formulas with one reliable geometry contract on the arena element: `width: 100%`, `max-width: 430px`, and inline `aspectRatio: "1 / 1"`. Width is the only sizing input and height is derived from it, so the rendered 3D viewport cannot become a portrait rectangle. The arena also gained a restrained depth shadow.
+- Battle pages explicitly use `min-h-dvh`, visible overflow, and bottom breathing room. The arena, action ticker, battle log, spectators, and results are ordinary document-flow sections; the app no longer tries to compress them into one phone screen and the page can scroll vertically.
+- The draft's nine-stat summary now remains sticky while browsing offers. Every tile shows total, simulator-shared base value, and signed cumulative gear modifier (`Base 12`, `Gear +16`), including negative modifiers.
+- Every item card computes a pre-commit build projection and displays each changed stat as current → after-pick total plus a signed delta. Example: `ATK 12 → 28 +16`; negative accuracy/HP effects are equally explicit in rose. Passive text remains directly below the projection.
+- Draft cards gained spring press/hover feedback, projected-stat chips, stronger depth separation, and bilingual EN/TR labels. Locked-slot offers now use a compact badge instead of an opaque full-card cover, so their projected stats and passives remain readable and can still create the intended draft regret. Optimistic selection still updates the sticky overall panel immediately and remains server-authoritative.
+- Verification: strict typecheck and production build pass; a pure-data sweep validated projected totals against base + item stats for all 110 items; compiled server/client bundles contain the 1:1 arena contract and both localized projection labels. Browser runtime remained unavailable, so physical-device visual confirmation is still required.
 
 ## Two-attack card balance + mobile battle clarity (game-feel sprint, 2026-07-13)
 
@@ -57,11 +66,11 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. `src/lib/game/buildStats.ts` is the shared source for draft-visible base stats and simulator initialization; keep those values unified. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount. Pirate/Magnet use `TimedSuppression` snapshots in the pure simulator: suppressed stats run for two attack attempts, `gearReturn` applies the full-minus-suppressed delta, and returned battle equipment is never mutated by those cards.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. The arena's width is responsive up to 430 px and inline `aspect-ratio: 1 / 1` is the sole height authority; do not add an explicit height or flex-grow sizing. Battle page content stays in normal document flow. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. `src/lib/game/buildStats.ts` is the shared source for draft-visible base stats and simulator initialization; DraftPhase derives both current totals and all five per-offer projections from it. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount. Pirate/Magnet use `TimedSuppression` snapshots in the pure simulator: suppressed stats run for two attack attempts, `gearReturn` applies the full-minus-suppressed delta, and returned battle equipment is never mutated by those cards.
 
 # Remaining Tasks
 
-- [ ] Test multiple full two-device battles and QTE flows on physical iPhone Safari, including the 360 px square arena on short screens, log scroll pinning, toxic HP state, immediate draft stat preview, and Pirate/Magnet item return after two attacks.
+- [ ] Test multiple full two-device battles and QTE flows on physical iPhone Safari, including the responsive 1:1 arena, natural page scrolling, sticky base/gear totals, per-card projections, log scroll pinning, toxic HP state, and Pirate/Magnet item return after two attacks.
 - [ ] Owner taste-check the new sword/block/body/environment/death mix on phone speakers; tune oscillator/noise volume layers in `src/lib/sound.ts` if any category masks the ticker or feels harsh.
 - [ ] Sound design for remaining 3D beats (per-weapon windup whooshes and footsteps) after the new core mix is approved.
 - [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets; more kit-built maps.
@@ -78,25 +87,20 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck` and `npm run build` passed on 2026-07-13 after the two-attack balance/mobile clarity milestone. Local production HTTP smoke test passed. 120 seeded two-card simulations passed determinism, duration, and equipment-preservation assertions.
+`npm run typecheck` and `npm run build` passed on 2026-07-13 after the square-arena/stat-comparison correction. All 110 items passed base + item projected-total assertions. Compiled bundles contain the aspect-ratio and localized comparison UI.
 
 # Files Recently Modified
 
 - `src/components/BattleStage.tsx`
 - `src/components/DraftPhase.tsx`
-- `src/components/EventReveal.tsx`
+- `src/components/ItemCard.tsx`
 - `src/app/room/[code]/page.tsx`
-- `src/lib/game/battle.ts`
-- `src/lib/game/buildStats.ts`
-- `src/lib/game/luckCards.ts`
-- `src/lib/i18n/content.ts`
 - `src/lib/i18n/dictionary.ts`
-- `src/lib/sound.ts`
 - `handoff.md`
 
 # Suggested Next Step
 
-Run two physical-phone matches with one player deliberately drafting poison, Pirate, or Magnet. Verify the stat panel changes on the same tap, each card victim improvises/loses the selected item for two attack attempts and visibly receives it back, the arena stays square without clipping, and scrolling the battle log upward remains stable through several new beats. Taste-check the new sound layers on both iPhone speakers and headphones. After approval, the next feel candidate is weapon-specific windup whooshes plus footsteps tied to melee approach/recovery.
+Open a physical phone draft and battle after deployment. Measure/visually confirm the arena's rendered width equals height at several scroll positions; confirm the document can scroll through ticker/log/results without arena compression. In the draft, inspect a positive item, a negative trade-off item, and a passive-only item: the sticky panel must show base + gear, stat cards must show current → projected signed totals, and passives must remain readable. After this correction is accepted, return to weapon-specific windup whooshes and footsteps.
 
 # Important Decisions
 
@@ -110,12 +114,13 @@ Run two physical-phone matches with one player deliberately drafting poison, Pir
 - Local pick locks are presentation-only and have a four-second escape hatch. They never assume a pick was accepted; only the next server snapshot advances the phase.
 - Pirate and Magnet are temporary denial cards, not equipment-transfer cards. Each affected attack attempt, including an extra attack, consumes one of two charges. Pirate/Magnet must never persist item mutations into `StatePlayer.equipment`; Trade remains permanent by design.
 - A `gearReturn` timeline entry is the presentation contract for restoring temporarily suppressed gear. Keep its actor as the recovering fighter and its `item` param as the stable item id so localization, pickup pose, audio, and return animation stay synchronized.
-- The battle arena must retain equal width and height. On normal phones it is 360 px square; the `min(360px, 100vw - 2rem)` fallback is only for narrower viewports. Do not put it back inside a flex-grow height constraint.
+- The battle arena has one sizing authority: responsive width capped at 430 px plus inline `aspect-ratio: 1 / 1`. Never add a separate height, viewport-height formula, or flex-grow sizing. Battle content belongs in natural document flow and may extend below the fold.
+- Draft decisions must be understandable before commitment. Keep the sticky summary's base + cumulative gear modifier and every offer's current → projected total with signed delta; an optimistic post-tap-only change is insufficient.
 - Battle-log auto-follow is conditional on `logPinnedRef`; do not restore unconditional scroll-to-bottom behavior.
 
 # Notes For Next Session
 
-The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The in-app browser was unavailable during this session, so visual/audio taste verification remains for the next available browser/physical-phone session. Automated coverage this milestone was strict build/type safety, a live local production HTTP room/start flow, and 120 deterministic card battles. The local QA room `QA713` was left after the smoke test.
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The first square/stat implementation was rejected because the player still perceived a non-square battle and could not compare useful totals before picking. The corrected implementation deliberately uses one aspect-ratio authority and pre-commit comparisons on every card. The in-app browser still reported no available browser, so physical-device visual confirmation is mandatory after deployment; do not infer visual acceptance from build success alone.
 
 ---
 

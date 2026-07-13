@@ -396,9 +396,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       </div>
 
       <motion.div
+        data-testid="battle-arena"
         animate={arenaMotion}
-        className="relative mx-auto h-[min(360px,calc(100vw-2rem))] w-[min(360px,calc(100vw-2rem))] shrink-0 overflow-hidden rounded-3xl border border-white/10"
-        style={{ background: theme.sky }}
+        className="relative mx-auto w-full max-w-[430px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.38)]"
+        style={{ background: theme.sky, aspectRatio: "1 / 1" }}
       >
         
 

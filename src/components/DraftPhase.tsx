@@ -9,7 +9,7 @@ import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 import TimerBar from "./TimerBar";
 import { sfx } from "@/lib/sound";
-import { BUILD_STAT_KEYS, buildStats } from "@/lib/game/buildStats";
+import { BASE_BUILD_STATS, BUILD_STAT_KEYS, buildStats, type BuildStats } from "@/lib/game/buildStats";
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -41,11 +41,19 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
   };
 
   const pendingItem = offer?.items.find((item) => item.id === pendingId);
+  const currentStats = useMemo(() => buildStats(me?.equipment ?? {}), [me?.equipment]);
   const displayedStats = useMemo(() => {
     const equipment = { ...(me?.equipment ?? {}) };
     if (pendingItem) equipment[pendingItem.slot] = pendingItem;
     return buildStats(equipment);
   }, [me?.equipment, pendingItem]);
+  const projectedStats = useMemo(() => {
+    const projections: Record<string, BuildStats> = {};
+    for (const item of offer?.items ?? []) {
+      projections[item.id] = buildStats({ ...(me?.equipment ?? {}), [item.slot]: item });
+    }
+    return projections;
+  }, [me?.equipment, offer?.items]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
@@ -74,7 +82,8 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
       <motion.section
         layout
         aria-label={t("currentStats")}
-        className={`rounded-2xl border px-3 py-2.5 transition-colors ${pendingItem ? "border-emerald-400/50 bg-emerald-500/10" : "border-white/10 bg-slate-950/60"}`}
+        aria-live="polite"
+        className={`sticky top-2 z-20 rounded-2xl border px-3 py-2.5 shadow-[0_16px_40px_rgba(0,0,0,0.38)] backdrop-blur-xl transition-colors ${pendingItem ? "border-emerald-400/50 bg-emerald-950/90" : "border-white/10 bg-slate-950/90"}`}
       >
         <div className="mb-2 flex items-center justify-between gap-3">
           <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">📊 {t("currentStats")}</div>
@@ -94,13 +103,17 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
         </div>
         <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
           {BUILD_STAT_KEYS.map((key) => (
-            <motion.div
-              key={key}
-              animate={pendingItem?.stats[key] ? { scale: [1, 1.08, 1], color: ["#e2e8f0", "#6ee7b7", "#e2e8f0"] } : undefined}
-              className="flex items-baseline justify-between gap-1 rounded-lg bg-white/[0.045] px-2 py-1 text-xs"
-            >
-              <span className="truncate text-[9px] font-black text-slate-500">{t(`stat_${key}`)}</span>
-              <span className="font-display font-black tabular-nums text-slate-200">{Math.round(displayedStats[key])}</span>
+            <motion.div key={key} animate={pendingItem?.stats[key] ? { scale: [1, 1.06, 1] } : undefined} className="rounded-lg bg-white/[0.045] px-2 py-1.5">
+              <div className="flex items-baseline justify-between gap-1">
+                <span className="truncate text-[9px] font-black text-slate-500">{t(`stat_${key}`)}</span>
+                <span className="font-display font-black tabular-nums text-slate-200">{Math.round(displayedStats[key])}</span>
+              </div>
+              <div className="mt-0.5 flex items-center justify-between gap-1 text-[8px] font-bold uppercase tracking-wide text-slate-600">
+                <span>{t("baseShort")} {Math.round(BASE_BUILD_STATS[key])}</span>
+                <span className={displayedStats[key] - BASE_BUILD_STATS[key] > 0 ? "text-emerald-400" : displayedStats[key] - BASE_BUILD_STATS[key] < 0 ? "text-rose-400" : "text-slate-600"}>
+                  {t("modifierShort")} {displayedStats[key] - BASE_BUILD_STATS[key] > 0 ? "+" : ""}{Math.round(displayedStats[key] - BASE_BUILD_STATS[key])}
+                </span>
+              </div>
             </motion.div>
           ))}
         </div>
@@ -128,6 +141,8 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
                   locked={offer.lockedSlots.includes(item.slot)}
                   pending={pendingId !== null}
                   selected={pendingId === item.id}
+                  currentStats={currentStats}
+                  projectedStats={projectedStats[item.id]}
                   onPick={() => pick(item.id)}
                 />
               </motion.div>
