@@ -4,6 +4,18 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Player-feedback batch: grips, lobby, bracket, clarity (2026-07-13)
+
+- Staff grip fix: `staff` and `Skeleton_Staff` WEAPON_GRIPS position was [0,0,0.38], which slid the whole model off the hand (Void Staff / Frost Staff / Soul Staff floated in mid-air). Correct value is [0,0,-0.15]: hand grips the shaft just below the orb. Rule of thumb for KayKit staffs: origin sits at the orb; small NEGATIVE z moves grip down the shaft, positive z detaches it.
+- All 42 weapons re-audited via /dev/weapons at 8-per-page (screenshots at start=0..40): every model now sits in the hand.
+- Lobby: non-hosts no longer see the disabled map/tourney/format button grids; they get one read-only "Match Settings" chip card (`roomSettings` key). Host UI unchanged; the three picker cards are host-only now.
+- Double-attack clarity: `entry.extra` beats now push a "⚡ DOUBLE ATTACK!" note float over the attacker (log line already had extraAttackPrefix); `stunSkip` beats push "💫 TURN SKIPPED!" over the stunned fighter. Keys: noteExtra, noteStunSkip.
+- Knockout byes: bracket round 1 now pads to the next power of two — bye players (ids[0..byes-1]) each get a null-match in round 1 and enter play in round 2. With 5 players: one play-in match + 3 byes, then two semifinals, then the final — nobody skips straight to the grand final anymore. advanceBattles unchanged (null matches auto-resolve as before).
+- Stat icons: STAT_EMOJI map exported from ItemCard (⚔️🛡️❤️💨💥🔥🎯🌀⚡) and prefixed in draft stat chips, plain stat lines, and BuildStatsPanel labels.
+- Headbutt-looking melee attacks: when impactMs fell in the 60–72% beat-budget window, contact fired mid-run-in before any swing. applyPose now takes `strikeAt` (contactFor value); run-in is clamped to `strikeAt - 340ms` so the swing hit-frame lands on contact.
+- Clip audit script (scratchpad clips.js): every animation name referenced in Arena3D exists in the 7 Rig_Medium libraries (104 clips) — no silent no-plays.
+- Verified: typecheck + prod build clean; full driven graveyard tournament to champion with only benign favicon 404s; non-host lobby screenshot confirms chip card.
+
 ## Animation variety + poll resilience (2026-07-13)
 
 - 12 previously-unused Rig_Medium clips wired (104 shipped total; ~50 remain unused, mostly sit/lie/jump cycles): per-fighter idle personality (nickname-hash picks Idle_A vs Idle_B — deterministic across clients, stored as `rig.idleVariant`), seeded melee windup pools, Sneaking windup for dual-wielders and Crouching for fists, Running_A/B run-in variety, victory pool gains Skeletons_Taunt_Longer and Sit_Ups, and a new `use` pose (Use_Item/Interact/PickUp) for quirkSnack/quirkPrayer/quirkBreather heal beats (Pose union extended in CharacterSprite).

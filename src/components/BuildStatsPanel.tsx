@@ -5,6 +5,7 @@ import { BUILD_STAT_KEYS, type BuildStatKey, type BuildStats } from "@/lib/game/
 import type { CombatProfile } from "@/lib/game/combatProfile";
 import type { Passive, PassiveType } from "@/lib/game/types";
 import { useI18n } from "@/lib/i18n";
+import { STAT_EMOJI } from "./ItemCard";
 
 interface Props {
   stats: BuildStats;
@@ -95,7 +96,7 @@ export default function BuildStatsPanel({ stats, baseline, modifierLabel, highli
               animate={changed ? { scale: [1, 1.06, 1] } : undefined}
               className={`rounded-lg px-2 py-1.5 ${changed ? "bg-white/[0.09] ring-1 ring-white/10" : "bg-white/[0.04]"}`}
             >
-              <dt className="truncate text-[8px] font-black uppercase tracking-wide text-slate-500">{t(`stat_${key}`)}</dt>
+              <dt className="truncate text-[8px] font-black uppercase tracking-wide text-slate-500">{STAT_EMOJI[key]} {t(`stat_${key}`)}</dt>
               <dd className="flex items-baseline justify-between gap-1">
                 <span className="font-display text-sm font-black tabular-nums text-slate-100">{Math.round(stats[key])}</span>
                 <span className={`text-[9px] font-black tabular-nums ${delta > 0 ? "text-emerald-400" : delta < 0 ? "text-rose-400" : "text-slate-700"}`}>

@@ -6,6 +6,18 @@ import { SLOT_META } from "@/lib/game/types";
 import { useI18n } from "@/lib/i18n";
 import { BUILD_STAT_KEYS, type BuildStats } from "@/lib/game/buildStats";
 
+export const STAT_EMOJI: Record<string, string> = {
+  attack: "⚔️",
+  defense: "🛡️",
+  hp: "❤️",
+  speed: "💨",
+  critChance: "💥",
+  critDamage: "🔥",
+  accuracy: "🎯",
+  dodge: "🌀",
+  initiative: "⚡"
+};
+
 const RARITY_STYLES: Record<Rarity, { border: string; text: string; bg: string }> = {
   common: { border: "border-gray-500/60", text: "text-gray-300", bg: "bg-gray-500/10" },
   uncommon: { border: "border-green-400/60", text: "text-green-300", bg: "bg-green-500/10" },
@@ -30,9 +42,11 @@ export default function ItemCard({ item, locked = false, pending = false, select
   const style = RARITY_STYLES[item.rarity];
   const slot = SLOT_META[item.slot];
   const unavailable = locked || pending;
-  const stats = BUILD_STAT_KEYS.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map(
-    (k) => `${(item.stats[k] as number) > 0 ? "+" : ""}${item.stats[k]} ${t(`stat_${k}`)}`
-  );
+  const stats = BUILD_STAT_KEYS.filter((k) => item.stats[k] !== undefined && item.stats[k] !== 0).map((k) => ({
+    key: k,
+    negative: (item.stats[k] as number) < 0,
+    line: `${STAT_EMOJI[k]} ${(item.stats[k] as number) > 0 ? "+" : ""}${item.stats[k]} ${t(`stat_${k}`)}`
+  }));
   const comparisons =
     currentStats && projectedStats
       ? BUILD_STAT_KEYS.filter((key) => currentStats[key] !== projectedStats[key]).map((key) => ({
@@ -73,7 +87,7 @@ export default function ItemCard({ item, locked = false, pending = false, select
                   key={key}
                   className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 tabular-nums ${delta > 0 ? "border-emerald-400/20 bg-emerald-500/[0.08]" : "border-rose-400/20 bg-rose-500/[0.08]"}`}
                 >
-                  <span className="text-[8px] font-black uppercase tracking-wide text-slate-500">{t(`stat_${key}`)}</span>
+                  <span className="text-[8px] font-black uppercase tracking-wide text-slate-500">{STAT_EMOJI[key]} {t(`stat_${key}`)}</span>
                   <span className={`text-xs font-black ${delta > 0 ? "text-emerald-300" : "text-rose-300"}`}>
                     {delta > 0 ? "+" : ""}
                     {delta}
@@ -87,8 +101,8 @@ export default function ItemCard({ item, locked = false, pending = false, select
           )}
           {!compact && comparisons.length === 0 && stats.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs font-semibold text-slate-200">
-              {stats.map((line) => (
-                <span key={line} className={line.startsWith("-") ? "text-rose-400" : "text-emerald-300"}>
+              {stats.map(({ key, negative, line }) => (
+                <span key={key} className={negative ? "text-rose-400" : "text-emerald-300"}>
                   {line}
                 </span>
               ))}

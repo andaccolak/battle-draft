@@ -604,7 +604,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   }, ms);
 }
 
-function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig, seed = 0, quick = false): void {
+function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig, seed = 0, quick = false, strikeAt?: number): void {
   if (pose === "dead" && rig.pose === "dead") return;
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
@@ -666,7 +666,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
           rig.moveSpeed = null;
           playAction(rig, [strike], { once: true, backToIdle: true });
           rig.current?.setEffectiveTimeScale(heft);
-        }, meleeRunMs(rig, opp));
+        }, Math.max(80, Math.min(meleeRunMs(rig, opp), strikeAt !== undefined ? strikeAt - 340 : Infinity)));
       } else if (strike) {
         if (MELEE_KINDS.has(kind)) rig.moveSpeed = RUN_SPEED;
         playAction(rig, [strike], { once: true, backToIdle: true });
@@ -1289,7 +1289,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const quickFor = (attackerKind: FighterKind, attacker: Rig, defender: Rig) =>
       impactMsFor(attackerKind, attacker, defender) > budget * 0.72;
     const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind, atkSeed: number, defSeed: number) => {
-      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender));
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender), contactFor(attackerKind, attacker, defender));
       const lead = reaction === "dodge" || reaction === "roll" ? Math.min(260, budget * 0.25) : 0;
       defender.reactTimer = setTimeout(() => {
         applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed);
@@ -1303,7 +1303,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       }, Math.max(120, contactFor(attackerKind, attacker, defender) - lead));
     };
     const attackWithoutReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, atkSeed: number) => {
-      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender));
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender), contactFor(attackerKind, attacker, defender));
       defender.reactTimer = setTimeout(signalImpact, contactFor(attackerKind, attacker, defender));
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {

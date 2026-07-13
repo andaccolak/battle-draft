@@ -148,10 +148,33 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
         </div>
       </div>
 
+      {!isHost && (
+        <div className="card-surface p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-bold">{t("roomSettings")}</h2>
+            <span className="text-xs text-slate-500">{t("mapHostOnly")}</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-sm font-bold text-indigo-200">
+              <span>{MAP_EMOJI[snapshot.arenaMap]}</span>
+              {t(`map_${snapshot.arenaMap}`)}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-sm font-bold text-indigo-200">
+              <span>{snapshot.tourneyMode === "knockout" ? "🏆" : "📊"}</span>
+              {t(`tourney_${snapshot.tourneyMode}`)}
+            </span>
+            <span className="flex items-center gap-1.5 rounded-full border border-indigo-400/40 bg-indigo-500/15 px-3 py-1.5 text-sm font-bold text-indigo-200">
+              <span>{snapshot.matchMode === "single" ? "⚔️" : "🔁"}</span>
+              {t(`mode_${snapshot.matchMode}`)}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {isHost && (
       <div className="card-surface p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-bold">{t("chooseMap")}</h2>
-          {!isHost && <span className="text-xs text-slate-500">{t("mapHostOnly")}</span>}
         </div>
         <div className="grid grid-cols-2 gap-2">
           {ARENA_MAPS.map((mapId) => {
@@ -173,7 +196,9 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
           })}
         </div>
       </div>
+      )}
 
+      {isHost && (
       <div className="card-surface p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-bold">{t("chooseTourney")}</h2>
@@ -198,7 +223,9 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
           })}
         </div>
       </div>
+      )}
 
+      {isHost && (
       <div className="card-surface p-5">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-bold">{t("chooseMode")}</h2>
@@ -223,6 +250,7 @@ export default function Lobby({ snapshot, playerId, onStart, onAvatar, onMap, on
           })}
         </div>
       </div>
+      )}
 
       <div className="card-surface p-5">
         <div className="mb-3 flex items-center justify-between">

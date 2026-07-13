@@ -340,6 +340,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
         pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", "impact", floatMag(entry.dmg ?? 0));
       }
+      if (entry.extra && (entry.t === "attack" || entry.t === "miss" || entry.t === "dodge")) pushFloat(entry.actor, t("noteExtra"), "note", 60);
+      if (entry.t === "passive" && entry.key === "stunSkip") pushFloat(entry.actor, t("noteStunSkip"), "note", 120);
       if (entry.t === "passive" && entry.key === "stunApplied") pushFloat(other, t("noteStun"), "note", 120);
       if (entry.t === "passive" && entry.key === "revive") pushFloat(entry.actor, t("noteRevive"), "note", 120);
     }

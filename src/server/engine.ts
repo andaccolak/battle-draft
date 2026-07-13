@@ -546,9 +546,14 @@ function beginEventPhase(state: RoomState, now: number): void {
     state.bracket = [[{ a: ids[0] ?? null, b: ids[1] ?? null, winner: null }]];
     state.leagueStage = "final";
   } else {
+    const size = ids.length <= 2 ? 2 : 2 ** Math.ceil(Math.log2(ids.length));
+    const byes = size - ids.length;
     const round: StateBracketMatch[] = [];
-    for (let i = 0; i < ids.length; i += 2) {
+    for (let i = byes; i < ids.length; i += 2) {
       round.push({ a: ids[i] ?? null, b: ids[i + 1] ?? null, winner: null });
+    }
+    for (let i = 0; i < byes; i++) {
+      round.push({ a: ids[i] ?? null, b: null, winner: null });
     }
     state.bracket = [round];
     state.leagueStage = null;
