@@ -26,7 +26,7 @@ export const ITEMS: Item[] = [
   { id: "w_soul_staff", name: "Soul Siphon Staff", emoji: "🔮", slot: "weapon", rarity: "epic", stats: { attack: 24 }, passive: { type: "lifesteal", value: 22, label: "Heals 22% of damage dealt" }, tags: ["ranged"] },
   { id: "w_warcleaver", name: "Warcleaver", emoji: "🪓", slot: "weapon", rarity: "epic", stats: { attack: 34, accuracy: -12 }, passive: { type: "executioner", value: 45, label: "+45% dmg vs targets below 35% HP" } },
   { id: "w_kings_blade", name: "King's Greatblade", emoji: "⚔️", slot: "weapon", rarity: "legendary", stats: { attack: 34, defense: 8, critChance: 15 } },
-  { id: "w_reaper_scythe", name: "Reaper's Sickle", emoji: "☠️", slot: "weapon", rarity: "legendary", stats: { attack: 27 }, passive: { type: "extraAttack", value: 30, label: "30% chance to attack twice" } },
+  { id: "w_reaper_scythe", name: "Reaper's Scythe", emoji: "☠️", slot: "weapon", rarity: "legendary", stats: { attack: 27 }, passive: { type: "extraAttack", value: 30, label: "30% chance to attack twice" } },
   { id: "w_arcane_orb", name: "Arcane Wand", emoji: "🪄", slot: "weapon", rarity: "legendary", stats: { attack: 28, critChance: 20 }, passive: { type: "ignoreDefense", value: 45, label: "Ignores 45% of enemy defense" }, tags: ["ranged"] },
   { id: "w_war_hammer", name: "Giant's Greatsword", emoji: "🗡️", slot: "weapon", rarity: "uncommon", stats: { attack: 38, accuracy: -30 } },
   { id: "w_spiked_flail", name: "Spiked Shield", emoji: "🛡️", slot: "weapon", rarity: "uncommon", stats: { attack: 19, defense: 11, accuracy: -6, critChance: 5 }, passive: { type: "block", value: 15, label: "15% chance to block half damage" } },
@@ -38,6 +38,11 @@ export const ITEMS: Item[] = [
   { id: "w_storm_spear", name: "Storm Staff", emoji: "⚡", slot: "weapon", rarity: "epic", stats: { attack: 26, initiative: 10 }, passive: { type: "stunChance", value: 12, label: "12% chance to stun on hit" }, tags: ["ranged"] },
   { id: "w_dragonfang", name: "Dragonfang Greatsword", emoji: "🐉", slot: "weapon", rarity: "legendary", stats: { attack: 32, critDamage: 40 }, passive: { type: "berserk", value: 50, label: "+50% attack below 40% HP" } },
   { id: "w_void_reaper", name: "Void Staff", emoji: "💀", slot: "weapon", rarity: "legendary", stats: { attack: 32, accuracy: -10 }, passive: { type: "ignoreDefense", value: 60, label: "Ignores 60% of enemy defense" }, tags: ["ranged"] },
+  { id: "w_war_maul", name: "War Maul", emoji: "🔨", slot: "weapon", rarity: "rare", stats: { attack: 30, accuracy: -12, critDamage: 22 } },
+  { id: "w_mace", name: "Iron Mace", emoji: "🔨", slot: "weapon", rarity: "common", stats: { attack: 18, defense: 3, accuracy: -3 } },
+  { id: "w_spear", name: "Hunter's Spear", emoji: "🔱", slot: "weapon", rarity: "uncommon", stats: { attack: 21, accuracy: 8, initiative: 6 } },
+  { id: "w_gilded_blade", name: "Gilded Blade", emoji: "✨", slot: "weapon", rarity: "epic", stats: { attack: 27, critChance: 10, critDamage: 18 } },
+  { id: "w_shadow_fang", name: "Shadow Fang", emoji: "🗡️", slot: "weapon", rarity: "rare", stats: { attack: 16, speed: 10, dodge: 8, critChance: 10 } },
   { id: "h_old_helmet", name: "Old Helmet", emoji: "🪖", slot: "helmet", rarity: "common", stats: { defense: 7 } },
   { id: "h_hunter_hood", name: "Hunter's Hood", emoji: "🎯", slot: "helmet", rarity: "uncommon", stats: { defense: 6, accuracy: 10, dodge: 6 } },
   { id: "h_veteran_hood", name: "Veteran's Hood", emoji: "🧣", slot: "helmet", rarity: "rare", stats: { defense: 8, critChance: 8, accuracy: 6 } },
@@ -70,6 +75,8 @@ export const ITEMS: Item[] = [
   { id: "a_thorned_mail", name: "Thorned Mail", emoji: "🌵", slot: "armor", rarity: "rare", stats: { defense: 12 }, passive: { type: "reflect", value: 20, label: "Reflects 20% of damage taken" } },
   { id: "a_berserker_harness", name: "Berserker Harness", emoji: "😤", slot: "armor", rarity: "epic", stats: { defense: 6, attack: 13 } },
   { id: "a_guardian_plate", name: "Guardian Plate", emoji: "🏰", slot: "armor", rarity: "epic", stats: { defense: 19, hp: 40 }, tags: ["heavy"] },
+  { id: "a_heater_shield", name: "Heater Shield", emoji: "🛡️", slot: "armor", rarity: "rare", stats: { defense: 14, speed: -2 }, passive: { type: "block", value: 16, label: "16% chance to block half damage" } },
+  { id: "c_celtic_ward", name: "Celtic Ward", emoji: "🍀", slot: "accessory", rarity: "uncommon", stats: { defense: 6, critChance: 5 }, passive: { type: "block", value: 10, label: "10% chance to block half damage" } },
   { id: "a_titan", name: "Titan Armor", emoji: "🗿", slot: "armor", rarity: "legendary", stats: { defense: 32, hp: 35, speed: -10 }, passive: { type: "block", value: 25, label: "25% chance to block half damage" }, tags: ["heavy"] },
   { id: "a_dragonscale", name: "Dragonscale Armor", emoji: "🐊", slot: "armor", rarity: "legendary", stats: { defense: 22 }, passive: { type: "reflect", value: 15, label: "Reflects 15% of damage taken" } },
   { id: "b_worn", name: "Worn Boots", emoji: "🥾", slot: "boots", rarity: "common", stats: { speed: 7 } },
@@ -121,7 +128,7 @@ export type WeaponKind = "ranged" | "heavy" | "blade";
 
 export type WeaponAudioKind = "sword" | "dagger" | "axe" | "blunt" | "shield" | "scythe" | "bow" | "crossbow" | "magic" | "fists";
 
-const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe", "w_claymore", "w_broadaxe", "w_warcleaver", "w_kings_blade", "w_bonecleaver"]);
+const HEAVY_WEAPON_IDS = new Set(["w_war_hammer", "w_war_maul", "w_spear", "w_battle_axe", "w_executioner", "w_dragonfang", "w_twin_axe", "w_claymore", "w_broadaxe", "w_warcleaver", "w_kings_blade", "w_bonecleaver"]);
 
 function baseWeaponId(item: Item): string {
   return item.id.replace(/_(forged|gambled)$/, "");
@@ -154,6 +161,11 @@ const WEAPON_AUDIO_KINDS: Record<string, WeaponAudioKind> = {
   w_warcleaver: "axe",
   w_kings_blade: "sword",
   w_reaper_scythe: "scythe",
+  w_war_maul: "blunt",
+  w_mace: "blunt",
+  w_spear: "sword",
+  w_gilded_blade: "sword",
+  w_shadow_fang: "dagger",
   w_arcane_orb: "magic",
   w_war_hammer: "sword",
   w_spiked_flail: "shield",
@@ -208,6 +220,14 @@ export interface WeaponModelDef {
 const HALF_PI = Math.PI / 2;
 
 export const WEAPON_GRIPS: Record<string, WeaponGripTransform> = {
+  Scythe: { position: [0, 0, 0.2], rotation: [0, 0, 0], scale: 0.36, inwardAim: 0.08 },
+  Spear: { position: [0, 0, 0.15], rotation: [0, 0, 0], scale: 0.25, inwardAim: 0.06 },
+  Hammer_Double: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.3, inwardAim: 0.08 },
+  Hammer_Small: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.28, inwardAim: 0.1 },
+  Sword_Golden: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.25, inwardAim: 0.12 },
+  Dagger_2: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.26, inwardAim: 0.14 },
+  Shield_Heater: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.3 },
+  Shield_Celtic_Golden: { position: [0, 0, 0.1], rotation: [0, 0, 0], scale: 0.3 },
   Skeleton_Blade: { position: [0, 0, 0], rotation: [0, 0, 0], scale: 0.82, inwardAim: 0.14 },
   mug_full: { position: [0, 0.04, 0], rotation: [0, 0, 0], scale: 0.9 },
   axe_2handed: { position: [0, 0.04, 0], rotation: [0, Math.PI, 0], scale: 0.88, inwardAim: 0.1 },
@@ -240,6 +260,11 @@ export const WEAPON_GRIPS: Record<string, WeaponGripTransform> = {
 };
 
 export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
+  w_war_maul: { model: "Hammer_Double", kind: "heavy" },
+  w_mace: { model: "Hammer_Small", kind: "blade" },
+  w_spear: { model: "Spear", kind: "heavy" },
+  w_gilded_blade: { model: "Sword_Golden", kind: "blade" },
+  w_shadow_fang: { model: "Dagger_2", kind: "blade" },
   w_rusty_sword: { model: "Skeleton_Blade", kind: "blade", tint: 0x8f6b42 },
   w_wooden_club: { model: "mug_full", kind: "blade" },
   w_battle_axe: { model: "axe_2handed", kind: "heavy" },
@@ -265,7 +290,7 @@ export const WEAPON_MODELS: Record<string, WeaponModelDef> = {
   w_soul_staff: { model: "Skeleton_Staff", kind: "magic" },
   w_warcleaver: { model: "axe_2handed", kind: "heavy", tint: 0xa05a52 },
   w_kings_blade: { model: "sword_2handed_color", kind: "heavy" },
-  w_reaper_scythe: { model: "Skeleton_Blade", kind: "blade", tint: 0x5f7a66, emissive: 0x0e2e1a },
+  w_reaper_scythe: { model: "Scythe", kind: "heavy" },
   w_arcane_orb: { model: "wand", kind: "magic" },
   w_war_hammer: { model: "sword_2handed_color", kind: "heavy", tint: 0x8d97a3 },
   w_spiked_flail: { model: "shield_spikes", kind: "shield", hand: "l" },
@@ -290,7 +315,9 @@ const SHIELD_MODELS: Record<string, string> = {
   a_bone_wall: "Skeleton_Shield_Large_A",
   c_bone_ward: "Skeleton_Shield_Small_A",
   a_royal_plate: "shield_square_color",
-  c_duel_buckler: "Skeleton_Shield_Small_B"
+  c_duel_buckler: "Skeleton_Shield_Small_B",
+  a_heater_shield: "Shield_Heater",
+  c_celtic_ward: "Shield_Celtic_Golden"
 };
 
 export interface HeadgearDef {

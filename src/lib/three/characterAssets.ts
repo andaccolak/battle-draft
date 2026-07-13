@@ -64,7 +64,7 @@ export function loadAnimLibrary(): Promise<Map<string, THREE.AnimationClip>> {
 }
 
 const weaponCache = new Map<string, Promise<THREE.Group | null>>();
-const GLB_WEAPONS = new Set(["Bow_Wooden", "Bow_Golden", "Bow_Evil", "Axe_Double", "Arrow", "Claymore"]);
+const GLB_WEAPONS = new Set(["Bow_Wooden", "Bow_Golden", "Bow_Evil", "Axe_Double", "Arrow", "Claymore", "Scythe", "Spear", "Hammer_Double", "Hammer_Small", "Sword_Golden", "Dagger_2", "Shield_Heater", "Shield_Celtic_Golden"]);
 
 export function loadWeaponModel(name: string): Promise<THREE.Group | null> {
   const cached = weaponCache.get(name);
