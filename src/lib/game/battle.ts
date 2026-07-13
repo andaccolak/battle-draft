@@ -965,7 +965,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     }
     if (att.executioner > 0 && def.hp < def.maxHp * 0.35) dmg *= 1 + att.executioner / 100;
     const effDef = def.defense * (1 - att.ignoreDefense / 100);
-    dmg -= effDef * 0.5;
+    dmg -= effDef * 0.65;
     dmg = Math.max(3, dmg);
     if (def.sturdy > 0) dmg = Math.min(dmg, (def.maxHp * def.sturdy) / 100);
     let blocked = false;
@@ -1238,8 +1238,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
       } else if (a.firstStrike !== b.firstStrike) {
         order = a.firstStrike ? [a, b] : [b, a];
       } else {
-        const ia = a.speed + (round === 1 ? a.initiative : 0) + rand() * 20;
-        const ib = b.speed + (round === 1 ? b.initiative : 0) + rand() * 20;
+        const ia = a.speed + (round === 1 ? a.initiative : a.initiative * 0.35) + rand() * 20;
+        const ib = b.speed + (round === 1 ? b.initiative : b.initiative * 0.35) + rand() * 20;
         order = ia >= ib ? [a, b] : [b, a];
       }
       for (const att of order) {
@@ -1258,7 +1258,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         }
         attackOnce(att, def, false);
         consumeSuppressionAttack(att);
-        const speedAttackChance = clamp((att.speed - def.speed) * 0.8, 0, 18);
+        const speedAttackChance = clamp((att.speed - def.speed) * 1.1, 0, 22);
         if (def.hp > 0 && att.hp > 0 && roll(Math.min(75, att.extraAttack + speedAttackChance))) {
           attackOnce(att, def, true);
           consumeSuppressionAttack(att);

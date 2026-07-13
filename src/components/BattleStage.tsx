@@ -263,6 +263,16 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     setIndex((i) => (expected > i + 6 ? expected - 1 : i));
   }, [battle.elapsedMs]);
 
+  const lastLenRef = useRef(entries.length);
+  useEffect(() => {
+    const prevLen = lastLenRef.current;
+    lastLenRef.current = entries.length;
+    if (entries.length > prevLen && indexRef.current >= prevLen - 1) {
+      const timer = setTimeout(() => setIndex((i) => Math.min(i + 1, entries.length - 1)), 350);
+      return () => clearTimeout(timer);
+    }
+  }, [entries.length]);
+
   useEffect(() => {
     for (const timer of pendingRef.current) clearTimeout(timer);
     pendingRef.current = [];

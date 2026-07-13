@@ -4,6 +4,14 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Chaos guarantees, claim overlays, QTE resume, stat weight (2026-07-14)
+
+- Nobody ends chaos draft short: (a) rollChaosPool coverage pass — every player gets ≥2 pool items matching their missing slots (swaps out the least-needed items, pool stays 10); (b) finishDraftRound consolation — any player with no claim this round (sniped or passed) gets a random item for a missing slot via `rollChaosConsolation` (round rarity weights). Everyone always finishes with 5 items.
+- Claim overlay redesign: claimed cards now show a blurred inset overlay (backdrop-blur, dark tint) with the picker's name centered INSIDE the card, colored by nickname hash (`claimColor` hsl); own claims emerald "✓ SENİN!". Old top-right badge removed.
+- QTE resume fix ("attacks with the bar → no animation, HP just drops"): after a reaction resolves, the timeline grows but the client sat at the stale pause beat replaying its full duration (elapsed == pausedAtMs so hurry never fired). New effect: when entries.length grows while index was pinned at the old tail, advance after 350ms — the dodge/strike beat plays immediately.
+- Stat weight tuning (owner: "make item stats more meaningful"): defense mitigation 0.5→0.65 per point; speed extra-attack conversion (spd diff)*0.8→*1.1, cap 18→22; initiative now counts at 35% weight in EVERY round's turn order (was round 1 only).
+- Verified: typecheck + prod build clean; chaos tournament to champion with driver claiming an item all 5 rounds (5/5 slots filled); overlay screenshot confirmed.
+
 ## Flow smoothness batch: soft catch-up, evade fatigue, share card (2026-07-13)
 
 - ROOT CAUSE of "invisible attacks / HP drops with no animation": BattleStage hard-resynced to server elapsedMs on EVERY poll — any drift >1 beat teleported the index, silently skipping attack animations (phones throttle timers, so this fired constantly). Now: soft catch-up — `hurryToRef` tracks the server-expected index; while behind, beats play at 65% duration (45% if >1 behind, floor 300ms) so EVERY beat still renders; hard jump only if >6 beats behind (lands on expected-1 so the last skipped beat still animates).

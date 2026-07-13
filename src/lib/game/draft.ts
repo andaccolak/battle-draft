@@ -67,19 +67,50 @@ export function rollChaosPool(missingSlots: Slot[][], round = 1): Item[] {
   }
   const pool: Item[] = [];
   const used = new Set<string>();
-  let guard = 0;
-  while (pool.length < size && guard < 400) {
-    guard++;
-    const slot = slotBag[Math.floor(Math.random() * slotBag.length)] ?? "weapon";
+  const rollFor = (slot: Slot): Item | null => {
     const rarity = weights ? rollRarity(weights) : "common";
     let options = ITEMS.filter((item) => item.slot === slot && item.rarity === rarity && !used.has(item.id));
     if (options.length === 0) options = ITEMS.filter((item) => item.slot === slot && !used.has(item.id));
     const item = options[Math.floor(Math.random() * options.length)];
-    if (!item) continue;
+    if (!item) return null;
     used.add(item.id);
-    pool.push(item);
+    return item;
+  };
+  let guard = 0;
+  while (pool.length < size && guard < 400) {
+    guard++;
+    const slot = slotBag[Math.floor(Math.random() * slotBag.length)] ?? "weapon";
+    const item = rollFor(slot);
+    if (item) pool.push(item);
+  }
+  for (const missing of missingSlots) {
+    if (missing.length === 0) continue;
+    let attempts = 0;
+    while (pool.filter((item) => missing.includes(item.slot)).length < 2 && attempts < 20) {
+      attempts++;
+      const needOf = (slot: Slot) => missingSlots.filter((m) => m.includes(slot)).length;
+      let swapAt = 0;
+      for (let i = 1; i < pool.length; i++) {
+        const a = pool[i];
+        const b = pool[swapAt];
+        if (a && b && needOf(a.slot) < needOf(b.slot)) swapAt = i;
+      }
+      const slot = missing[Math.floor(Math.random() * missing.length)];
+      const replacement = slot ? rollFor(slot) : null;
+      if (!replacement) break;
+      pool[swapAt] = replacement;
+    }
   }
   return pool;
+}
+
+export function rollChaosConsolation(slot: Slot, round: number, excludeIds: Set<string>): Item | null {
+  const weights = ROUND_RARITY_WEIGHTS[Math.min(Math.max(round, 1), ROUND_RARITY_WEIGHTS.length) - 1] ?? ROUND_RARITY_WEIGHTS[0];
+  const rarity = weights ? rollRarity(weights) : "common";
+  let options = ITEMS.filter((item) => item.slot === slot && item.rarity === rarity && !excludeIds.has(item.id));
+  if (options.length === 0) options = ITEMS.filter((item) => item.slot === slot && !excludeIds.has(item.id));
+  if (options.length === 0) options = ITEMS.filter((item) => item.slot === slot);
+  return options[Math.floor(Math.random() * options.length)] ?? null;
 }
 
 const SELF_LUCK_CARDS = new Set([

@@ -16,7 +16,7 @@ import type {
   TimelineEntry
 } from "@/lib/game/types";
 import { ARENA_MAPS, CHAOS_TIME_MS, DRAFT_MODES, DRAFT_TIME_MS, EVENT_REVEAL_MS, LUCK_TIME_MS, MATCH_MODES, RARITY_ORDER, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
-import { rollChaosPool, rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
+import { rollChaosConsolation, rollChaosPool, rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle, type Build } from "@/lib/game/battle";
@@ -523,12 +523,22 @@ export function pickItem(state: RoomState, playerId: string, itemId: string | nu
 function finishDraftRound(state: RoomState, now: number): void {
   if (isChaos(state)) {
     for (const p of state.players) {
-      if (p.offerPicked || p.spectator) continue;
+      if (p.spectator) continue;
+      const claimed = (state.chaosPool ?? []).some((e) => e.claimedBy === p.id);
+      if (claimed) {
+        p.offerPicked = true;
+        continue;
+      }
       const options = chaosClaimable(state, p);
       const pick = options[Math.floor(Math.random() * options.length)];
       if (pick) {
         pick.claimedBy = p.id;
         p.equipment[pick.item.slot] = pick.item;
+      } else {
+        const missing = chaosSlotsMissing(p);
+        const slot = missing[Math.floor(Math.random() * missing.length)];
+        const consolation = slot ? rollChaosConsolation(slot, state.draftRound, new Set((state.chaosPool ?? []).map((e) => e.item.id))) : null;
+        if (slot && consolation) p.equipment[slot] = consolation;
       }
       p.offerPicked = true;
     }

@@ -20,6 +20,12 @@ interface Props {
   onPick: (itemId: string | null) => void;
 }
 
+function claimColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return `hsl(${Math.abs(hash) % 360}, 90%, 72%)`;
+}
+
 export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props) {
   const { t, itemName, passiveLabel } = useI18n();
   const me = snapshot.players.find((p) => p.id === playerId);
@@ -121,9 +127,9 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
                     whileTap={disabled ? undefined : { scale: 0.95 }}
                     disabled={disabled}
                     onClick={disabled ? undefined : () => pick(item.id)}
-                    className={`relative rounded-xl border-2 p-1.5 text-left ${style.border} ${style.bg} ${
+                    className={`relative overflow-hidden rounded-xl border-2 p-1.5 text-left ${style.border} ${style.bg} ${
                       claim && !claim.mine
-                        ? "opacity-45 grayscale"
+                        ? "grayscale"
                         : claim?.mine
                           ? "border-emerald-300 ring-2 ring-emerald-300/40"
                           : slotLocked
@@ -147,15 +153,22 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
                     </div>
                     {item.passive && <div className="mt-0.5 truncate text-[8px] font-medium leading-tight text-amber-300">✦ {passiveLabel(item.passive)}</div>}
                     {claim && (
-                      <motion.span
-                        initial={{ scale: 1.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className={`absolute -right-1 -top-1.5 z-10 max-w-[90%] truncate rounded-full px-1.5 py-0.5 text-[9px] font-black shadow-lg ${
-                          claim.mine ? "bg-emerald-500 text-white" : "bg-slate-900/95 text-amber-300 ring-1 ring-amber-400/40"
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`absolute inset-0 z-10 flex items-center justify-center rounded-[10px] backdrop-blur-[2.5px] ${
+                          claim.mine ? "bg-emerald-950/45" : "bg-slate-950/55"
                         }`}
                       >
-                        {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
-                      </motion.span>
+                        <motion.span
+                          initial={{ scale: 1.4 }}
+                          animate={{ scale: 1 }}
+                          className="max-w-[92%] truncate px-2 text-[13px] font-black drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
+                          style={claim.mine ? { color: "#6ee7b7" } : { color: claimColor(claim.by) }}
+                        >
+                          {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
+                        </motion.span>
+                      </motion.div>
                     )}
                   </motion.button>
                 );
