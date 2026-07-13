@@ -1,7 +1,7 @@
 import type { LuckCard } from "./types";
 
 export const LUCK_CARDS: LuckCard[] = [
-  { id: "pirate", name: "Pirate", emoji: "🏴‍☠️", description: "Steal one random equipped item from your opponent at the start of battle." },
+  { id: "pirate", name: "Pirate", emoji: "🏴‍☠️", description: "Snatch one random equipped item from your opponent for their next two attacks." },
   { id: "blacksmith", name: "Blacksmith", emoji: "✨", description: "One of your random items is reforged into a Legendary version." },
   { id: "curse", name: "Curse", emoji: "💀", description: "Your opponent fights hexed: -15% attack and -12% defense." },
   { id: "lightning", name: "Lightning", emoji: "⚡", description: "Your opponent starts every battle with 25% less HP." },
@@ -9,7 +9,7 @@ export const LUCK_CARDS: LuckCard[] = [
   { id: "vampire", name: "Vampire", emoji: "🩸", description: "Heal for 20% of all damage you deal." },
   { id: "gambler", name: "Gambler", emoji: "🎲", description: "All your item stats are re-rolled between 50% and 200%. Good luck." },
   { id: "allin", name: "ALL IN", emoji: "🎰", description: "Each battle: 50% chance your attack and HP are boosted 80%, otherwise slashed 45%." },
-  { id: "magnet", name: "Magnet", emoji: "🧲", description: "Disable your opponent's weapon for the whole battle." },
+  { id: "magnet", name: "Magnet", emoji: "🧲", description: "Disable your opponent's weapon for their next two attacks." },
   { id: "trade", name: "Trade", emoji: "🎁", description: "Swap one random item with your opponent at the start of battle." },
   { id: "barrier", name: "Barrier", emoji: "🛡️", description: "Start every battle with a 35 HP magical shield." },
   { id: "phoenix", name: "Phoenix", emoji: "🔥", description: "The first time you would die, revive with 40% HP." },

@@ -10,7 +10,7 @@ export default function EventReveal({ event }: { event: GameEvent }) {
   const { t, eventText } = useI18n();
   const localized = eventText(event.id);
   useEffect(() => {
-    sfx.event();
+    sfx.environment(event.id);
   }, [event.id]);
 
   return (

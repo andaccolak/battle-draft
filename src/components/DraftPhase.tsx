@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { DraftOffer, RoomSnapshot } from "@/lib/game/types";
 import { DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
@@ -9,6 +9,7 @@ import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 import TimerBar from "./TimerBar";
 import { sfx } from "@/lib/sound";
+import { BUILD_STAT_KEYS, buildStats } from "@/lib/game/buildStats";
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -39,6 +40,13 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
     onPick(itemId);
   };
 
+  const pendingItem = offer?.items.find((item) => item.id === pendingId);
+  const displayedStats = useMemo(() => {
+    const equipment = { ...(me?.equipment ?? {}) };
+    if (pendingItem) equipment[pendingItem.slot] = pendingItem;
+    return buildStats(equipment);
+  }, [me?.equipment, pendingItem]);
+
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -62,6 +70,41 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
       </div>
 
       <TimerBar deadline={snapshot.deadline} totalMs={DRAFT_TIME_MS} />
+
+      <motion.section
+        layout
+        aria-label={t("currentStats")}
+        className={`rounded-2xl border px-3 py-2.5 transition-colors ${pendingItem ? "border-emerald-400/50 bg-emerald-500/10" : "border-white/10 bg-slate-950/60"}`}
+      >
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <div className="text-[11px] font-black uppercase tracking-widest text-slate-400">📊 {t("currentStats")}</div>
+          <AnimatePresence mode="wait">
+            {pendingItem && (
+              <motion.div
+                key={pendingItem.id}
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-[10px] font-black uppercase tracking-wider text-emerald-300"
+              >
+                {t("statsUpdated")}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        <div className="grid grid-cols-3 gap-x-2 gap-y-1.5">
+          {BUILD_STAT_KEYS.map((key) => (
+            <motion.div
+              key={key}
+              animate={pendingItem?.stats[key] ? { scale: [1, 1.08, 1], color: ["#e2e8f0", "#6ee7b7", "#e2e8f0"] } : undefined}
+              className="flex items-baseline justify-between gap-1 rounded-lg bg-white/[0.045] px-2 py-1 text-xs"
+            >
+              <span className="truncate text-[9px] font-black text-slate-500">{t(`stat_${key}`)}</span>
+              <span className="font-display font-black tabular-nums text-slate-200">{Math.round(displayedStats[key])}</span>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
 
       <AnimatePresence mode="wait">
         {offer && !offer.picked ? (

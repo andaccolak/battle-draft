@@ -1,8 +1,19 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the contact-synchronized feedback pass: every strike now resolves its audiovisual/UI feedback at the actual 3D contact frame, and screen shake no longer remounts the WebGL arena.
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after a six-part gameplay/UX milestone: Pirate and Magnet are limited to two opponent attack attempts, the arena is a consistent square on phones, combat audio has weapon/defense/body/environment/death identities, draft stats are immediately visible, manual battle-log reading is preserved, and poison has explicit HP-bar feedback.
 
 # Last Completed Work
+
+## Two-attack card balance + mobile battle clarity (game-feel sprint, 2026-07-13)
+
+- Pirate no longer transfers an opponent item permanently or mutates tournament equipment. It temporarily suppresses one random equipped item for exactly the opponent's next two attack attempts; Magnet applies the same two-attack window to the opponent weapon. Extra attacks count as attacks. A deterministic `gearReturn` beat restores the complete stat/passive delta, returns an HP item's max/current HP contribution, plays a pickup pose and return SFX, and animates the item back. Trade remains the only battle-start card that permanently swaps equipment.
+- Temporary suppression is resolved inside `simulateBattle`; it remains seeded and serverless. The result always returns empty `disabledItems` and the original loadout for Pirate/Magnet, preventing the old permanent tournament theft. Card application now resolves permanent trades before temporary suppression so mixed-card matches remain coherent.
+- The battle arena is now a centered 360×360 CSS-pixel square on normal phones with a viewport-safe square fallback below 392 px. The page no longer forces the entire battle into `100dvh - 6rem`, so short screens scroll instead of vertically crushing the 3D arena.
+- DraftPhase has a nine-stat fighter panel sourced from the same exported base stats as the simulator. Tapping an offer optimistically previews the chosen item's totals immediately while the server confirms the pick.
+- Battle log follow behavior is now reader-aware: new entries auto-follow only while the scroll position is within 12 px of the bottom. Scrolling upward pins the current reading position until the player returns to the bottom.
+- Poison Mist, poison application, bites, and poison ticks mark the affected fighter with a toxic-green glowing HP bar and skull badge.
+- WebAudio now synthesizes distinct light/heavy sword impacts, shield/block clangs, unarmed body strikes, event/environment beds, and a layered death fall. Sounds remain generated in-browser with no asset downloads; impact sounds remain synchronized to Arena3D's contact callback.
+- Verification: strict typecheck and production build pass; local production HTTP smoke test returned the home page, created a room and started a four-fighter bot draft; 120 seeded Pirate/Magnet battle pairs were run twice each to prove deterministic identical output, exactly two attacks before `gearReturn`, and preserved equipment. The in-app browser runtime reported no available browser, so rendered mobile visual/audio taste testing remains for a physical-phone or browser-enabled session.
 
 ## Contact-synchronized feedback + persistent arena (game-feel sprint, 2026-07-13)
 
@@ -46,17 +57,19 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. `src/lib/game/buildStats.ts` is the shared source for draft-visible base stats and simulator initialization; keep those values unified. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount. Pirate/Magnet use `TimedSuppression` snapshots in the pure simulator: suppressed stats run for two attack attempts, `gearReturn` applies the full-minus-suppressed delta, and returned battle equipment is never mutated by those cards.
 
 # Remaining Tasks
 
-- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking; owner should taste-check the now contact-synchronized finisher slow-mo, impact feedback and orbit speeds.
-- [ ] Sound design for remaining 3D beats (per-weapon whooshes, footsteps) if the owner wants more.
+- [ ] Test multiple full two-device battles and QTE flows on physical iPhone Safari, including the 360 px square arena on short screens, log scroll pinning, toxic HP state, immediate draft stat preview, and Pirate/Magnet item return after two attacks.
+- [ ] Owner taste-check the new sword/block/body/environment/death mix on phone speakers; tune oscillator/noise volume layers in `src/lib/sound.ts` if any category masks the ticker or feels harsh.
+- [ ] Sound design for remaining 3D beats (per-weapon windup whooshes and footsteps) after the new core mix is approved.
 - [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets; more kit-built maps.
 
 # Known Bugs
 
 - Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
+- The in-app browser backend was unavailable (`agent.browsers.list()` returned no browsers), so this milestone has build, HTTP, and deterministic simulation coverage but not rendered mobile screenshot/audio taste coverage.
 - A room created while Neon is reachable can return HTTP 500 if the database becomes unreachable mid-room; initial startup failure correctly falls back to memory, but DB-mode request failures are not caught by `withRoom`. Production resilience work is outside the current feel pass, but this violates the documented graceful-fallback intent.
 
 # Current Branch
@@ -65,18 +78,25 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck` and `npm run build` passed on 2026-07-13 after this milestone.
+`npm run typecheck` and `npm run build` passed on 2026-07-13 after the two-attack balance/mobile clarity milestone. Local production HTTP smoke test passed. 120 seeded two-card simulations passed determinism, duration, and equipment-preservation assertions.
 
 # Files Recently Modified
 
-- `src/components/Arena3D.tsx`
 - `src/components/BattleStage.tsx`
+- `src/components/DraftPhase.tsx`
+- `src/components/EventReveal.tsx`
+- `src/app/room/[code]/page.tsx`
+- `src/lib/game/battle.ts`
+- `src/lib/game/buildStats.ts`
+- `src/lib/game/luckCards.ts`
+- `src/lib/i18n/content.ts`
+- `src/lib/i18n/dictionary.ts`
 - `src/lib/sound.ts`
 - `handoff.md`
 
 # Suggested Next Step
 
-Owner phone test of the whole feel pass: contact synchronization, finisher slow-mo, hit-stop weight, spark/flash intensity, camera kick strength and float sizes. Tuning knobs: `impactFx` intensities/counts, `kickRef` increments (0.22/0.55), freeze 0.085 s, heft scales in applyPose, 0.3 slow-mo scale / 1360 ms contact-relative hold, orbit speeds (0.5/0.16 rad/s), 1700 ms zoom hold and `floatMag` thresholds in BattleStage. Next feel candidates: windup anticipation micro-lean, directional block sparks, victory particles integrated into 3D space.
+Run two physical-phone matches with one player deliberately drafting poison, Pirate, or Magnet. Verify the stat panel changes on the same tap, each card victim improvises/loses the selected item for two attack attempts and visibly receives it back, the arena stays square without clipping, and scrolling the battle log upward remains stable through several new beats. Taste-check the new sound layers on both iPhone speakers and headphones. After approval, the next feel candidate is weapon-specific windup whooshes plus footsteps tied to melee approach/recovery.
 
 # Important Decisions
 
@@ -88,10 +108,14 @@ Owner phone test of the whole feel pass: contact synchronization, finisher slow-
 - Auto-orbit yields to the player instantly: any active pointer on the arena suppresses the drift that frame.
 - QTE scoring remains based on the displayed rAF marker position; no timing thresholds or server rules changed.
 - Local pick locks are presentation-only and have a four-second escape hatch. They never assume a pick was accepted; only the next server snapshot advances the phase.
+- Pirate and Magnet are temporary denial cards, not equipment-transfer cards. Each affected attack attempt, including an extra attack, consumes one of two charges. Pirate/Magnet must never persist item mutations into `StatePlayer.equipment`; Trade remains permanent by design.
+- A `gearReturn` timeline entry is the presentation contract for restoring temporarily suppressed gear. Keep its actor as the recovering fighter and its `item` param as the stable item id so localization, pickup pose, audio, and return animation stay synchronized.
+- The battle arena must retain equal width and height. On normal phones it is 360 px square; the `min(360px, 100vw - 2rem)` fallback is only for narrower viewports. Do not put it back inside a flex-grow height constraint.
+- Battle-log auto-follow is conditional on `logPinnedRef`; do not restore unconditional scroll-to-bottom behavior.
 
 # Notes For Next Session
 
-The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The in-app browser was unavailable during this session, so visual taste verification remains for the next available browser/physical-phone session; the two automated full tournaments covered server progression and timeline/QTE behavior, not rendered-frame inspection.
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The in-app browser was unavailable during this session, so visual/audio taste verification remains for the next available browser/physical-phone session. Automated coverage this milestone was strict build/type safety, a live local production HTTP room/start flow, and 120 deterministic card battles. The local QA room `QA713` was left after the smoke test.
 
 ---
 
@@ -288,7 +312,7 @@ Key mechanics inside the simulator:
 
 - Stats: attack, defense, hp, speed, crit chance/damage, accuracy, dodge, initiative — from base + items (with event `statMods`) + luck cards + event multipliers.
 - Passives handled: firstStrike, lifesteal, reflect, poisonOnHit, extraAttack, healPerTurn, executioner, berserk, ignoreDefense, stunChance, critResist, lastStand (revive), block, shield, chaos.
-- Pre-battle luck cards mutate equipment **permanently across the tournament**: Pirate steals a random item, Trade swaps one; Curse/Magnet disable items for that battle; Lightning/ALL IN adjust HP/attack at battle start.
+- Pre-battle equipment cards have explicit persistence rules: Trade permanently swaps one slot for the tournament; Pirate temporarily suppresses one random opponent item for two attack attempts; Magnet temporarily suppresses the opponent weapon for two attack attempts; Curse applies battle-only stat penalties; Lightning/ALL IN adjust HP/attack at battle start. Pirate and Magnet never mutate tournament equipment.
 - Damage has a ×1.45 multiplier so fights resolve in few, heavy exchanges; fatigue damage ramps from round 5; hard cap 20 rounds, then judges decide by HP fraction.
 
 **Dramatic pacing (do not flatten this):** every attack is two timeline beats — a `windup` entry (weapon-specific suspense: `windupRanged` / `windupHeavy` / `windupBlade`) followed by the result (`attack` with dmg/crit flags, or `miss`/`dodge`). Each entry carries its own display duration `ms` (windups ~1.3s, minor passives 0.65s). Total battle length is capped at 38s by proportionally scaling `ms`. `BattleStage` renders windups as a dimmed-arena suspense banner and results as giant center-screen reveals (-34 damage / MISS! / CRITICAL!).

@@ -9,6 +9,7 @@ import { type Pose } from "./Fighter";
 import AvatarPortrait from "./AvatarPortrait";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
+import { weaponVisualKindFor } from "@/lib/game/items";
 
 const Arena3D = dynamic(() => import("./Arena3D"), { ssr: false });
 
@@ -129,7 +130,7 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     if (entry.key === "revive") {
       return entry.actor === "a" ? { a: "revive", b: "idle" } : { a: "idle", b: "revive" };
     }
-    if (entry.key === "weaponRecover") {
+    if (entry.key === "weaponRecover" || entry.key === "gearReturn") {
       return entry.actor === "a" ? { a: "pickup", b: "idle" } : { a: "idle", b: "pickup" };
     }
   }
@@ -155,20 +156,33 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
   return { a: "idle", b: "idle" };
 }
 
-function playSound(entry: TimelineEntry): void {
+function playSound(entry: TimelineEntry, battle: BattlePayload, eventId?: string): void {
   if (entry.t === "windup") sfx.windup();
   else if (entry.t === "attack") {
-    if (entry.crit) sfx.crit();
+    if (entry.blocked || (entry.absorbed ?? 0) > 0) {
+      sfx.defend();
+      return;
+    }
+    const fighter = entry.actor === "a" ? battle.a : battle.b;
+    const weaponId = entry.params?.weapon;
+    const weapon = Object.values(fighter.equipment).find((item) => item?.id === weaponId);
+    const kind = weaponId === "fists" ? "fists" : weaponVisualKindFor(weapon);
+    if (kind === "fists") sfx.humanStrike(!!entry.crit);
+    else if (kind === "blade" || kind === "dual" || kind === "heavy") sfx.sword(kind === "heavy", !!entry.crit);
+    else if (entry.crit) sfx.crit();
     else sfx.hit();
   } else if (entry.t === "miss" || entry.t === "dodge") sfx.miss();
   else if (entry.t === "quirk") {
-    if (entry.dmg) sfx.hit();
+    if (["quirkRain", "quirkBees", "quirkChicken", "quirkPigeon", "quirkTomato"].includes(entry.key ?? "")) sfx.environment(entry.key);
+    else if (entry.key === "quirkBite" || entry.key === "quirkHeadbutt" || entry.key === "quirkSlipper") sfx.humanStrike(false);
+    else if (entry.dmg) sfx.hit();
     else if (entry.heal) sfx.heal();
     else sfx.miss();
-  } else if (entry.t === "event") sfx.event();
+  } else if (entry.t === "event") sfx.environment(eventId);
   else if (entry.t === "card" || entry.t === "showcase") sfx.legendary();
   else if (entry.t === "victory") sfx.victory();
   else if (entry.t === "death") sfx.death();
+  else if (entry.key === "gearReturn") sfx.pick();
   else if (entry.heal) sfx.heal();
 }
 
@@ -196,6 +210,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const [zoom, setZoom] = useState(false);
   const arenaMotion = useAnimationControls();
   const logRef = useRef<HTMLDivElement>(null);
+  const logPinnedRef = useRef(true);
   const floatId = useRef(0);
   const indexRef = useRef(0);
   const prevIndexRef = useRef(-1);
@@ -277,7 +292,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     atImpact(() => {
       setDispHp({ a: entry.hpA, b: entry.hpB });
       if (finisher) sfx.finisher();
-      else playSound(entry);
+      else playSound(entry, battle, eventId);
       if (entry.t === "attack" && (entry.crit || finisher)) {
         setShake((sh) => sh + 1);
         setZoom(true);
@@ -315,7 +330,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   useEffect(() => () => pendingRef.current.forEach(clearTimeout), []);
 
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
+    const log = logRef.current;
+    if (log && logPinnedRef.current) log.scrollTo({ top: log.scrollHeight });
   }, [visible.length]);
 
   useEffect(() => {
@@ -336,17 +352,31 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     let lost = false;
     for (const e of visible) {
       if ((e.key === "quirkString" && e.actor === side) || (e.key === "quirkArm" && e.actor !== side && e.actor !== "none")) lost = true;
-      if (e.key === "weaponRecover" && e.actor === side) lost = false;
+      const fighter = side === "a" ? battle.a : battle.b;
+      const temporaryWeaponLoss =
+        (e.key === "magnet" || e.key === "pirate") && e.params?.target === side && e.params?.item === fighter.equipment.weapon?.id;
+      if (temporaryWeaponLoss) lost = true;
+      if ((e.key === "weaponRecover" || e.key === "gearReturn") && e.actor === side) lost = false;
     }
     return lost;
   };
+  const poisonedFor = (side: "a" | "b") => {
+    if (eventId === "poison_mist") return true;
+    const fighter = side === "a" ? battle.a : battle.b;
+    return visible.some(
+      (entry) =>
+        (entry.t === "poison" && entry.actor === side) ||
+        ((entry.key === "poisonApplied" || entry.key === "quirkBite") && entry.params?.d === fighter.nickname)
+    );
+  };
   const weaponLost = { a: weaponLostFor("a"), b: weaponLostFor("b") };
+  const poisoned = { a: poisonedFor("a"), b: poisonedFor("b") };
   const actor = current?.actor ?? "none";
   const nextEntry = entries[index + 1];
   const finisherNow = !!current && current.t === "attack" && (current.dmg ?? 0) > 0 && nextEntry?.t === "death";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex flex-col">
       <div className="mb-2 text-center">
         <span className="rounded-full bg-white/10 px-4 py-1 text-xs font-black uppercase tracking-widest text-amber-300">
           {battle.roundKey === "final"
@@ -361,13 +391,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       </div>
 
       <div className="mb-3 grid grid-cols-2 gap-3">
-        <HpBar name={battle.a.nickname} hp={hpA} maxHp={battle.a.maxHp} align="left" />
-        <HpBar name={battle.b.nickname} hp={hpB} maxHp={battle.b.maxHp} align="right" />
+        <HpBar name={battle.a.nickname} hp={hpA} maxHp={battle.a.maxHp} align="left" poisoned={poisoned.a} />
+        <HpBar name={battle.b.nickname} hp={hpB} maxHp={battle.b.maxHp} align="right" poisoned={poisoned.b} />
       </div>
 
       <motion.div
         animate={arenaMotion}
-        className="relative flex-1 overflow-hidden rounded-3xl border border-white/10"
+        className="relative mx-auto h-[min(360px,calc(100vw-2rem))] w-[min(360px,calc(100vw-2rem))] shrink-0 overflow-hidden rounded-3xl border border-white/10"
         style={{ background: theme.sky }}
       >
         
@@ -460,7 +490,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         </AnimatePresence>
 
         <AnimatePresence>
-          {current && current.t === "card" && ["pirate", "trade", "magnet"].includes(current.key ?? "") && (
+          {current && ((current.t === "card" && ["pirate", "trade", "magnet"].includes(current.key ?? "")) || current.key === "gearReturn") && (
             <CardSwapFx key={`cardfx-${index}`} entry={current} battle={battle} />
           )}
         </AnimatePresence>
@@ -506,6 +536,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
       <div
         ref={logRef}
+        onScroll={(event) => {
+          const log = event.currentTarget;
+          logPinnedRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
+        }}
         className="mt-2 h-24 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
@@ -613,6 +647,9 @@ function CardSwapFx({ entry, battle }: { entry: TimelineEntry; battle: BattlePay
     itemId !== undefined
       ? [...Object.values(battle.a.equipment), ...Object.values(battle.b.equipment)].find((i) => i && i.id === itemId)
       : undefined;
+  if (entry.key === "gearReturn") {
+    return <FlyingItem emoji={emoji} label={stolen ? itemName(stolen) : ""} fromRight={entry.actor === "a"} delay={0} top="34%" />;
+  }
   if (entry.key === "magnet") {
     return (
       <motion.div
@@ -825,16 +862,26 @@ function ArenaFX({ fx }: { fx: FxKind }) {
   return null;
 }
 
-function HpBar({ name, hp, maxHp, align }: { name: string; hp: number; maxHp: number; align: "left" | "right" }) {
+function HpBar({ name, hp, maxHp, align, poisoned }: { name: string; hp: number; maxHp: number; align: "left" | "right"; poisoned: boolean }) {
   const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
   return (
     <div className={align === "right" ? "text-right" : ""}>
-      <div className="mb-1 truncate text-sm font-bold">{name}</div>
+      <div className="mb-1 truncate text-sm font-bold">
+        {name} {poisoned && <span className="text-lime-300">☠️</span>}
+      </div>
       <div className={`h-3 w-full overflow-hidden rounded-full bg-white/10 ${align === "right" ? "scale-x-[-1]" : ""}`}>
         <motion.div
           animate={{ width: `${pct}%` }}
           transition={{ duration: 0.35 }}
-          className={`h-full rounded-full ${pct > 50 ? "bg-emerald-400" : pct > 25 ? "bg-amber-400" : "bg-rose-500"}`}
+          className={`h-full rounded-full ${
+            poisoned
+              ? "bg-gradient-to-r from-lime-300 via-green-400 to-emerald-500 shadow-[0_0_9px_rgba(163,230,53,0.75)]"
+              : pct > 50
+                ? "bg-emerald-400"
+                : pct > 25
+                  ? "bg-amber-400"
+                  : "bg-rose-500"
+          }`}
         />
       </div>
       <div className="mt-0.5 text-[11px] font-semibold tabular-nums text-slate-400">

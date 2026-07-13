@@ -147,7 +147,7 @@ export const EVENTS_TR: Record<string, { name: string; description: string }> = 
 };
 
 export const LUCK_CARDS_TR: Record<string, { name: string; description: string }> = {
-  pirate: { name: "Korsan", description: "Savaş başında rakibinin kuşandığı rastgele bir eşyayı çalarsın." },
+  pirate: { name: "Korsan", description: "Rakibinin kuşandığı rastgele bir eşyayı sonraki iki saldırısı boyunca kaparsın." },
   blacksmith: { name: "Demirci", description: "Rastgele bir eşyan Efsanevi versiyonuna dönüştürülür." },
   curse: { name: "Lanet", description: "Rakibin lanetli dövüşür: -%15 saldırı ve -%12 savunma." },
   lightning: { name: "Yıldırım", description: "Rakibin her savaşa %25 eksik canla başlar." },
@@ -155,7 +155,7 @@ export const LUCK_CARDS_TR: Record<string, { name: string; description: string }
   vampire: { name: "Vampir", description: "Verdiğin tüm hasarın %20'si kadar iyileşirsin." },
   gambler: { name: "Kumarbaz", description: "Tüm eşya değerlerin %50 ile %200 arasında yeniden zarlanır. Bol şans." },
   allin: { name: "HER ŞEYİNE", description: "Her savaşta: %50 ihtimalle saldırın ve canın %80 artar, yoksa %45 erir." },
-  magnet: { name: "Mıknatıs", description: "Rakibinin silahını tüm savaş boyunca devre dışı bırakır." },
+  magnet: { name: "Mıknatıs", description: "Rakibinin silahını sonraki iki saldırısı boyunca devre dışı bırakır." },
   trade: { name: "Takas", description: "Savaş başında rakibinle rastgele bir eşya değiş tokuş edersin." },
   barrier: { name: "Bariyer", description: "Her savaşa 35 canlık büyülü bir kalkanla başlarsın." },
   phoenix: { name: "Anka", description: "İlk ölümünde %40 canla yeniden dirilirsin." },
@@ -203,10 +203,10 @@ export const PASSIVE_TEMPLATES: Record<string, { en: string; tr: string }> = {
 export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   intro: { en: "⚔️ {a} VS {b}!", tr: "⚔️ {a} VS {b}!" },
   showcase: { en: "🎺 {p} enters the arena!", tr: "🎺 {p} arenaya çıkıyor!" },
-  pirate: { en: "🏴‍☠️ {p} activates Pirate and steals {o}'s {emoji} {item}!", tr: "🏴‍☠️ {p} Korsan kartını kullandı ve {o} oyuncusunun {emoji} {item} eşyasını çaldı!" },
+  pirate: { en: "🏴‍☠️ {p} snatches {o}'s {emoji} {item} for two attacks!", tr: "🏴‍☠️ {p}, {o} oyuncusunun {emoji} {item} eşyasını iki saldırı boyunca kaptı!" },
   trade: { en: "🎁 {p} activates Trade! {slot} items are swapped with {o}!", tr: "🎁 {p} Takas kartını kullandı! {slot} eşyaları {o} ile değişti!" },
   curse: { en: "💀 {p}'s Curse saps {o}'s strength!", tr: "💀 {p} oyuncusunun Laneti {o} oyuncusunun gücünü emiyor!" },
-  magnet: { en: "🧲 {p}'s Magnet rips {o}'s {emoji} {item} away!", tr: "🧲 {p} oyuncusunun Mıknatısı, {o} oyuncusunun {emoji} {item} silahını söküp aldı!" },
+  magnet: { en: "🧲 {p}'s Magnet rips {o}'s {emoji} {item} away for two attacks!", tr: "🧲 {p} oyuncusunun Mıknatısı, {o} oyuncusunun {emoji} {item} silahını iki saldırı boyunca söküp aldı!" },
   underdog: { en: "🐕 Underdog Spirit empowers {p}!", tr: "🐕 Ezilenin Ruhu {p} oyuncusuna güç verdi!" },
   lightning: { en: "⚡ {p}'s Lightning strikes {o} before the fight! -25% HP!", tr: "⚡ {p} oyuncusunun Yıldırımı savaştan önce {o} oyuncusuna çarptı! -%25 can!" },
   jackpot: { en: "🎰 {p} goes ALL IN... JACKPOT! Attack and HP surge!", tr: "🎰 {p} HER ŞEYİNE oynadı... JACKPOT! Saldırı ve can fırladı!" },
@@ -238,6 +238,7 @@ export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   quirkPhone: { en: "📱 Someone's phone rang. Everyone is judging them.", tr: "📱 Birinin telefonu çaldı. Herkes onu yargılıyor." },
   quirkReferee: { en: "🧐 The referee inspects {p}'s gear. Legal. Barely.", tr: "🧐 Hakem {p} oyuncusunun teçhizatını inceliyor. Kurallara uygun. Ucu ucuna." },
   weaponRecover: { en: "🤚 {p} grabs their weapon back off the ground!", tr: "🤚 {p} silahını yerden geri kaptı!" },
+  gearReturn: { en: "🤚 {p}'s {emoji} {item} returns after two attacks!", tr: "🤚 {p} oyuncusunun {emoji} {item} eşyası iki saldırıdan sonra geri döndü!" },
   quirkBees: { en: "🐝 A swarm of bees crashes the fight! Everyone -3!", tr: "🐝 Arı sürüsü dövüşü bastı! Herkes -3!" },
   quirkSneeze: { en: "🤧 {p} sneezed mid-stance! Embarrassing AND painful.", tr: "🤧 {p} tam duruş anında hapşırdı! Hem utanç verici hem acı." },
   quirkTrip: { en: "🪢 {p} tripped over their own bootlaces!", tr: "🪢 {p} kendi bot bağcıklarına takılıp sendeledi!" },

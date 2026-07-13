@@ -2,6 +2,7 @@ import type { Item, LuckCard, Slot, TimelineEntry } from "./types";
 import { RARITY_ORDER, SLOTS } from "./types";
 import { weaponKindFor } from "./items";
 import type { EventDef } from "./events";
+import { BASE_BUILD_STATS } from "./buildStats";
 
 export interface Build {
   nickname: string;
@@ -92,6 +93,70 @@ interface PreEntry {
   params: Record<string, string | number>;
   fx?: string;
 }
+
+interface PendingSuppression {
+  side: "a" | "b";
+  slot: Slot;
+  item: Item;
+  source: "pirate" | "magnet";
+}
+
+interface TimedSuppression extends PendingSuppression {
+  remainingAttacks: number;
+  full: Combatant;
+  suppressed: Combatant;
+}
+
+type RestorableNumber =
+  | "attack"
+  | "defense"
+  | "speed"
+  | "critChance"
+  | "critDamage"
+  | "accuracy"
+  | "dodge"
+  | "initiative"
+  | "lifesteal"
+  | "reflect"
+  | "poisonOnHit"
+  | "extraAttack"
+  | "healPerTurn"
+  | "sturdy"
+  | "momentum"
+  | "executioner"
+  | "berserk"
+  | "ignoreDefense"
+  | "stunChance"
+  | "critResist"
+  | "block"
+  | "lastStandValue"
+  | "shield";
+
+const RESTORABLE_NUMBERS: RestorableNumber[] = [
+  "attack",
+  "defense",
+  "speed",
+  "critChance",
+  "critDamage",
+  "accuracy",
+  "dodge",
+  "initiative",
+  "lifesteal",
+  "reflect",
+  "poisonOnHit",
+  "extraAttack",
+  "healPerTurn",
+  "sturdy",
+  "momentum",
+  "executioner",
+  "berserk",
+  "ignoreDefense",
+  "stunChance",
+  "critResist",
+  "block",
+  "lastStandValue",
+  "shield"
+];
 
 class ReactionPause {
   side: "a" | "b";
@@ -193,17 +258,17 @@ function buildCombatant(
   const c: Combatant = {
     key,
     nickname: build.nickname,
-    hp: 200,
-    maxHp: 200,
+    hp: BASE_BUILD_STATS.hp,
+    maxHp: BASE_BUILD_STATS.hp,
     shield: 0,
-    attack: 12,
-    defense: 0,
-    critChance: 10,
-    critDamage: 50,
-    accuracy: 90,
-    dodge: 5,
-    speed: 10,
-    initiative: 0,
+    attack: BASE_BUILD_STATS.attack,
+    defense: BASE_BUILD_STATS.defense,
+    critChance: BASE_BUILD_STATS.critChance,
+    critDamage: BASE_BUILD_STATS.critDamage,
+    accuracy: BASE_BUILD_STATS.accuracy,
+    dodge: BASE_BUILD_STATS.dodge,
+    speed: BASE_BUILD_STATS.speed,
+    initiative: BASE_BUILD_STATS.initiative,
     lifesteal: 0,
     reflect: 0,
     poisonOnHit: 0,
@@ -434,33 +499,17 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   const aDisabled: string[] = [];
   const bDisabled: string[] = [];
   const pre: PreEntry[] = [];
+  const pendingSuppressions: Partial<Record<"a" | "b", PendingSuppression>> = {};
 
-  const applyCards = (
+  const applyTrade = (
     self: Build,
     selfEquip: Partial<Record<Slot, Item>>,
     otherEquip: Partial<Record<Slot, Item>>,
-    otherDisabled: string[],
     selfName: string,
     otherName: string,
     selfKey: "a" | "b"
   ) => {
     const card = self.luckCard?.id;
-    if (card === "pirate") {
-      const slot = randomEquippedSlot(otherEquip);
-      if (slot) {
-        const stolen = otherEquip[slot];
-        if (stolen) {
-          delete otherEquip[slot];
-          selfEquip[slot] = stolen;
-          pre.push({
-            text: `🏴‍☠️ ${selfName} activates Pirate and steals ${otherName}'s ${stolen.emoji} ${stolen.name}!`,
-            key: "pirate",
-            params: { p: selfName, o: otherName, item: stolen.id, emoji: stolen.emoji, side: selfKey },
-            fx: `steal:${slot}`
-          });
-        }
-      }
-    }
     if (card === "trade") {
       const slot = randomEquippedSlot(otherEquip) ?? randomEquippedSlot(selfEquip);
       if (slot) {
@@ -478,25 +527,71 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         });
       }
     }
+  };
+
+  const applyTemporaryCard = (
+    self: Build,
+    otherEquip: Partial<Record<Slot, Item>>,
+    otherDisabled: string[],
+    selfName: string,
+    otherName: string,
+    selfKey: "a" | "b"
+  ) => {
+    const card = self.luckCard?.id;
+    const otherKey = selfKey === "a" ? "b" : "a";
+    if (card === "pirate") {
+      const slot = randomEquippedSlot(otherEquip);
+      const stolen = slot ? otherEquip[slot] : undefined;
+      if (slot && stolen) {
+        otherDisabled.push(stolen.id);
+        pendingSuppressions[otherKey] = { side: otherKey, slot, item: stolen, source: "pirate" };
+        pre.push({
+          text: `🏴‍☠️ ${selfName} snatches ${otherName}'s ${stolen.emoji} ${stolen.name} for two attacks!`,
+          key: "pirate",
+          params: { p: selfName, o: otherName, item: stolen.id, emoji: stolen.emoji, side: selfKey, target: otherKey },
+          fx: `steal:${slot}`
+        });
+      }
+    }
     if (card === "magnet") {
       const weapon = otherEquip.weapon;
       if (weapon && !otherDisabled.includes(weapon.id)) {
         otherDisabled.push(weapon.id);
+        pendingSuppressions[otherKey] = { side: otherKey, slot: "weapon", item: weapon, source: "magnet" };
         pre.push({
-          text: `🧲 ${selfName}'s Magnet rips ${otherName}'s ${weapon.emoji} ${weapon.name} away!`,
+          text: `🧲 ${selfName}'s Magnet rips ${otherName}'s ${weapon.emoji} ${weapon.name} away for two attacks!`,
           key: "magnet",
-          params: { p: selfName, o: otherName, item: weapon.id, emoji: weapon.emoji, side: selfKey },
+          params: { p: selfName, o: otherName, item: weapon.id, emoji: weapon.emoji, side: selfKey, target: otherKey },
           fx: "magnet"
         });
       }
     }
   };
 
-  applyCards(aBuild, aEquip, bEquip, bDisabled, aBuild.nickname, bBuild.nickname, "a");
-  applyCards(bBuild, bEquip, aEquip, aDisabled, bBuild.nickname, aBuild.nickname, "b");
+  applyTrade(aBuild, aEquip, bEquip, aBuild.nickname, bBuild.nickname, "a");
+  applyTrade(bBuild, bEquip, aEquip, bBuild.nickname, aBuild.nickname, "b");
+  applyTemporaryCard(aBuild, bEquip, bDisabled, aBuild.nickname, bBuild.nickname, "a");
+  applyTemporaryCard(bBuild, aEquip, aDisabled, bBuild.nickname, aBuild.nickname, "b");
 
   const a = buildCombatant("a", { ...aBuild, equipment: aEquip }, event, aDisabled);
   const b = buildCombatant("b", { ...bBuild, equipment: bEquip }, event, bDisabled);
+  const suppressions: Partial<Record<"a" | "b", TimedSuppression>> = {};
+  if (pendingSuppressions.a) {
+    suppressions.a = {
+      ...pendingSuppressions.a,
+      remainingAttacks: 2,
+      full: buildCombatant("a", { ...aBuild, equipment: aEquip }, event, []),
+      suppressed: { ...a }
+    };
+  }
+  if (pendingSuppressions.b) {
+    suppressions.b = {
+      ...pendingSuppressions.b,
+      remainingAttacks: 2,
+      full: buildCombatant("b", { ...bBuild, equipment: bEquip }, event, []),
+      suppressed: { ...b }
+    };
+  }
 
   if (event.hooks.underdogBoost) {
     const powerOf = (c: Combatant) => c.attack * 2 + c.defense * 2 + c.maxHp * 0.5 + c.speed;
@@ -565,6 +660,42 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
 
   const push = (e: Omit<TimelineEntry, "hpA" | "hpB">) => {
     timeline.push({ ms: entryMs(e), ...e, hpA: Math.max(0, Math.round(a.hp)), hpB: Math.max(0, Math.round(b.hp)) });
+  };
+
+  const restoreSuppressedGear = (c: Combatant, suppression: TimedSuppression) => {
+    for (const field of RESTORABLE_NUMBERS) {
+      c[field] += suppression.full[field] - suppression.suppressed[field];
+    }
+    const maxHpGain = suppression.full.maxHp - suppression.suppressed.maxHp;
+    c.maxHp = Math.max(30, c.maxHp + maxHpGain);
+    if (maxHpGain > 0) c.hp = Math.min(c.maxHp, c.hp + maxHpGain);
+    c.firstStrike ||= suppression.full.firstStrike;
+    c.stunImmune ||= suppression.full.stunImmune;
+    c.hasBoots ||= suppression.full.hasBoots;
+    c.hasHelmet ||= suppression.full.hasHelmet;
+    c.hasArmor ||= suppression.full.hasArmor;
+    if (suppression.slot === "weapon") {
+      c.weaponName = suppression.full.weaponName;
+      c.weaponId = suppression.full.weaponId;
+      c.windupKey = suppression.full.windupKey;
+      c.weaponless = false;
+    }
+    push({
+      t: "passive",
+      actor: c.key,
+      text: `🤚 ${c.nickname}'s ${suppression.item.emoji} ${suppression.item.name} returns after two attacks!`,
+      key: "gearReturn",
+      params: { p: c.nickname, item: suppression.item.id, emoji: suppression.item.emoji, source: suppression.source },
+      fx: `return:${suppression.slot}`
+    });
+    delete suppressions[c.key];
+  };
+
+  const consumeSuppressionAttack = (c: Combatant) => {
+    const suppression = suppressions[c.key];
+    if (!suppression) return;
+    suppression.remainingAttacks--;
+    if (suppression.remainingAttacks === 0) restoreSuppressedGear(c, suppression);
   };
 
   push({
@@ -1211,7 +1342,11 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
           continue;
         }
         attackOnce(att, def, false);
-        if (def.hp > 0 && att.hp > 0 && roll(att.extraAttack)) attackOnce(att, def, true);
+        consumeSuppressionAttack(att);
+        if (def.hp > 0 && att.hp > 0 && roll(att.extraAttack)) {
+          attackOnce(att, def, true);
+          consumeSuppressionAttack(att);
+        }
         if (!tryRevive(def)) break;
         if (!tryRevive(att)) break;
       }
@@ -1310,8 +1445,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     pendingSide,
     aEquipment: aEquip,
     bEquipment: bEquip,
-    aDisabled,
-    bDisabled,
+    aDisabled: [],
+    bDisabled: [],
     aMaxHp: a.maxHp,
     bMaxHp: b.maxHp
   };

@@ -30,6 +30,8 @@ export const UI: Record<string, { en: string; tr: string }> = {
   lockedIn: { en: "Locked in!", tr: "Seçim yapıldı!" },
   waitingSlow: { en: "Waiting for the slowpokes...", tr: "Yavaş kalanlar bekleniyor..." },
   skipRound: { en: "😱 Every slot is taken — skip this round", tr: "😱 Tüm yuvalar dolu — bu turu pas geç" },
+  currentStats: { en: "Current fighter stats", tr: "Güncel savaşçı değerleri" },
+  statsUpdated: { en: "Updated instantly", tr: "Anında güncellendi" },
   luckTitle1: { en: "🍀 Luck", tr: "🍀 Şans" },
   luckTitle2: { en: "Cards", tr: "Kartları" },
   luckSub: { en: "One card. It might save you. It might not.", tr: "Tek kart. Seni kurtarabilir. Ya da kurtarmayabilir." },
