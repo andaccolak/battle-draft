@@ -21,7 +21,8 @@ export type Pose =
   | "revive"
   | "taunt"
   | "dead"
-  | "victory";
+  | "victory"
+  | "use";
 
 interface Props {
   avatar: AvatarDef;

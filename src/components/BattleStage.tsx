@@ -138,6 +138,9 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
     }
   }
   if (entry.t === "quirk") {
+    if ((entry.key === "quirkSnack" || entry.key === "quirkPrayer" || entry.key === "quirkBreather") && entry.actor !== "none") {
+      return entry.actor === "a" ? { a: "use", b: "idle" } : { a: "idle", b: "use" };
+    }
     if (entry.key === "quirkTaunt" && entry.actor !== "none") {
       return entry.actor === "a" ? { a: "taunt", b: "idle" } : { a: "idle", b: "taunt" };
     }

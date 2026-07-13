@@ -94,17 +94,22 @@ export function useGame(code: string, nickname: string): GameApi {
     fatalRef.current = false;
     leftRef.current = false;
     let stopped = false;
+    let missingStreak = 0;
 
     const poll = async () => {
       if (stopped || fatalRef.current || leftRef.current) return;
       try {
         const res = await fetch(`/api/rooms/${code}?playerId=${encodeURIComponent(playerIdRef.current)}`);
         if (res.status === 404) {
-          const data = (await res.json()) as RoomResponse;
-          setError(data.error ?? "err_not_found");
-          fatalRef.current = true;
+          missingStreak++;
+          if (missingStreak >= 3) {
+            const data = (await res.json()) as RoomResponse;
+            setError(data.error ?? "err_not_found");
+            fatalRef.current = true;
+          }
           return;
         }
+        missingStreak = 0;
         const data = (await res.json()) as RoomResponse;
         applyResponse(data);
         setConnected(true);

@@ -92,12 +92,12 @@ const IDLE_POOLS: Partial<Record<FighterKind, string[]>> = {
 const WINDUP_POOLS: Record<FighterKind, string[]> = {
   blade: ["Melee_Blocking", "Melee_Block", IDLE_CLIP],
   heavy: ["Melee_2H_Idle", "Melee_Blocking", IDLE_CLIP],
-  dual: ["Melee_Blocking", "Melee_Block", IDLE_CLIP],
+  dual: ["Sneaking", "Melee_Blocking", "Melee_Block", IDLE_CLIP],
   shield: ["Melee_Block_Attack", "Melee_Blocking", IDLE_CLIP],
   crossbow: ["Ranged_2H_Aiming", "Ranged_2H_Shooting", IDLE_CLIP],
   bow: ["Ranged_Bow_Draw", "Ranged_Bow_Idle", IDLE_CLIP],
   magic: ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP],
-  fists: ["Melee_Unarmed_Idle", IDLE_CLIP]
+  fists: ["Crouching", "Melee_Unarmed_Idle", IDLE_CLIP]
 };
 
 function meleeRunMs(rig: Rig, opp: Rig | undefined): number {
@@ -339,6 +339,7 @@ interface Rig {
   radiusTarget: number;
   impulse: THREE.Vector3;
   returning: boolean;
+  idleVariant: string;
 }
 
 function setWeaponDropped(rig: Rig, scene: THREE.Scene, lost: boolean): void {
@@ -495,7 +496,8 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     radius: RING_RADIUS,
     radiusTarget: RING_RADIUS,
     impulse: new THREE.Vector3(),
-    returning: false
+    returning: false,
+    idleVariant: IDLE_CLIP
   };
 }
 
@@ -616,7 +618,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
   rig.moveSpeed = null;
   rig.returning = false;
   rig.pose = pose;
-  rig.idleClip = pickAvailable(rig, IDLE_POOLS[kind] ?? [IDLE_CLIP], false) ?? IDLE_CLIP;
+  rig.idleClip = pickAvailable(rig, IDLE_POOLS[kind] ?? [rig.idleVariant, IDLE_CLIP], false) ?? IDLE_CLIP;
   switch (pose) {
     case "idle":
       rig.targetPos.copy(rig.base);
@@ -642,7 +644,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       break;
     case "windup":
       rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.35);
-      playAction(rig, WINDUP_POOLS[kind], kind === "magic" || kind === "shield" ? { once: true, backToIdle: true, random: true, seed } : {});
+      playAction(rig, WINDUP_POOLS[kind], kind === "magic" || kind === "shield" ? { once: true, backToIdle: true, random: true, seed } : { random: true, seed });
       break;
     case "attack": {
       if (MELEE_KINDS.has(kind) && opp) {
@@ -659,7 +661,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       const heft = kind === "heavy" ? 0.9 : kind === "dual" || kind === "fists" ? 1.12 : kind === "shield" ? 0.96 : 1;
       if (strike && MELEE_KINDS.has(kind) && !quick && rig.clips?.has("Running_A")) {
         rig.moveSpeed = RUN_SPEED;
-        playAction(rig, ["Running_A"]);
+        playAction(rig, ["Running_A", "Running_B"], { random: true, seed });
         rig.actionTimer = setTimeout(() => {
           rig.moveSpeed = null;
           playAction(rig, [strike], { once: true, backToIdle: true });
@@ -717,9 +719,13 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       if (rig.placeholder) rig.targetTilt = Math.PI / 2;
       playAction(rig, ["Death_A", "Death_B"], { once: true, random: true, seed });
       break;
+    case "use":
+      rig.targetPos.copy(rig.base);
+      playAction(rig, ["Use_Item", "Interact", "PickUp"], { once: true, backToIdle: true });
+      break;
     case "victory":
       rig.targetPos.copy(rig.base);
-      playAction(rig, ["Cheering", "Waving", "Push_Ups", "Jump_Full_Short"], { random: true, seed });
+      playAction(rig, ["Cheering", "Waving", "Push_Ups", "Jump_Full_Short", "Skeletons_Taunt_Longer", "Sit_Ups"], { random: true, seed });
       break;
   }
 }
@@ -901,6 +907,9 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     rigBRef.current = rigB;
     attachMarker(rigA, 0x818cf8);
     attachMarker(rigB, 0xf87171);
+    const idleHash = (name: string) => name.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    rigA.idleVariant = idleHash(a.nickname) % 2 === 0 ? "Idle_A" : "Idle_B";
+    rigB.idleVariant = idleHash(b.nickname) % 2 === 0 ? "Idle_A" : "Idle_B";
     attachNameSprite(rigA, a.nickname, "#a5b4fc");
     attachNameSprite(rigB, b.nickname, "#fca5a5");
     for (const rig of [rigA, rigB]) {
