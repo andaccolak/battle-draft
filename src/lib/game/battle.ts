@@ -65,6 +65,7 @@ interface Combatant {
   poison: number;
   stunned: boolean;
   stunImmune: boolean;
+  evadeStreak: number;
   weaponName: string;
   weaponId: string;
   windupKey: string;
@@ -285,6 +286,7 @@ function buildCombatant(
     firstCritReady: profile.firstCritReady,
     poison: 0,
     stunned: false,
+    evadeStreak: 0,
     stunImmune: profile.stunImmune,
     weaponName: "fists",
     weaponId: "fists",
@@ -898,8 +900,9 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     }
     const dodgeUsed = def.ankleTwisted ? 0 : def.dodge;
     if (def.ankleTwisted) def.ankleTwisted = false;
-    const hitChance = clamp(acc - dodgeUsed, 15, 100);
+    const hitChance = clamp(acc - dodgeUsed + def.evadeStreak * 9, 15, 100);
     if (!roll(hitChance)) {
+      def.evadeStreak = Math.min(def.evadeStreak + 1, 4);
       if (roll(50)) {
         push({
           t: "miss",
@@ -943,6 +946,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
       }
       return;
     }
+    def.evadeStreak = 0;
     let atk = att.attack;
     if (att.berserk > 0 && att.hp < att.maxHp * 0.4) atk *= 1 + att.berserk / 100;
     let dmg = atk * (0.85 + rand() * 0.3) * 1.45;
@@ -1344,7 +1348,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   if (!aCanReact && !bCanReact && pendingSide === null && totalMs > MAX_BATTLE_MS) {
     const scale = MAX_BATTLE_MS / totalMs;
     for (const e of timeline) {
-      e.ms = Math.max(350, Math.round((e.ms ?? 900) * scale));
+      const floor = e.t === "attack" || e.t === "miss" || e.t === "dodge" || e.t === "death" ? 950 : e.t === "windup" ? 600 : 350;
+      e.ms = Math.max(floor, Math.round((e.ms ?? 900) * scale));
     }
     totalMs = timeline.reduce((sum, e) => sum + (e.ms ?? 900), 0);
   }

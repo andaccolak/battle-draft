@@ -40,8 +40,27 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
           name.style.webkitTextFillColor = "#fbbf24";
           name.style.color = "#fbbf24";
         }
+        for (const el of Array.from(doc.querySelectorAll<HTMLElement>(".truncate"))) {
+          el.classList.remove("truncate");
+          el.style.whiteSpace = "nowrap";
+          el.style.overflow = "visible";
+        }
+        for (const el of Array.from(doc.querySelectorAll<HTMLElement>("span, p, div"))) {
+          const lh = getComputedStyle(el).lineHeight;
+          if (lh !== "normal" && parseFloat(lh) < parseFloat(getComputedStyle(el).fontSize) * 1.25) {
+            el.style.lineHeight = "1.3";
+          }
+        }
+        const scroller = doc.querySelector<HTMLElement>("[data-share-scroll]");
+        if (scroller) {
+          scroller.style.maxHeight = "none";
+          scroller.style.overflow = "visible";
+        }
       }
-    }).catch(() => null);
+    }).catch((err) => {
+      console.warn("share render failed", err);
+      return null;
+    });
     if (!canvas) return null;
     return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/png"));
   };
@@ -168,7 +187,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
       {snapshot.bracket && snapshot.bracket.some((r) => r.matches.some((m) => m.winner)) && (
         <div className="card-surface w-full p-4">
           <div className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">🏁 {t("matchHistory")}</div>
-          <div className="max-h-40 space-y-1 overflow-y-auto">
+          <div data-share-scroll className="max-h-40 space-y-1 overflow-y-auto">
             {snapshot.bracket
               .flatMap((r) => r.matches)
               .filter((m) => m.winner && m.a && m.b)

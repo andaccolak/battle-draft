@@ -4,6 +4,16 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Flow smoothness batch: soft catch-up, evade fatigue, share card (2026-07-13)
+
+- ROOT CAUSE of "invisible attacks / HP drops with no animation": BattleStage hard-resynced to server elapsedMs on EVERY poll — any drift >1 beat teleported the index, silently skipping attack animations (phones throttle timers, so this fired constantly). Now: soft catch-up — `hurryToRef` tracks the server-expected index; while behind, beats play at 65% duration (45% if >1 behind, floor 300ms) so EVERY beat still renders; hard jump only if >6 beats behind (lands on expected-1 so the last skipped beat still animates).
+- Compressed bot battles: weighted floors replace the flat 350ms — attack/miss/dodge/death beats floor at 950ms, windup 600ms, filler (passive/quirk/poison) stays 350ms. May slightly exceed MAX_BATTLE_MS (58s) in extreme cases; acceptable.
+- Anti luck-streak ("one combatant dodges everything"): new `evadeStreak` on Combatant — each consecutive evaded attack gives attackers +9 hit chance vs that defender (cap +36), reset when a hit lands. Deterministic, safe for QTE re-runs.
+- Removed the gold pulsing "●●●" dots from the beat banner (owner: "colorful dots inside battle screen").
+- Champion share card text clipping FIXED (was: standings/match-history names cut in half vertically): html2canvas onclone now strips `.truncate` overflow-hidden (→ visible/nowrap), bumps any line-height below 1.25em to 1.3, and un-caps the match-history scroller (`data-share-scroll`). Verified by capturing the ACTUAL generated PNG headless (patched navigator.clipboard.write in puppeteer; NOTE: navigator.share hangs forever in headless Chrome — nuke navigator.share/canShare when testing). buildImage failures now console.warn instead of silent null.
+- Local-env note: at champion phase a POST /api/rooms/CODE returns 500 locally (stats persist needs Neon DB); benign, prod unaffected, predates this batch.
+- Verified: typecheck + prod build clean; full bot tournament to champion (benign 404s only); share-card PNG pixel-checked.
+
 ## Chaos Draft compaction + lobby settings card (2026-07-13)
 
 - Chaos Draft renamed to "Chaos Draft" in BOTH languages (owner request; TR no longer "Kapışma Draftı").

@@ -227,6 +227,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const prevIndexRef = useRef(-1);
   const pendingRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const impactRef = useRef<{ beat: number; fire: () => void } | null>(null);
+  const hurryToRef = useRef(0);
   const [dispHp, setDispHp] = useState(() => {
     const e = battle.timeline[indexForElapsed(battle.timeline, battle.elapsedMs ?? 0)];
     return { a: e?.hpA ?? battle.a.maxHp, b: e?.hpB ?? battle.b.maxHp };
@@ -249,13 +250,17 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
 
   useEffect(() => {
     if (index >= entries.length - 1) return;
-    const timer = setTimeout(() => setIndex((i) => i + 1), entryDuration(entries[index]));
+    const base = entryDuration(entries[index]);
+    const behind = hurryToRef.current - index;
+    const duration = behind > 0 ? Math.max(300, Math.round(base * (behind > 1 ? 0.45 : 0.65))) : base;
+    const timer = setTimeout(() => setIndex((i) => i + 1), duration);
     return () => clearTimeout(timer);
   }, [index, entries.length]);
 
   useEffect(() => {
     const expected = indexForElapsed(entriesRef.current, battle.elapsedMs ?? 0);
-    setIndex((i) => (expected > i + 1 ? expected : i));
+    hurryToRef.current = expected;
+    setIndex((i) => (expected > i + 6 ? expected - 1 : i));
   }, [battle.elapsedMs]);
 
   useEffect(() => {
@@ -582,11 +587,6 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
             }`}
           >
             {atPause && !qteMine && pending ? t("qteWaiting", { p: pending.nickname }) : current ? logLine(current, true) : ""}
-            {(current?.t === "windup" || (atPause && !qteMine)) && (
-              <motion.span animate={{ opacity: [0, 1, 0] }} transition={{ repeat: Infinity, duration: 0.8 }} className="ml-1">
-                ●●●
-              </motion.span>
-            )}
           </motion.div>
         </AnimatePresence>
       </div>
