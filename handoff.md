@@ -1,10 +1,10 @@
 # Current Status
 
-The latest player-feedback milestone is locally verified and ready for production. It points sharp weapons inward toward opponents, guarantees central miss/dodge feedback, prevents offscreen combat floats from collapsing into the arena corner, fixes the event reel's stable authoritative landing, resets every new draft offer to the page top, makes item deltas immediately scannable, doubles the battle-log viewport, adds league standings after each match and at tournament end, and layers six trimmed Pixabay samples over the existing procedural combat audio. The previous production checkpoint remains commit `1af2456` until this milestone is pushed and its deployment is verified.
+The latest player-feedback milestone is live and healthy at `https://battle-draft.vercel.app`. It points sharp weapons inward toward opponents, guarantees central miss/dodge feedback, prevents offscreen combat floats from collapsing into the arena corner, fixes the event reel's stable authoritative landing, resets every new draft offer to the page top, makes item deltas immediately scannable, doubles the battle-log viewport, adds league standings after each match and at tournament end, and layers six trimmed Pixabay samples over the existing procedural combat audio. Release source commit `39ae776` is synchronized on `main` and `claude/multiplayer-party-game-5dip9w`; Vercel Production deployment `5423638382` succeeded.
 
 # Last Completed Work
 
-## Combat clarity, authoritative reel, league table, and sampled audio (release candidate, 2026-07-13)
+## Combat clarity, authoritative reel, league table, and sampled audio (live release, 2026-07-13)
 
 - Corrected offensive weapon presentation with per-model inward aim. Existing native sharp-end orientation remains intact while right- and left-hand mounts converge toward the opposing fighter instead of pointing outside the combat line.
 - Miss/dodge impact fallback now scales to the actual beat duration and fires before short beats can cancel it. A central animated `MISS!`/`DODGED!` pill guarantees active feedback even when the fighter-relative float is obscured.
@@ -14,6 +14,7 @@ The latest player-feedback milestone is locally verified and ready for productio
 - Added derived server-authoritative league standings with rank, played, won, lost, three-points-per-win, head-to-head/seeded-lot tie breaks, and playoff qualification. The table appears during the 5.5-second pause after every league battle and again on the champion screen; round-robin results remain separate from semifinal/final records.
 - Added six locally packaged Pixabay samples for blade movement, metal/shield contact, physical strikes, arrows, human pain/death, and fire magic. Samples are trimmed for immediate attack transients, pitch-varied slightly, routed through the existing compressor, and layered over procedural cues so sound remains responsive if decoding fails. Exact creators, source pages, and license are recorded in `docs/SOUND_CREDITS.md`.
 - Verification: `npm run typecheck`, `npm run build`, and `git diff --check` pass. Static invariants confirm all 22 referenced weapon models have grip transforms, six nonempty optimized audio samples are packaged, the reel center contract is present, and league/audio markers are in the production bundle. No match was created or played, per the owner's explicit instruction; physical-phone validation belongs to the owner after deployment.
+- Production verification: deployment `5423638382` reported `success` for source commit `39ae776`. Fresh public checks returned HTTP 200 for the home page and room shell; all 15 client scripts contained the league, audio, evasion, taller-log, and draft-delta release markers. Each of the six public MP3 URLs returned HTTP 200 with `audio/mpeg`. No room API was called.
 
 ## Live production verification (release checkpoint, 2026-07-13)
 
@@ -133,7 +134,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the combat-clarity/league/audio milestone. The optimized Next.js build compiled every route; static checks cover 22 referenced weapon model grips, six optimized combat samples, exact event-reel center structure, and compiled league/audio UI markers. No match was created or played in this milestone, per owner instruction. The last verified Vercel Production deployment is still `5423113850` for commit `1af2456`; replace this checkpoint after the new push succeeds.
+`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the combat-clarity/league/audio milestone. The optimized Next.js build compiled every route; static checks cover 22 referenced weapon model grips, six optimized combat samples, exact event-reel center structure, and compiled league/audio UI markers. No match was created or played in this milestone, per owner instruction. Vercel Production deployment `5423638382` for release source commit `39ae776` succeeded; the public home, room shell, 15 client scripts, and all six MP3 assets were verified.
 
 # Files Recently Modified
 
