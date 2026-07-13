@@ -151,7 +151,7 @@ export function applyBuildCard(
           speed: reroll(item.stats.speed),
           critChance: reroll(item.stats.critChance),
           critDamage: reroll(item.stats.critDamage),
-          accuracy: item.stats.accuracy,
+          accuracy: reroll(item.stats.accuracy),
           dodge: reroll(item.stats.dodge),
           initiative: reroll(item.stats.initiative)
         }

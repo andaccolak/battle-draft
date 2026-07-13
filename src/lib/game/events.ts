@@ -39,8 +39,8 @@ export interface EventStatMod {
 }
 
 export const EVENTS: EventDef[] = [
-  { id: "rain", name: "Rain", emoji: "🌧️", description: "A downpour soaks every bowstring. Ranged weapons deal 35% less damage.", hooks: { statMods: [{ target: "tag", match: "ranged", attackMult: 0.65 }] } },
-  { id: "blood_moon", name: "Blood Moon", emoji: "🌑", description: "The moon turns red. Critical hits deal 50% more damage.", hooks: { critDamageBonus: 50 } },
+  { id: "rain", name: "Rain", emoji: "🌧️", description: "A downpour soaks every bowstring. Ranged weapons contribute 35% less attack.", hooks: { statMods: [{ target: "tag", match: "ranged", attackMult: 0.65 }] } },
+  { id: "blood_moon", name: "Blood Moon", emoji: "🌑", description: "The moon turns red. Critical-damage bonus increases by 50 points.", hooks: { critDamageBonus: 50 } },
   { id: "blizzard", name: "Blizzard", emoji: "❄️", description: "Freezing winds slow everyone. Speed reduced by 35%.", hooks: { speedMultiplier: 0.65 } },
   { id: "thunderstorm", name: "Thunderstorm", emoji: "⚡", description: "Legendary items crackle with power, granting +20% attack and defense to their owners.", hooks: { statMods: [{ target: "rarity", match: "legendary", requireOwned: true, ownedAttackMult: 1.2, ownedDefenseMult: 1.2 }] } },
   { id: "plague", name: "Plague", emoji: "🦠", description: "A sickness spreads. Everyone starts with 25% less HP.", hooks: { hpMultiplier: 0.75 } },
@@ -57,18 +57,18 @@ export const EVENTS: EventDef[] = [
   { id: "blessing", name: "Ancient Blessing", emoji: "😇", description: "Old spirits mend wounds. Everyone regenerates 5 HP per turn.", hooks: { healPerTurnBonus: 5 } },
   { id: "poison_mist", name: "Poison Mist", emoji: "☠️", description: "Toxic fumes fill the arena. Everyone takes 4 poison damage per turn.", hooks: { poisonAll: 4 } },
   { id: "gravity", name: "Gravity Surge", emoji: "🪨", description: "Bodies feel like lead. Nobody can dodge anything.", hooks: { zeroDodge: true } },
-  { id: "mirror_world", name: "Mirror World", emoji: "🪞", description: "Reality flips. Everyone's attack and defense are swapped.", hooks: { swapAttackDefense: true } },
+  { id: "mirror_world", name: "Mirror World", emoji: "🪞", description: "Reality flips. Defense becomes attack power, while attack is reforged into defense.", hooks: { swapAttackDefense: true } },
   { id: "giants_might", name: "Giant's Might", emoji: "🗿", description: "Everyone grows enormous. HP +50%, speed -25%.", hooks: { hpMultiplier: 1.5, speedMultiplier: 0.75 } },
   { id: "glass_cannon", name: "Glass Cannon", emoji: "🔮", description: "Power at a price. Attack +50%, HP -30%.", hooks: { attackMultiplier: 1.5, hpMultiplier: 0.7 } },
-  { id: "merchants_gift", name: "Merchant's Gift", emoji: "🎁", description: "A traveling merchant polishes cheap gear. Common and Uncommon items gain 40% power.", hooks: { statMods: [{ target: "rarity", match: "common", attackMult: 1.4, defenseMult: 1.4 }, { target: "rarity", match: "uncommon", attackMult: 1.4, defenseMult: 1.4 }] } },
+  { id: "merchants_gift", name: "Merchant's Gift", emoji: "🎁", description: "Common and Uncommon items contribute 40% more attack and defense.", hooks: { statMods: [{ target: "rarity", match: "common", attackMult: 1.4, defenseMult: 1.4 }, { target: "rarity", match: "uncommon", attackMult: 1.4, defenseMult: 1.4 }] } },
   { id: "cursed_ground", name: "Cursed Ground", emoji: "🕸️", description: "Dark soil devours all healing. No one can heal.", hooks: { noHealing: true } },
   { id: "vampire_night", name: "Vampire Night", emoji: "🧛", description: "Everyone thirsts for blood. All fighters gain 15% lifesteal.", hooks: { lifestealBonus: 15 } },
   { id: "iron_sky", name: "Iron Sky", emoji: "🌩️", description: "A dull grey sky dampens fortune. Critical chance is halved.", hooks: { critChanceMultiplier: 0.5 } },
   { id: "storm_blades", name: "Storm of Blades", emoji: "🗡️", description: "Phantom blades join every strike. +20% chance for extra attacks.", hooks: { extraAttackBonus: 20 } },
   { id: "pacifist_wind", name: "Pacifist Wind", emoji: "🕊️", description: "A gentle breeze calms rage. Attack -20%, HP +25%.", hooks: { attackMultiplier: 0.8, hpMultiplier: 1.25 } },
   { id: "chaos_rift", name: "Chaos Rift", emoji: "🌀", description: "A rift warps reality. Every stat of every fighter shifts randomly by ±30%.", hooks: { chaosAll: true } },
-  { id: "golden_age", name: "Golden Age", emoji: "🏆", description: "Prestige rules. Epic and Legendary items +20%, Commons -10%.", hooks: { statMods: [{ target: "rarity", match: "epic", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "legendary", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "common", attackMult: 0.9, defenseMult: 0.9 }] } },
-  { id: "underdog", name: "Underdog Spirit", emoji: "🐕", description: "The crowd roots for the weak. The fighter with lower total power gains +30% everything.", hooks: { underdogBoost: 30 } },
+  { id: "golden_age", name: "Golden Age", emoji: "🏆", description: "Epic and Legendary items contribute 20% more attack and defense; Common items contribute 10% less.", hooks: { statMods: [{ target: "rarity", match: "epic", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "legendary", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "common", attackMult: 0.9, defenseMult: 0.9 }] } },
+  { id: "underdog", name: "Underdog Spirit", emoji: "🐕", description: "The lower-power fighter gains 30% attack, defense, and HP.", hooks: { underdogBoost: 30 } },
   { id: "silence", name: "Arcane Silence", emoji: "🤫", description: "Magic fizzles out. All accessory passives are disabled.", hooks: { silenceAccessories: true } },
   { id: "midnight_sun", name: "Midnight Sun", emoji: "🌞", description: "The sun refuses to set. Speed +30% and everyone hits 10% harder.", hooks: { speedMultiplier: 1.3, attackMultiplier: 1.1 } }
 ];

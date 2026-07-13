@@ -13,13 +13,12 @@ import type {
   Slot,
   TimelineEntry
 } from "@/lib/game/types";
-import { ARENA_MAPS, DRAFT_TIME_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
+import { ARENA_MAPS, DRAFT_TIME_MS, EVENT_REVEAL_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
 import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle, type Build } from "@/lib/game/battle";
 
-const EVENT_REVEAL_MS = 7000;
 const BATTLE_GAP_MS = 2500;
 const POST_BATTLE_MS = 5000;
 const HUMAN_AWAY_MS = 20000;

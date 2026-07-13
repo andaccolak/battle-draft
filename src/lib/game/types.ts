@@ -218,3 +218,4 @@ export const RARITY_ORDER: Record<Rarity, number> = {
 export const TOTAL_DRAFT_ROUNDS = 5;
 export const DRAFT_TIME_MS = 35000;
 export const LUCK_TIME_MS = 25000;
+export const EVENT_REVEAL_MS = 9000;

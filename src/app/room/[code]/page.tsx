@@ -135,6 +135,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
     );
   }
   const inBattle = snapshot.phase === "battle" && !!snapshot.battle;
+  const currentPlayer = snapshot.players.find((player) => player.id === game.playerId);
   return (
     <main className={`mx-auto max-w-2xl px-4 ${inBattle ? "min-h-dvh overflow-visible pb-12 pt-3" : "min-h-dvh py-5"}`}>
       <header className={`${inBattle ? "mb-3" : "mb-5"} flex items-center justify-between`}>
@@ -193,8 +194,16 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />
           )}
-          {snapshot.phase === "luck" && <LuckPhase snapshot={snapshot} luckOffer={game.luckOffer} onPick={game.pickLuckCard} />}
-          {snapshot.phase === "event" && snapshot.event && <EventReveal event={snapshot.event} />}
+          {snapshot.phase === "luck" && <LuckPhase snapshot={snapshot} luckOffer={game.luckOffer} playerId={game.playerId} onPick={game.pickLuckCard} />}
+          {snapshot.phase === "event" && snapshot.event && (
+            <EventReveal
+              event={snapshot.event}
+              player={currentPlayer}
+              seed={`${snapshot.code}:${snapshot.event.id}:${snapshot.deadline ?? 0}`}
+              deadline={snapshot.deadline}
+              serverNow={snapshot.serverNow}
+            />
+          )}
           {snapshot.phase === "battle" &&
             (snapshot.battle ? (
               <div>

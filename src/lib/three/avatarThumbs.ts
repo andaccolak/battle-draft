@@ -52,11 +52,18 @@ function getStudio(): Studio | null {
 
 const thumbCache = new Map<string, Promise<string | null>>();
 
-export function avatarThumb(avatarId: string, weapon?: Item, equipment?: Partial<Record<Slot, Item>>, disabledItems: string[] = []): Promise<string | null> {
+export function avatarThumb(
+  avatarId: string,
+  weapon?: Item,
+  equipment?: Partial<Record<Slot, Item>>,
+  disabledItems: string[] = [],
+  viewAngle = -0.45,
+  animation = "Idle_B"
+): Promise<string | null> {
   const weaponDef = weaponModelFor(weapon);
   const shield = equipment ? shieldModelFor(equipment, disabledItems) : undefined;
   const headgear = equipment ? headgearFor(equipment, disabledItems) : [];
-  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") + (weaponDef.tint ?? "") + (weaponDef.emissive ?? "") : ""}|${shield ?? ""}|${headgear.map((h) => h.meshes.join("+")).join(",")}`;
+  const key = `${avatarId}|${weaponDef ? weaponDef.model + (weaponDef.offhand ?? "") + (weaponDef.tint ?? "") + (weaponDef.emissive ?? "") + JSON.stringify(weaponDef.grip ?? {}) : ""}|${shield ?? ""}|${headgear.map((h) => h.meshes.join("+")).join(",")}|${viewAngle}|${animation}`;
   const cached = thumbCache.get(key);
   if (cached) return cached;
   const promise = (async () => {
@@ -70,9 +77,9 @@ export function avatarThumb(avatarId: string, weapon?: Item, equipment?: Partial
     });
     normalizeSize(instance, 1.75);
     await Promise.all([attachWeapons(instance, weapon, shield), attachHeadgear(instance, headgear)]);
-    instance.rotation.y = -0.45;
+    instance.rotation.y = viewAngle;
     const mixer = new THREE.AnimationMixer(instance);
-    const clip = library.get("Idle_B") ?? base.clips[0];
+    const clip = library.get(animation) ?? library.get("Idle_B") ?? base.clips[0];
     if (clip) {
       mixer.clipAction(clip).play();
       mixer.update(0.35);

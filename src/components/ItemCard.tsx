@@ -67,21 +67,18 @@ export default function ItemCard({ item, locked = false, pending = false, select
             {locked && <span className="rounded-full bg-slate-900/90 px-2 py-0.5 text-[9px] font-black text-slate-300">{t("slotOccupied")}</span>}
           </div>
           {!compact && comparisons.length > 0 && (
-            <div className="mt-2 rounded-xl border border-white/10 bg-slate-950/45 px-2.5 py-2">
-              <div className="mb-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500">{t("afterPick")}</div>
-              <div className="flex flex-wrap gap-1.5">
-                {comparisons.map(({ key, before, after, delta }) => (
-                  <span key={key} className="inline-flex items-center gap-1 rounded-lg bg-white/[0.055] px-2 py-1 text-[11px] font-black tabular-nums">
-                    <span className="text-slate-500">{t(`stat_${key}`)}</span>
-                    <span className="text-slate-400">{before}</span>
-                    <span className="text-slate-600">→</span>
-                    <span className={delta > 0 ? "text-emerald-300" : "text-rose-400"}>{after}</span>
-                    <span className={`rounded px-1 py-0.5 text-[9px] ${delta > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>
-                      {delta > 0 ? "+" : ""}{delta}
-                    </span>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {comparisons.map(({ key, before, after, delta }) => (
+                <span key={key} className="inline-flex items-center gap-1 rounded-lg border border-white/[0.06] bg-slate-950/35 px-2 py-1 text-[11px] font-black tabular-nums">
+                  <span className="text-slate-500">{t(`stat_${key}`)}</span>
+                  <span className="text-slate-400">{before}</span>
+                  <span className="text-slate-600">→</span>
+                  <span className={delta > 0 ? "text-emerald-300" : "text-rose-400"}>{after}</span>
+                  <span className={`rounded px-1 py-0.5 text-[9px] ${delta > 0 ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/15 text-rose-300"}`}>
+                    {delta > 0 ? "+" : ""}{delta}
                   </span>
-                ))}
-              </div>
+                </span>
+              ))}
             </div>
           )}
           {!compact && comparisons.length === 0 && stats.length > 0 && (

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { KAYKIT_MODELS } from "@/lib/game/avatars";
-import { weaponModelFor, type HeadgearDef } from "@/lib/game/items";
+import { WEAPON_GRIPS, weaponModelFor, type HeadgearDef, type WeaponGripTransform } from "@/lib/game/items";
 import type { Item } from "@/lib/game/types";
 
 export const gltfLoader = new GLTFLoader();
@@ -90,18 +90,25 @@ function findHandSlot(instance: THREE.Object3D, side: "r" | "l"): THREE.Object3D
 function mountWeapon(
   slot: THREE.Object3D,
   template: THREE.Group,
-  scale?: number,
-  rotateY?: number,
+  model: string,
+  gripOverride?: Partial<WeaponGripTransform>,
   name = "weapon_main",
-  tiltX = 0,
   tint?: number,
   emissive?: number
 ): void {
+  const baseGrip = WEAPON_GRIPS[model] ?? { position: [0, 0, 0], rotation: [0, 0, 0], scale: 1 };
+  const grip: WeaponGripTransform = {
+    position: gripOverride?.position ?? baseGrip.position,
+    rotation: gripOverride?.rotation ?? baseGrip.rotation,
+    scale: gripOverride?.scale ?? baseGrip.scale
+  };
+  const mount = new THREE.Group();
+  mount.name = name;
+  mount.position.set(...grip.position);
+  mount.rotation.set(...grip.rotation);
+  mount.scale.setScalar(grip.scale);
   const weapon = template.clone(true);
-  weapon.name = name;
-  if (scale) weapon.scale.setScalar(scale);
-  if (rotateY) weapon.rotation.y = rotateY;
-  if (tiltX) weapon.rotation.x = tiltX;
+  weapon.name = `${name}_mesh`;
   weapon.traverse((child) => {
     const mesh = child as THREE.Mesh;
     if (!mesh.isMesh) return;
@@ -120,24 +127,11 @@ function mountWeapon(
       }
     }
   });
-  // Some converted weapons put their origin at the head; lift so the grip sits in the hand.
-  weapon.updateMatrixWorld(true);
-  const box = new THREE.Box3().setFromObject(weapon);
-  const height = box.max.y - box.min.y;
-  if (box.min.y < -0.3 && height > 0.0001) {
-    weapon.position.y = -box.min.y - height * 0.15;
-  }
-  slot.add(weapon);
+  mount.add(weapon);
+  slot.add(mount);
 }
 
 const TWO_HANDED_KINDS = new Set(["bow", "crossbow", "dual", "heavy"]);
-const UPRIGHT_MODELS = new Set(["mug_full", "shield_round_barbarian", "shield_spikes", "spellbook_open"]);
-
-function tiltFor(kind: string, model: string): number {
-  if (model === "Skeleton_Crossbow") return Math.PI / 2;
-  if (kind === "bow" || UPRIGHT_MODELS.has(model)) return 0;
-  return -Math.PI / 2;
-}
 
 export async function attachWeapons(instance: THREE.Object3D, weapon: Item | undefined, shieldModel?: string): Promise<void> {
   const def = weaponModelFor(weapon);
@@ -151,8 +145,8 @@ export async function attachWeapons(instance: THREE.Object3D, weapon: Item | und
   ]);
   const mainSlot = findHandSlot(instance, mainHand);
   const offSlot = findHandSlot(instance, mainHand === "l" ? "r" : "l");
-  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.scale, def.kind === "bow" ? Math.PI / 2 : 0, "weapon_main", tiltFor(def.kind, def.model), def.tint, def.emissive);
-  if (off && offSlot) mountWeapon(offSlot, off, undefined, 0, "weapon_off", offhandName === "dagger" ? -Math.PI / 2 : 0);
+  if (main && mainSlot && def) mountWeapon(mainSlot, main, def.model, def.grip, "weapon_main", def.tint, def.emissive);
+  if (off && offSlot && offhandName) mountWeapon(offSlot, off, offhandName, undefined, "weapon_off");
 }
 
 const characterSceneCache = new Map<string, Promise<THREE.Group | null>>();

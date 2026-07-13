@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { LuckOffer, RoomSnapshot } from "@/lib/game/types";
 import { LUCK_TIME_MS } from "@/lib/game/types";
@@ -8,16 +8,21 @@ import TimerBar from "./TimerBar";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
 import { sfx } from "@/lib/sound";
+import { BUILD_STAT_KEYS } from "@/lib/game/buildStats";
+import { combatProfile } from "@/lib/game/combatProfile";
+import BuildStatsPanel from "./BuildStatsPanel";
 
 interface Props {
   snapshot: RoomSnapshot;
   luckOffer: LuckOffer | null;
+  playerId: string;
   onPick: (cardId: string) => void;
 }
 
-export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
+export default function LuckPhase({ snapshot, luckOffer, playerId, onPick }: Props) {
   const { t, cardText } = useI18n();
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const me = snapshot.players.find((player) => player.id === playerId);
 
   useEffect(() => {
     setPendingCardId(null);
@@ -35,6 +40,19 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
     sfx.legendary();
     onPick(cardId);
   };
+  const pendingCard = luckOffer?.cards.find((card) => card.id === pendingCardId);
+  const selectedCard = me?.luckCard ?? pendingCard;
+  const equipmentProfile = useMemo(() => combatProfile(me?.equipment ?? {}, null, null), [me?.equipment]);
+  const equipmentStats = equipmentProfile.stats;
+  const displayedProfile = useMemo(
+    () => combatProfile(me?.equipment ?? {}, selectedCard, null),
+    [me?.equipment, selectedCard]
+  );
+  const displayedStats = displayedProfile.stats;
+  const highlightedStats = useMemo(
+    () => BUILD_STAT_KEYS.filter((key) => displayedStats[key] !== equipmentStats[key]),
+    [displayedStats, equipmentStats]
+  );
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4">
@@ -99,6 +117,30 @@ export default function LuckPhase({ snapshot, luckOffer, onPick }: Props) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {luckOffer?.picked && me?.luckCard && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-3 rounded-2xl border border-fuchsia-400/25 bg-fuchsia-500/10 p-3 text-left"
+        >
+          <span className="text-3xl">{me.luckCard.emoji}</span>
+          <div className="min-w-0">
+            <div className="font-display text-sm font-black text-fuchsia-100">{cardText(me.luckCard).name}</div>
+            <div className="mt-0.5 text-xs leading-snug text-slate-300">{cardText(me.luckCard).description}</div>
+          </div>
+        </motion.div>
+      )}
+
+      <BuildStatsPanel
+        stats={displayedStats}
+        baseline={equipmentStats}
+        modifierLabel={t("luckShort")}
+        highlighted={highlightedStats}
+        accent="fuchsia"
+        profile={displayedProfile}
+        baselineProfile={equipmentProfile}
+      />
     </div>
   );
 }

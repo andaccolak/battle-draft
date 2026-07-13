@@ -12,22 +12,24 @@ interface Props {
   disabledItems?: string[];
   flip?: boolean;
   className?: string;
+  viewAngle?: number;
+  animation?: string;
 }
 
-export default function AvatarPortrait({ avatarId, weapon, equipment, disabledItems, flip, className }: Props) {
+export default function AvatarPortrait({ avatarId, weapon, equipment, disabledItems, flip, className, viewAngle, animation }: Props) {
   const avatar = avatarById(avatarId);
   const [url, setUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     setUrl(null);
-    void avatarThumb(avatar.id, weapon, equipment, disabledItems ?? []).then((u) => {
+    void avatarThumb(avatar.id, weapon, equipment, disabledItems ?? [], viewAngle, animation).then((u) => {
       if (active) setUrl(u);
     });
     return () => {
       active = false;
     };
-  }, [avatar.id, weapon, equipment, disabledItems]);
+  }, [avatar.id, weapon, equipment, disabledItems, viewAngle, animation]);
 
   if (!url) return <div className={className} />;
   return (

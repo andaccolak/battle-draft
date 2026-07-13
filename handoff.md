@@ -1,8 +1,25 @@
 # Current Status
 
-Battle Draft is live and healthy on the public `https://battle-draft.vercel.app` production alias after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits. Vercel production is currently wired to the legacy `claude/multiplayer-party-game-5dip9w` branch, so releases must temporarily fast-forward that branch from `main` until a repository/Vercel administrator changes the Production Branch setting to `main`.
+The player-feedback game-feel release is locally complete and buildable on `main`. It replaces the oversized sticky draft totals with a compact bottom summary, exposes the same effective stats after luck and natural events, adds a deterministic case-opening event reel, corrects all weapon grips and combat animation families, routes distinct audio by weapon and action, changes the poison status badge to a bottle, and establishes a more logical item/stat foundation. Two full four-fighter tournaments reached champion in both arenas. This commit still needs to be pushed and mirrored to the legacy Vercel production branch before the public `https://battle-draft.vercel.app` alias contains the work.
 
 # Last Completed Work
+
+## Player-feedback combat, draft, and event overhaul (game-feel release candidate, 2026-07-13)
+
+- Replaced the draft's oversized sticky totals with reusable `BuildStatsPanel`: a compact 3×3 total/delta grid in normal document flow below the item offers. Item cards keep current → projected values and signed deltas but no longer show the redundant “total after this pick” heading or its large wrapper.
+- The same panel now appears below luck-card selection and below the resolved natural event. Luck previews deterministic card changes optimistically; confirmed build-transforming cards use the server-updated equipment. Event totals compare against the post-luck build and show changed numeric stats plus compact passive/context chips.
+- Extracted `combatProfile()` as the shared equipment → luck → event calculation for both UI and `simulateBattle`, including all clamping, passives, shields, poison, healing, temporary/uncertain effects, and event hooks. This removes UI/simulator formula drift.
+- Natural-event selection is now a Counter-Strike-style horizontal case reel: a seeded cosmetic strip decelerates for 4.8 seconds under a fixed marker, lands on the authoritative server-selected event, adds progressive ticks and a stop impact, supports late joiners/reduced motion, and only reveals the name/description/stats after stopping. Event phase duration is 9 seconds.
+- Poisoned fighters use a green toxic HP treatment with a `🧪` status badge instead of a skull.
+- Added explicit grip transforms for all 29 referenced main/offhand/shield models covering all 37 weapons. Weapons mount through stable groups instead of bounding-box guessing; dropped dual weapons fall and return together, drops rest on their transformed bounds, and asynchronous Pirate/Magnet loss state is reapplied after loading.
+- Split animation behavior into blade, heavy, dual, shield, fists, crossbow, bow, and magic families. Shield weapons bash, melee fighters use anticipation/guard poses instead of walking in place, crossbows use compatible two-hand clips, dual weapons stay paired, and crit/idle/guard/windup pools respect weapon type.
+- Rebuilt WebAudio routing around explicit weapon identities: sword, dagger, axe, blunt, shield, scythe, bow, crossbow, magic, and fists each have distinct windup/contact/miss layers. Metal defense, magical barriers, human strikes, poison, stun, reflect, crits, finishers, environment families, quirks, reel ticks, delayed death voice/fall, and recovery cues now play at their semantic timeline beats through a master compressor.
+- Preserved every stable item ID while renaming model mismatches: Arcane Orb → Arcane Wand, Reaper's Scythe → Reaper's Sickle, and Void Reaper → Void Staff, with Turkish names synchronized.
+- Completed a targeted 22-item logic/balance pass. Sly/Assassin daggers and Rapier gained viable speed/crit identities; Battle Axe, Golden Bow, Reaper, Storm Staff, Berserker Harness, Snake Ring, and Phoenix Feather were trimmed; both shield weapons gained defense/block identities; heavy armor speed penalties were made believable; Plate/Titan/Vampire/Chaos gained useful HP foundations; weak Iron/Wizard gear improved. Chaos Orb now gives a stable base plus ±30% true all-stat variance.
+- Speed is clamped to at least 1 and now creates a modest capped extra-attack opportunity from the speed gap. Initiative affects the opening round only, so it is no longer a duplicate of persistent speed. Event/item chaos now covers all nine displayed stats; Gambler rerolls accuracy too; misleading Rain/Blood Moon/Mirror/Merchant/Golden Age/Underdog descriptions now match their exact hooks.
+- Pirate and Magnet still last exactly two attack attempts, including extra attacks. Full/suppressed profiles share effect-and-field-keyed Chaos rolls, and Underdog/Curse/Lightning/ALL IN modifiers are mirrored into restoration snapshots, so returning gear cannot reroll unrelated stats or escape a battle-start multiplier. Negative-HP gear now clamps current HP when its lower maximum returns. Equal-power Underdog no longer favors side B. Cursed Ground blocks lifesteal, regeneration, prayer, and pretzel healing.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` pass. Coverage is complete for 110 unique item IDs/TR names, 37/37 weapon model mappings, 37/37 audio mappings, and all referenced grip/assets. A 57,200-battle balance audit plus 7,040 profile parity cases found no profile/build mismatch. Another 2,400 seeded card/event modifier cases were byte-identical on replay; 958 completed Pirate/Magnet returns occurred after exactly two attempts; keyed Chaos item/event rolls stayed aligned. A focused 50,000-seed Cursed Ground audit produced zero healing, and 9,706 real restoration paths had no post-return HP/max invariant failures.
+- Two real HTTP tournaments were played concurrently to champion: Colosseum room `QA7232` (five human picks, two QTE reactions, three battles) and Dungeon room `QB7268` (five human picks, one QTE reaction, three battles). The in-app browser backend exposed no browser, so physical-phone visual/audio taste testing remains mandatory rather than inferred from builds.
 
 ## Production deployment recovery (release correction, 2026-07-13)
 
@@ -73,20 +90,22 @@ Battle Draft is live and healthy on the public `https://battle-draft.vercel.app`
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. The arena's width is responsive up to 430 px and inline `aspect-ratio: 1 / 1` is the sole height authority; do not add an explicit height or flex-grow sizing. Battle page content stays in normal document flow. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. `src/lib/game/buildStats.ts` is the shared source for draft-visible base stats and simulator initialization; DraftPhase derives both current totals and all five per-offer projections from it. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount. Pirate/Magnet use `TimedSuppression` snapshots in the pure simulator: suppressed stats run for two attack attempts, `gearReturn` applies the full-minus-suppressed delta, and returned battle equipment is never mutated by those cards.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. The arena's responsive width up to 430 px plus inline `aspect-ratio: 1 / 1` remains the sole geometry authority, and all battle content stays in natural document flow. `src/lib/game/buildStats.ts` owns the nine keys/base values; `src/lib/game/combatProfile.ts` is now the single source for effective equipment, luck, event, passive, clamp, and uncertainty calculations used by both UI and `buildCombatant`. `BuildStatsPanel` renders that profile after Draft/Luck/Event content without sticky positioning. Event choice remains server-authoritative; `EventReveal` only builds a deterministic seeded reel around that selected event. Audio is synthesized through `src/lib/sound.ts` and routed by `WeaponAudioKind`; browser vibration remains opportunistic. `WEAPON_GRIPS` in `items.ts` provides explicit per-model position/rotation/scale, and `characterAssets.ts` attaches models through stable mount groups. Arena3D's render loop distinguishes `rawDelta` from scaled `delta`, owns physical contact timing, and calls BattleStage's stable `onImpact(beat)` resolver. Pirate/Magnet use `TimedSuppression` snapshots: a keyed Chaos random channel keeps shared item/event rolls aligned, later battle-start modifiers mutate both snapshot variants, exactly two attack attempts consume the suppression, and `gearReturn` applies the full-minus-suppressed delta without mutating tournament equipment.
 
 # Remaining Tasks
 
-- [ ] Test multiple full two-device battles and QTE flows on physical iPhone Safari, including the responsive 1:1 arena, natural page scrolling, sticky base/gear totals, per-card projections, log scroll pinning, toxic HP state, and Pirate/Magnet item return after two attacks.
-- [ ] Owner taste-check the new sword/block/body/environment/death mix on phone speakers; tune oscillator/noise volume layers in `src/lib/sound.ts` if any category masks the ticker or feels harsh.
-- [ ] Sound design for remaining 3D beats (per-weapon windup whooshes and footsteps) after the new core mix is approved.
-- [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets; more kit-built maps.
+- [ ] Play multiple two-device battles on physical iPhone Safari and taste-check the compact bottom stats, luck/event totals, reel timing, square arena, natural scrolling, log pinning, poison badge, weapon grips, and two-attack item returns.
+- [ ] Owner taste-check every sound family on phone speakers/headphones. Record the exact weapon/action if a cue is too synthetic, harsh, quiet, or mistimed; tune only that semantic layer in `src/lib/sound.ts`.
+- [ ] Inspect extreme two-handed attack frames on a real device for small offhand sliding. Current idle/guard/front/side grip diagnostics are clean; authored clips have no runtime IK.
+- [ ] Continue measured item tuning with randomized full-loadout pairwise tests. Do not flatten rarity or remove counter-build overlap merely to force every neutral matchup toward 50%.
+- [ ] Permanently change GitHub default branch and Vercel Production Branch to `main` when administrator access is available; then remove the legacy branch mirror procedure.
 
 # Known Bugs
 
 - Vercel Production Branch is still the legacy `claude/multiplayer-party-game-5dip9w` branch. A plain push to `main` creates only an authenticated Preview and does not update the public `battle-draft.vercel.app` alias. Repository/Vercel admin must permanently switch the production/default branch to `main`; until then mirror `main` by fast-forward after every release.
 - Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
 - The in-app browser backend was unavailable (`agent.browsers.list()` returned no browsers), so this milestone has build, HTTP, and deterministic simulation coverage but not rendered mobile screenshot/audio taste coverage.
+- Two-handed alignment uses authored KayKit poses rather than inverse kinematics; extreme attack frames may show minor offhand sliding even though static front/side grips are corrected.
 - A room created while Neon is reachable can return HTTP 500 if the database becomes unreachable mid-room; initial startup failure correctly falls back to memory, but DB-mode request failures are not caught by `withRoom`. Production resilience work is outside the current feel pass, but this violates the documented graceful-fallback intent.
 
 # Current Branch
@@ -95,20 +114,22 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck` and `npm run build` passed on 2026-07-13 after the square-arena/stat-comparison correction. All 110 items passed base + item projected-total assertions. Vercel Production completed successfully and `https://battle-draft.vercel.app` serves the corrected aspect-ratio and draft-comparison bundle.
+`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the full player-feedback release candidate. The optimized Next.js build compiled every route. Automated coverage includes 110 items, all weapon audio/model/grip assets, 57,200 balance battles, 7,040 profile parity cases, 2,400 deterministic modifier cases, 958 exact two-attack returns, 50,000 no-healing event seeds, and 9,706 HP-safe restoration paths. Two real four-fighter HTTP tournaments reached champion in Colosseum and Dungeon. Current release commit has not yet been pushed or verified on Vercel.
 
 # Files Recently Modified
 
-- `src/components/BattleStage.tsx`
-- `src/components/DraftPhase.tsx`
-- `src/components/ItemCard.tsx`
-- `src/app/room/[code]/page.tsx`
-- `src/lib/i18n/dictionary.ts`
+- `src/components/BuildStatsPanel.tsx`, `DraftPhase.tsx`, `LuckPhase.tsx`, `EventReveal.tsx`, `ItemCard.tsx`
+- `src/components/BattleStage.tsx`, `Arena3D.tsx`, `AvatarPortrait.tsx`
+- `src/lib/game/combatProfile.ts`, `battle.ts`, `items.ts`, `events.ts`, `draft.ts`, `types.ts`
+- `src/lib/sound.ts`
+- `src/lib/three/characterAssets.ts`, `avatarThumbs.ts`
+- `src/lib/i18n/content.ts`, `dictionary.ts`
+- `src/app/room/[code]/page.tsx`, `src/app/dev/weapons/page.tsx`, `src/server/engine.ts`
 - `handoff.md`
 
 # Suggested Next Step
 
-Repository/Vercel administrator should set GitHub's default branch and Vercel's Production Branch to `main`, then remove the temporary legacy-branch mirroring procedure. After the current deployment, open `battle-draft.vercel.app` on a physical phone: measure/visually confirm the arena's rendered width equals height and inspect positive, negative, passive-only and locked draft cards for the new pre-pick comparisons.
+Push this verified commit to `main`, fast-forward `claude/multiplayer-party-game-5dip9w`, wait for Vercel Production to succeed, and verify the public alias serves the new reel/stat/audio/grip bundle. Then the owner should play on a physical phone and report the first specific weapon/action whose pose or sound still feels wrong; tune that concrete case before adding content.
 
 # Important Decisions
 
@@ -121,15 +142,21 @@ Repository/Vercel administrator should set GitHub's default branch and Vercel's 
 - QTE scoring remains based on the displayed rAF marker position; no timing thresholds or server rules changed.
 - Local pick locks are presentation-only and have a four-second escape hatch. They never assume a pick was accepted; only the next server snapshot advances the phase.
 - Pirate and Magnet are temporary denial cards, not equipment-transfer cards. Each affected attack attempt, including an extra attack, consumes one of two charges. Pirate/Magnet must never persist item mutations into `StatePlayer.equipment`; Trade remains permanent by design.
+- Full and temporarily suppressed profiles must share `ChaosRandom` values keyed by effect and stat field. Sequential replay is invalid because suppressing Chaos Orb can change how many earlier rolls are consumed. Apply Underdog/Curse/Lightning/ALL IN through `mutateVariants` so `gearReturn` cannot escape battle-start modifiers.
 - A `gearReturn` timeline entry is the presentation contract for restoring temporarily suppressed gear. Keep its actor as the recovering fighter and its `item` param as the stable item id so localization, pickup pose, audio, and return animation stay synchronized.
 - The battle arena has one sizing authority: responsive width capped at 430 px plus inline `aspect-ratio: 1 / 1`. Never add a separate height, viewport-height formula, or flex-grow sizing. Battle content belongs in natural document flow and may extend below the fold.
-- Draft decisions must be understandable before commitment. Keep the sticky summary's base + cumulative gear modifier and every offer's current → projected total with signed delta; an optimistic post-tap-only change is insufficient.
+- Draft decisions must be understandable before commitment. Keep every offer's current → projected total with signed delta and the compact overall panel below the offers. Do not make overall stats sticky or reintroduce the redundant “total after this pick” heading.
+- `combatProfile()` is the shared effective-build authority for Draft, Luck, Event, and the simulator. Add new stat/card/event/passive behavior there first; do not duplicate formulas in components or `buildCombatant`.
+- The natural-event reel is presentation-only. The server chooses the event; the client seed only determines surrounding cosmetic tiles and animation progress. Never let the reel choose or reroll gameplay state.
+- Speed is persistent tempo and adds a modest capped extra-attack chance from the fighter-to-opponent gap. Initiative is an opening-round bonus only. Preserve that separation when balancing gear.
+- Weapon visuals, animation, and sound are separate semantic mappings. A model grip belongs in `WEAPON_GRIPS`, motion in `WeaponVisualKind`, and sound in `WeaponAudioKind`; changing one should not silently infer the others.
+- Item IDs are save/network contracts. Rename or rebalance fields in place, update Turkish names/descriptions, and preserve IDs unless a migration is deliberately designed.
 - `main` remains the canonical development branch even while Vercel is misconfigured. The legacy production branch may only be fast-forwarded from `main` as a release mirror; never commit uniquely to it or force-push it.
 - Battle-log auto-follow is conditional on `logPinnedRef`; do not restore unconditional scroll-to-bottom behavior.
 
 # Notes For Next Session
 
-The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The first square/stat implementation was rejected because the player still perceived a non-square battle and could not compare useful totals before picking. The corrected implementation deliberately uses one aspect-ratio authority and pre-commit comparisons on every card. The in-app browser still reported no available browser, so physical-device visual confirmation is mandatory after deployment; do not infer visual acceptance from build success alone.
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, use small verified milestones, update this handoff before every push, and retain the no-code-comments convention. This release directly responds to the three supplied phone screenshots: stats are compact and below picks, the redundant card heading is gone, the square arena remains in scrollable flow, poison uses a bottle, and weapon mounts no longer depend on one generic rotation. `/dev/weapons?start=N&count=4` renders reliable front/side grip batches; bulk portrait capture can show blanks because the shared offscreen renderer is asynchronous, not because the underlying asset is missing. The in-app browser still exposed no browser, so physical-device visual/audio confirmation is mandatory after deployment and must not be inferred from build success alone.
 
 ---
 

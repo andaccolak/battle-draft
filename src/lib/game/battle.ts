@@ -1,8 +1,8 @@
 import type { Item, LuckCard, Slot, TimelineEntry } from "./types";
 import { RARITY_ORDER, SLOTS } from "./types";
-import { weaponKindFor } from "./items";
+import { weaponKindFor, weaponVisualKindFor } from "./items";
 import type { EventDef } from "./events";
-import { BASE_BUILD_STATS } from "./buildStats";
+import { combatProfile, type ChaosRandom } from "./combatProfile";
 
 export interface Build {
   nickname: string;
@@ -182,6 +182,7 @@ const roll = (pct: number) => rand() * 100 < pct;
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 function windupKeyFor(item: Item): string {
+  if (weaponVisualKindFor(item) === "shield") return "windupShield";
   const kind = weaponKindFor(item);
   if (kind === "ranged") return "windupRanged";
   if (kind === "heavy") return "windupHeavy";
@@ -241,54 +242,50 @@ function strongestItemId(equipment: Partial<Record<Slot, Item>>, exclude: string
   return best ? best.id : null;
 }
 
-function ownsRarity(equipment: Partial<Record<Slot, Item>>, rarity: string, disabled: string[]): boolean {
-  return SLOTS.some((s) => {
-    const it = equipment[s];
-    return !!it && it.rarity === rarity && !disabled.includes(it.id);
-  });
-}
-
 function buildCombatant(
   key: "a" | "b",
   build: Build,
   event: EventDef,
-  disabled: string[]
+  disabled: string[],
+  random: () => number = rand,
+  chaosRandom?: ChaosRandom
 ): Combatant {
-  const h = event.hooks;
+  const profile = combatProfile(build.equipment, build.luckCard, event, { disabledItems: disabled, random, chaosRandom });
+  const stats = profile.stats;
   const c: Combatant = {
     key,
     nickname: build.nickname,
-    hp: BASE_BUILD_STATS.hp,
-    maxHp: BASE_BUILD_STATS.hp,
-    shield: 0,
-    attack: BASE_BUILD_STATS.attack,
-    defense: BASE_BUILD_STATS.defense,
-    critChance: BASE_BUILD_STATS.critChance,
-    critDamage: BASE_BUILD_STATS.critDamage,
-    accuracy: BASE_BUILD_STATS.accuracy,
-    dodge: BASE_BUILD_STATS.dodge,
-    speed: BASE_BUILD_STATS.speed,
-    initiative: BASE_BUILD_STATS.initiative,
-    lifesteal: 0,
-    reflect: 0,
-    poisonOnHit: 0,
-    extraAttack: 0,
-    healPerTurn: 0,
-    sturdy: 0,
-    momentum: 0,
-    executioner: 0,
-    berserk: 0,
-    ignoreDefense: 0,
-    stunChance: 0,
-    critResist: 0,
-    block: 0,
-    lastStandValue: 0,
+    hp: stats.hp,
+    maxHp: stats.hp,
+    shield: profile.shield,
+    attack: stats.attack,
+    defense: stats.defense,
+    critChance: stats.critChance,
+    critDamage: stats.critDamage,
+    accuracy: stats.accuracy,
+    dodge: stats.dodge,
+    speed: stats.speed,
+    initiative: stats.initiative,
+    lifesteal: profile.lifesteal,
+    reflect: profile.reflect,
+    poisonOnHit: profile.poisonOnHit,
+    extraAttack: profile.extraAttack,
+    healPerTurn: profile.healPerTurn,
+    sturdy: profile.sturdy,
+    momentum: profile.momentum,
+    executioner: profile.executioner,
+    berserk: profile.berserk,
+    ignoreDefense: profile.ignoreDefense,
+    stunChance: profile.stunChance,
+    critResist: profile.critResist,
+    block: profile.block,
+    lastStandValue: profile.lastStandValue,
     lastStandUsed: false,
-    firstStrike: false,
-    firstCritReady: false,
+    firstStrike: profile.firstStrike,
+    firstCritReady: profile.firstCritReady,
     poison: 0,
     stunned: false,
-    stunImmune: false,
+    stunImmune: profile.stunImmune,
     weaponName: "fists",
     weaponId: "fists",
     windupKey: "windupBlade",
@@ -322,142 +319,7 @@ function buildCombatant(
     if (slot === "boots") c.hasBoots = true;
     if (slot === "helmet") c.hasHelmet = true;
     if (slot === "armor") c.hasArmor = true;
-    let atkMult = 1;
-    let defMult = 1;
-    for (const mod of h.statMods ?? []) {
-      if (mod.requireOwned) continue;
-      const hit =
-        (mod.target === "rarity" && item.rarity === mod.match) ||
-        (mod.target === "tag" && (item.tags ?? []).includes(mod.match)) ||
-        (mod.target === "slot" && item.slot === mod.match);
-      if (hit) {
-        atkMult *= mod.attackMult ?? 1;
-        defMult *= mod.defenseMult ?? 1;
-      }
-    }
-    c.attack += (item.stats.attack ?? 0) * atkMult;
-    c.defense += (item.stats.defense ?? 0) * defMult;
-    c.maxHp += item.stats.hp ?? 0;
-    c.speed += item.stats.speed ?? 0;
-    c.critChance += item.stats.critChance ?? 0;
-    c.critDamage += item.stats.critDamage ?? 0;
-    c.accuracy += item.stats.accuracy ?? 0;
-    c.dodge += item.stats.dodge ?? 0;
-    c.initiative += item.stats.initiative ?? 0;
-    const p = item.passive;
-    if (p && !(h.silenceAccessories && slot === "accessory")) {
-      if (p.type === "firstStrike") c.firstStrike = true;
-      if (p.type === "lifesteal") c.lifesteal += p.value;
-      if (p.type === "reflect") c.reflect += p.value;
-      if (p.type === "poisonOnHit") c.poisonOnHit += p.value;
-      if (p.type === "extraAttack") c.extraAttack += p.value;
-      if (p.type === "healPerTurn") c.healPerTurn += p.value;
-      if (p.type === "sturdy") c.sturdy = Math.max(c.sturdy, p.value);
-      if (p.type === "momentum") c.momentum += p.value;
-      if (p.type === "executioner") c.executioner += p.value;
-      if (p.type === "berserk") c.berserk += p.value;
-      if (p.type === "ignoreDefense") c.ignoreDefense += p.value;
-      if (p.type === "stunChance") c.stunChance += p.value;
-      if (p.type === "critResist") c.critResist += p.value;
-      if (p.type === "lastStand") c.lastStandValue = Math.max(c.lastStandValue, p.value);
-      if (p.type === "block") c.block += p.value;
-      if (p.type === "shield") c.shield += p.value;
-      if (p.type === "chaos") {
-        const shift = () => 1 + (rand() * 2 - 1) * (p.value / 100);
-        c.attack *= shift();
-        c.defense *= shift();
-        c.maxHp *= shift();
-        c.speed *= shift();
-        c.critChance *= shift();
-        c.dodge *= shift();
-      }
-    }
   }
-
-  for (const mod of h.statMods ?? []) {
-    if (!mod.requireOwned) continue;
-    if (mod.target === "rarity" && ownsRarity(build.equipment, mod.match, disabled)) {
-      c.attack *= mod.ownedAttackMult ?? 1;
-      c.defense *= mod.ownedDefenseMult ?? 1;
-    }
-  }
-
-  const card = build.luckCard?.id;
-  if (card === "lucky") c.critChance *= 2;
-  if (card === "vampire") c.lifesteal += 20;
-  if (card === "barrier") c.shield += 35;
-  if (card === "phoenix") c.lastStandValue = Math.max(c.lastStandValue, 40);
-  if (card === "assassin") c.firstCritReady = true;
-  if (card === "titan") {
-    c.maxHp += 40;
-    c.speed *= 0.7;
-  }
-  if (card === "eagle") c.accuracy += 30;
-  if (card === "turtle") {
-    c.defense *= 1.35;
-    c.speed *= 0.85;
-  }
-  if (card === "berserker") {
-    c.attack *= 1.3;
-    c.defense *= 0.8;
-  }
-  if (card === "ghost") c.dodge += 18;
-  if (card === "cactus") c.reflect += 15;
-  if (card === "medic") c.healPerTurn += 6;
-  if (card === "giant") {
-    c.maxHp += 60;
-    c.attack *= 0.82;
-  }
-  if (card === "zephyr") {
-    c.speed *= 1.25;
-    c.initiative += 12;
-  }
-  if (card === "anchor") c.stunImmune = true;
-  if (card === "bulwark") c.block += 20;
-  if (card === "sharpshooter") {
-    c.critChance += 15;
-    c.accuracy += 15;
-  }
-  if (card === "sprinter") c.firstStrike = true;
-  if (card === "flurry") c.extraAttack += 15;
-  if (card === "ironskin") c.critResist += 40;
-  if (card === "headsman") c.executioner += 40;
-  if (card === "snake") c.poisonOnHit += 5;
-  if (card === "gladiator") c.critDamage += 40;
-
-  c.maxHp *= h.hpMultiplier ?? 1;
-  c.maxHp += h.flatHp ?? 0;
-  c.attack *= h.attackMultiplier ?? 1;
-  c.defense *= h.defenseMultiplier ?? 1;
-  c.speed *= h.speedMultiplier ?? 1;
-  c.critDamage += h.critDamageBonus ?? 0;
-  c.critChance *= h.critChanceMultiplier ?? 1;
-  c.accuracy += h.accuracyDelta ?? 0;
-  c.dodge += h.dodgeDelta ?? 0;
-  c.lifesteal += h.lifestealBonus ?? 0;
-  c.healPerTurn += h.healPerTurnBonus ?? 0;
-  c.extraAttack += h.extraAttackBonus ?? 0;
-  if (h.zeroDodge) c.dodge = 0;
-  if (h.swapAttackDefense) {
-    const a = c.attack;
-    c.attack = Math.max(8, c.defense * 1.6);
-    c.defense = a * 0.6;
-  }
-  if (h.chaosAll) {
-    const shift = () => 1 + (rand() * 2 - 1) * 0.3;
-    c.attack *= shift();
-    c.defense *= shift();
-    c.maxHp *= shift();
-    c.speed *= shift();
-  }
-
-  c.maxHp = Math.max(30, Math.round(c.maxHp));
-  c.attack = Math.max(5, c.attack);
-  c.defense = Math.max(0, c.defense);
-  c.accuracy = clamp(c.accuracy, 30, 100);
-  c.dodge = clamp(c.dodge, 0, 60);
-  c.critChance = clamp(c.critChance, 0, 90);
-  c.hp = c.maxHp;
   if (c.weaponId === "fists") {
     c.weaponless = true;
     c.windupKey = "windupImprov";
@@ -573,47 +435,89 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   applyTemporaryCard(aBuild, bEquip, bDisabled, aBuild.nickname, bBuild.nickname, "a");
   applyTemporaryCard(bBuild, aEquip, aDisabled, bBuild.nickname, aBuild.nickname, "b");
 
-  const a = buildCombatant("a", { ...aBuild, equipment: aEquip }, event, aDisabled);
-  const b = buildCombatant("b", { ...bBuild, equipment: bEquip }, event, bDisabled);
   const suppressions: Partial<Record<"a" | "b", TimedSuppression>> = {};
-  if (pendingSuppressions.a) {
-    suppressions.a = {
-      ...pendingSuppressions.a,
-      remainingAttacks: 2,
-      full: buildCombatant("a", { ...aBuild, equipment: aEquip }, event, []),
-      suppressed: { ...a }
+  const buildWithSuppression = (key: "a" | "b", build: Build, equipment: Partial<Record<Slot, Item>>, disabled: string[]) => {
+    const pending = pendingSuppressions[key];
+    if (!pending) return buildCombatant(key, { ...build, equipment }, event, disabled);
+    const rolls: number[] = [];
+    const chaosRolls = new Map<string, number>();
+    const chaosRandom: ChaosRandom = (effect, field) => {
+      const rollKey = `${effect}:${field}`;
+      const existing = chaosRolls.get(rollKey);
+      if (existing !== undefined) return existing;
+      const value = rand();
+      chaosRolls.set(rollKey, value);
+      return value;
     };
-  }
-  if (pendingSuppressions.b) {
-    suppressions.b = {
-      ...pendingSuppressions.b,
+    const full = buildCombatant(
+      key,
+      { ...build, equipment },
+      event,
+      [],
+      () => {
+        const value = rand();
+        rolls.push(value);
+        return value;
+      },
+      chaosRandom
+    );
+    let rollIndex = 0;
+    const suppressed = buildCombatant(
+      key,
+      { ...build, equipment },
+      event,
+      disabled,
+      () => rolls[rollIndex++] ?? rand(),
+      chaosRandom
+    );
+    suppressions[key] = {
+      ...pending,
       remainingAttacks: 2,
-      full: buildCombatant("b", { ...bBuild, equipment: bEquip }, event, []),
-      suppressed: { ...b }
+      full,
+      suppressed: { ...suppressed }
     };
-  }
+    return suppressed;
+  };
+  const a = buildWithSuppression("a", aBuild, aEquip, aDisabled);
+  const b = buildWithSuppression("b", bBuild, bEquip, bDisabled);
+
+  const mutateVariants = (combatant: Combatant, mutate: (variant: Combatant) => void) => {
+    mutate(combatant);
+    const suppression = suppressions[combatant.key];
+    if (!suppression) return;
+    mutate(suppression.full);
+    mutate(suppression.suppressed);
+  };
 
   if (event.hooks.underdogBoost) {
     const powerOf = (c: Combatant) => c.attack * 2 + c.defense * 2 + c.maxHp * 0.5 + c.speed;
-    const weak = powerOf(a) < powerOf(b) ? a : b;
-    const boost = 1 + event.hooks.underdogBoost / 100;
-    weak.attack *= boost;
-    weak.defense *= boost;
-    weak.maxHp = Math.round(weak.maxHp * boost);
-    weak.hp = weak.maxHp;
-    pre.push({
-      text: `🐕 Underdog Spirit empowers ${weak.nickname}!`,
-      key: "underdog",
-      params: { p: weak.nickname },
-      fx: "underdog"
-    });
+    const aPower = powerOf(a);
+    const bPower = powerOf(b);
+    const weak = aPower < bPower ? a : bPower < aPower ? b : null;
+    if (weak) {
+      const boost = 1 + event.hooks.underdogBoost / 100;
+      mutateVariants(weak, (variant) => {
+        variant.attack *= boost;
+        variant.defense *= boost;
+        variant.maxHp = Math.round(variant.maxHp * boost);
+        variant.hp = variant.maxHp;
+      });
+      pre.push({
+        text: `🐕 Underdog Spirit empowers ${weak.nickname}!`,
+        key: "underdog",
+        params: { p: weak.nickname },
+        fx: "underdog"
+      });
+    }
   }
 
   const applyBattleStartCards = (self: Combatant, selfBuild: Build, other: Combatant) => {
     const card = selfBuild.luckCard?.id;
     if (card === "curse") {
-      other.attack *= 0.85;
-      other.defense *= 0.88;
+      mutateVariants(other, (variant) => {
+        variant.attack *= 0.85;
+        variant.defense *= 0.88;
+      });
       pre.push({
         text: `💀 ${self.nickname}'s Curse saps ${other.nickname}'s strength!`,
         key: "curse",
@@ -622,8 +526,10 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
       });
     }
     if (card === "lightning") {
-      other.maxHp = Math.round(other.maxHp * 0.75);
-      other.hp = other.maxHp;
+      mutateVariants(other, (variant) => {
+        variant.maxHp = Math.round(variant.maxHp * 0.75);
+        variant.hp = variant.maxHp;
+      });
       pre.push({
         text: `⚡ ${self.nickname}'s Lightning strikes ${other.nickname} before the fight! -25% HP!`,
         key: "lightning",
@@ -633,9 +539,11 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     }
     if (card === "allin") {
       if (roll(50)) {
-        self.attack *= 1.8;
-        self.maxHp = Math.round(self.maxHp * 1.8);
-        self.hp = self.maxHp;
+        mutateVariants(self, (variant) => {
+          variant.attack *= 1.8;
+          variant.maxHp = Math.round(variant.maxHp * 1.8);
+          variant.hp = variant.maxHp;
+        });
         pre.push({
           text: `🎰 ${self.nickname} goes ALL IN... JACKPOT! Attack and HP surge!`,
           key: "jackpot",
@@ -643,9 +551,11 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
           fx: "jackpot"
         });
       } else {
-        self.attack *= 0.55;
-        self.maxHp = Math.max(60, Math.round(self.maxHp * 0.55));
-        self.hp = self.maxHp;
+        mutateVariants(self, (variant) => {
+          variant.attack *= 0.55;
+          variant.maxHp = Math.max(60, Math.round(variant.maxHp * 0.55));
+          variant.hp = variant.maxHp;
+        });
         pre.push({
           text: `🎰 ${self.nickname} goes ALL IN... and BUSTS! Attack and HP crumble!`,
           key: "bust",
@@ -668,7 +578,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     }
     const maxHpGain = suppression.full.maxHp - suppression.suppressed.maxHp;
     c.maxHp = Math.max(30, c.maxHp + maxHpGain);
-    if (maxHpGain > 0) c.hp = Math.min(c.maxHp, c.hp + maxHpGain);
+    if (maxHpGain > 0) c.hp += maxHpGain;
+    c.hp = Math.min(c.maxHp, c.hp);
     c.firstStrike ||= suppression.full.firstStrike;
     c.stunImmune ||= suppression.full.stunImmune;
     c.hasBoots ||= suppression.full.hasBoots;
@@ -753,7 +664,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         params: { p: att.nickname, d: def.nickname, dmg },
         dmg
       });
-    } else if (r < 0.67) {
+    } else if (r < 0.67 || event.hooks.noHealing) {
       if (roll(50)) {
         const dmg = rawDamage(att, def, 2);
         def.hp -= dmg;
@@ -975,7 +886,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
           actor: att.key,
           text: `🌀 ${def.nickname} pulls off a PERFECT DODGE!`,
           key: "qteDodge",
-          params: { p: att.nickname, d: def.nickname }
+          params: { p: att.nickname, d: def.nickname, weapon: att.weaponId }
         });
         return;
       }
@@ -1016,7 +927,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
           actor: att.key,
           text: `${prefix}🌀 ${def.nickname} dodges ${att.nickname}'s attack!`,
           key: "dodgeLine",
-          params: { p: att.nickname, d: def.nickname },
+          params: { p: att.nickname, d: def.nickname, weapon: att.weaponId },
           extra
         });
         if (!extra && roll(12)) {
@@ -1232,7 +1143,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         key: "quirkReferee",
         params: { p: target.nickname }
       });
-    } else if (r < 0.6) {
+    } else if (r < 0.6 && !event.hooks.noHealing) {
       const lucky = roll(50) ? a : b;
       const heal = 4;
       lucky.hp = Math.min(lucky.maxHp, lucky.hp + heal);
@@ -1323,8 +1234,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
       } else if (a.firstStrike !== b.firstStrike) {
         order = a.firstStrike ? [a, b] : [b, a];
       } else {
-        const ia = a.initiative + a.speed + rand() * 20;
-        const ib = b.initiative + b.speed + rand() * 20;
+        const ia = a.speed + (round === 1 ? a.initiative : 0) + rand() * 20;
+        const ib = b.speed + (round === 1 ? b.initiative : 0) + rand() * 20;
         order = ia >= ib ? [a, b] : [b, a];
       }
       for (const att of order) {
@@ -1343,7 +1254,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         }
         attackOnce(att, def, false);
         consumeSuppressionAttack(att);
-        if (def.hp > 0 && att.hp > 0 && roll(att.extraAttack)) {
+        const speedAttackChance = clamp((att.speed - def.speed) * 0.8, 0, 18);
+        if (def.hp > 0 && att.hp > 0 && roll(Math.min(75, att.extraAttack + speedAttackChance))) {
           attackOnce(att, def, true);
           consumeSuppressionAttack(att);
         }

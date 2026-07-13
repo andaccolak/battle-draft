@@ -41,18 +41,24 @@ const ATTACK_POOLS: Record<FighterKind, string[]> = {
   blade: ["Melee_1H_Attack_Slice_Diagonal", "Melee_1H_Attack_Slice_Horizontal", "Melee_1H_Attack_Chop", "Melee_1H_Attack_Stab"],
   heavy: ["Melee_2H_Attack_Chop", "Melee_2H_Attack_Slice", "Melee_2H_Attack_Stab"],
   dual: ["Melee_Dualwield_Attack_Chop", "Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Stab"],
-  crossbow: ["Ranged_2H_Shoot", "Ranged_1H_Shoot"],
+  shield: ["Melee_Block_Attack", "Melee_1H_Attack_Chop"],
+  crossbow: ["Ranged_2H_Shoot"],
   bow: ["Ranged_Bow_Release", "Ranged_Bow_Release_Up"],
   magic: ["Ranged_Magic_Shoot"],
   fists: ["Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick"]
 };
 
-const CRIT_POOL = ["Melee_2H_Attack_Spinning", "Melee_2H_Attack_Spin", "Melee_1H_Attack_Jump_Chop"];
-const MELEE_KINDS = new Set<FighterKind>(["blade", "heavy", "dual", "fists"]);
+const CRIT_POOLS: Partial<Record<FighterKind, string[]>> = {
+  blade: ["Melee_1H_Attack_Jump_Chop", "Melee_1H_Attack_Slice_Diagonal"],
+  heavy: ["Melee_2H_Attack_Spinning", "Melee_2H_Attack_Spin", "Melee_2H_Attack_Chop"],
+  dual: ["Melee_Dualwield_Attack_Slice", "Melee_Dualwield_Attack_Chop"],
+  shield: ["Melee_Block_Attack"],
+  fists: ["Melee_Unarmed_Attack_Kick", "Melee_Unarmed_Attack_Punch_A"]
+};
+const MELEE_KINDS = new Set<FighterKind>(["blade", "heavy", "dual", "shield", "fists"]);
 const REACTION_POSES = new Set<Pose>(["hit", "knockdown", "block", "dodge", "roll"]);
 const CHAR_HEIGHT = 2.4;
 const RUN_SPEED = 5.5;
-const WALK_SPEED = 0.55;
 const RING_RADIUS = 1.65;
 const CALM_POSES = new Set<Pose>(["idle", "guard"]);
 
@@ -60,8 +66,12 @@ const GREET_POOL = ["Waving", "Cheering", "Skeletons_Taunt", "Interact", "Melee_
 
 const GUARD_POOLS: Partial<Record<FighterKind, string[]>> = {
   bow: ["Ranged_Bow_Idle"],
-  crossbow: ["Ranged_1H_Shooting", "Ranged_1H_Aiming"],
-  magic: ["Ranged_Magic_Spellcasting"]
+  crossbow: ["Ranged_2H_Shooting", "Ranged_2H_Aiming"],
+  magic: ["Ranged_Magic_Spellcasting"],
+  heavy: ["Melee_2H_Idle", "Melee_Blocking"],
+  blade: ["Melee_Blocking", "Melee_Block"],
+  dual: ["Melee_Blocking", "Melee_Block"],
+  shield: ["Melee_Blocking", "Melee_Block"]
 };
 
 function guardPoolFor(kind: FighterKind, idleClip: string): string[] {
@@ -71,7 +81,23 @@ function guardPoolFor(kind: FighterKind, idleClip: string): string[] {
 const IDLE_POOLS: Partial<Record<FighterKind, string[]>> = {
   fists: ["Melee_Unarmed_Idle", IDLE_CLIP],
   heavy: ["Melee_2H_Idle", IDLE_CLIP],
-  bow: ["Ranged_Bow_Idle", IDLE_CLIP]
+  blade: ["Melee_Blocking", IDLE_CLIP],
+  dual: ["Melee_Blocking", IDLE_CLIP],
+  shield: ["Melee_Blocking", IDLE_CLIP],
+  crossbow: ["Ranged_2H_Shooting", "Ranged_2H_Aiming", IDLE_CLIP],
+  bow: ["Ranged_Bow_Idle", IDLE_CLIP],
+  magic: ["Ranged_Magic_Spellcasting", IDLE_CLIP]
+};
+
+const WINDUP_POOLS: Record<FighterKind, string[]> = {
+  blade: ["Melee_Blocking", "Melee_Block", IDLE_CLIP],
+  heavy: ["Melee_2H_Idle", "Melee_Blocking", IDLE_CLIP],
+  dual: ["Melee_Blocking", "Melee_Block", IDLE_CLIP],
+  shield: ["Melee_Block_Attack", "Melee_Blocking", IDLE_CLIP],
+  crossbow: ["Ranged_2H_Aiming", "Ranged_2H_Shooting", IDLE_CLIP],
+  bow: ["Ranged_Bow_Draw", "Ranged_Bow_Idle", IDLE_CLIP],
+  magic: ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP],
+  fists: ["Melee_Unarmed_Idle", IDLE_CLIP]
 };
 
 function meleeRunMs(rig: Rig, opp: Rig | undefined): number {
@@ -307,12 +333,52 @@ interface Rig {
   moveSpeed: number | null;
   idleClip: string;
   attached: boolean;
-  droppedWeapon: { obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler; scl: THREE.Vector3 } | null;
+  droppedWeapons: { obj: THREE.Object3D; parent: THREE.Object3D; pos: THREE.Vector3; rot: THREE.Euler; scl: THREE.Vector3 }[];
   pose: Pose;
   radius: number;
   radiusTarget: number;
   impulse: THREE.Vector3;
   returning: boolean;
+}
+
+function setWeaponDropped(rig: Rig, scene: THREE.Scene, lost: boolean): void {
+  if (lost && rig.droppedWeapons.length === 0) {
+    const weapons = [rig.group.getObjectByName("weapon_main"), rig.group.getObjectByName("weapon_off")].filter(
+      (weapon): weapon is THREE.Object3D => !!weapon?.parent
+    );
+    for (let index = 0; index < weapons.length; index++) {
+      const weapon = weapons[index];
+      if (!weapon?.parent) continue;
+      const parent = weapon.parent;
+      const pos = weapon.position.clone();
+      const rot = weapon.rotation.clone();
+      const scl = weapon.scale.clone();
+      const worldPosition = new THREE.Vector3();
+      const worldScale = new THREE.Vector3();
+      weapon.getWorldPosition(worldPosition);
+      weapon.getWorldScale(worldScale);
+      rig.droppedWeapons.push({ obj: weapon, parent, pos, rot, scl });
+      weapon.removeFromParent();
+      weapon.position.set(worldPosition.x + (index === 0 ? -0.12 : 0.12), 0, worldPosition.z);
+      weapon.rotation.set(Math.PI / 2, 0, index === 0 ? 0.35 : -0.45);
+      weapon.scale.copy(worldScale);
+      scene.add(weapon);
+      weapon.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(weapon);
+      if (Number.isFinite(box.min.y)) weapon.position.y += 0.045 - box.min.y;
+    }
+    return;
+  }
+  if (!lost && rig.droppedWeapons.length > 0) {
+    for (const dropped of rig.droppedWeapons) {
+      dropped.obj.removeFromParent();
+      dropped.obj.position.copy(dropped.pos);
+      dropped.obj.rotation.copy(dropped.rot);
+      dropped.obj.scale.copy(dropped.scl);
+      dropped.parent.add(dropped.obj);
+    }
+    rig.droppedWeapons = [];
+  }
 }
 
 interface Projectile {
@@ -424,7 +490,7 @@ function makeRig(position: THREE.Vector3, facing: THREE.Vector3): Rig {
     moveSpeed: null,
     idleClip: IDLE_CLIP,
     attached: false,
-    droppedWeapon: null,
+    droppedWeapons: [],
     pose: "idle",
     radius: RING_RADIUS,
     radiusTarget: RING_RADIUS,
@@ -575,23 +641,8 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
       playAction(rig, ["Skeletons_Taunt", "Waving", IDLE_CLIP], { once: true, backToIdle: true, random: true, seed });
       break;
     case "windup":
-      if (kind === "magic") {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_Magic_Raise", "Ranged_Magic_Summon", IDLE_CLIP], { once: true, backToIdle: true, random: true, seed });
-      } else if (kind === "crossbow") {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_2H_Aiming", "Ranged_1H_Aiming", IDLE_CLIP]);
-      } else if (kind === "bow") {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, ["Ranged_Bow_Draw", "Ranged_Bow_Idle", IDLE_CLIP]);
-      } else if (rig.clips?.has("Walking_A")) {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, 1.0);
-        rig.moveSpeed = WALK_SPEED;
-        playAction(rig, ["Walking_A"]);
-      } else {
-        rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.4);
-        playAction(rig, [rig.idleClip]);
-      }
+      rig.targetPos.copy(rig.base).addScaledVector(rig.dir, -0.35);
+      playAction(rig, WINDUP_POOLS[kind], kind === "magic" || kind === "shield" ? { once: true, backToIdle: true, random: true, seed } : {});
       break;
     case "attack": {
       if (MELEE_KINDS.has(kind) && opp) {
@@ -600,11 +651,12 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
         rig.targetPos.copy(rig.base).addScaledVector(rig.dir, MELEE_KINDS.has(kind) ? 1.7 : 0.2);
       }
       const pool = ATTACK_POOLS[kind];
+      const critPool = CRIT_POOLS[kind];
       const strike =
-        crit && MELEE_KINDS.has(kind)
-          ? (pickAvailable(rig, CRIT_POOL, true, seed) ?? pickAvailable(rig, pool, true, seed))
+        crit && critPool
+          ? (pickAvailable(rig, critPool, true, seed) ?? pickAvailable(rig, pool, true, seed))
           : pickAvailable(rig, pool, true, seed);
-      const heft = kind === "heavy" ? 0.9 : kind === "dual" || kind === "fists" ? 1.12 : 1;
+      const heft = kind === "heavy" ? 0.9 : kind === "dual" || kind === "fists" ? 1.12 : kind === "shield" ? 0.96 : 1;
       if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
         rig.moveSpeed = RUN_SPEED;
         playAction(rig, ["Running_A"]);
@@ -705,6 +757,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
   const baseZ = useRef(6);
   const zoomState = useRef({ focus: "none" as "a" | "b" | "none", zoom: false });
   const kindRef = useRef({ a: "fists" as FighterKind, b: "fists" as FighterKind });
+  const weaponLostRef = useRef({ a: !!weaponLostA, b: !!weaponLostB });
   const weatherRef = useRef<Weather | null>(null);
   const projectilesRef = useRef<Projectile[]>([]);
   const mapRef = useRef(map);
@@ -717,6 +770,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
   const kickRef = useRef(0);
   const flashRef = useRef<THREE.PointLight | null>(null);
   kindRef.current = { a: weaponLostA ? "fists" : fighterKind(a), b: weaponLostB ? "fists" : fighterKind(b) };
+  weaponLostRef.current = { a: !!weaponLostA, b: !!weaponLostB };
   mapRef.current = map;
 
   const spawnProjectile = (from: Rig, to: Rig, kind: FighterKind) => {
@@ -857,11 +911,13 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       applyPose(rigA, "idle", kindRef.current.a, false);
       if (revealRef.current) playAction(rigA, GREET_POOL, { once: true, backToIdle: true, random: true, seed: 1 });
       rigA.attached = true;
+      setWeaponDropped(rigA, scene, weaponLostRef.current.a);
     });
     void attachModel(rigB, avatarById(b.avatar).id, b, charScale).then(() => {
       applyPose(rigB, "idle", kindRef.current.b, false);
       if (revealRef.current) playAction(rigB, GREET_POOL, { once: true, backToIdle: true, random: true, seed: 2 });
       rigB.attached = true;
+      setWeaponDropped(rigB, scene, weaponLostRef.current.b);
     });
 
     const dom = renderer.domElement;
@@ -1245,41 +1301,10 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
   }, [poseA, poseB, beat, crit, finisher, onImpact]);
 
   useEffect(() => {
-    const dropWeapon = (rig: Rig | null, lost: boolean | undefined) => {
-      if (!rig) return;
-      const scene = sceneRef.current;
-      if (!scene) return;
-      if (lost && !rig.droppedWeapon) {
-        const weapon = rig.group.getObjectByName("weapon_main");
-        if (!weapon || !weapon.parent) return;
-        rig.droppedWeapon = {
-          obj: weapon,
-          parent: weapon.parent,
-          pos: weapon.position.clone(),
-          rot: weapon.rotation.clone(),
-          scl: weapon.scale.clone()
-        };
-        const pos = new THREE.Vector3();
-        const scale = new THREE.Vector3();
-        weapon.getWorldPosition(pos);
-        weapon.getWorldScale(scale);
-        weapon.removeFromParent();
-        weapon.position.set(pos.x, 0.06, pos.z);
-        weapon.rotation.set(Math.PI / 2, 0, Math.random() * Math.PI * 2);
-        weapon.scale.copy(scale);
-        scene.add(weapon);
-      } else if (!lost && rig.droppedWeapon) {
-        const d = rig.droppedWeapon;
-        d.obj.removeFromParent();
-        d.obj.position.copy(d.pos);
-        d.obj.rotation.copy(d.rot);
-        d.obj.scale.copy(d.scl);
-        d.parent.add(d.obj);
-        rig.droppedWeapon = null;
-      }
-    };
-    dropWeapon(rigARef.current, weaponLostA);
-    dropWeapon(rigBRef.current, weaponLostB);
+    const scene = sceneRef.current;
+    if (!scene) return;
+    if (rigARef.current) setWeaponDropped(rigARef.current, scene, !!weaponLostA);
+    if (rigBRef.current) setWeaponDropped(rigBRef.current, scene, !!weaponLostB);
   }, [weaponLostA, weaponLostB]);
 
   useEffect(() => {

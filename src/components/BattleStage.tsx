@@ -9,7 +9,7 @@ import { type Pose } from "./Fighter";
 import AvatarPortrait from "./AvatarPortrait";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
-import { weaponVisualKindFor } from "@/lib/game/items";
+import { weaponAudioKindFor } from "@/lib/game/items";
 
 const Arena3D = dynamic(() => import("./Arena3D"), { ssr: false });
 
@@ -156,33 +156,36 @@ function posesFor(entry: TimelineEntry | undefined): { a: Pose; b: Pose } {
   return { a: "idle", b: "idle" };
 }
 
-function playSound(entry: TimelineEntry, battle: BattlePayload, eventId?: string): void {
-  if (entry.t === "windup") sfx.windup();
+function playSound(entry: TimelineEntry, eventId?: string, finisher = false): void {
+  const weapon = typeof entry.params?.weapon === "string" ? entry.params.weapon : undefined;
+  const weaponKind = weaponAudioKindFor(weapon);
+  if (entry.t === "windup") sfx.weaponWindup(weaponKind);
   else if (entry.t === "attack") {
-    if (entry.blocked || (entry.absorbed ?? 0) > 0) {
-      sfx.defend();
-      return;
-    }
-    const fighter = entry.actor === "a" ? battle.a : battle.b;
-    const weaponId = entry.params?.weapon;
-    const weapon = Object.values(fighter.equipment).find((item) => item?.id === weaponId);
-    const kind = weaponId === "fists" ? "fists" : weaponVisualKindFor(weapon);
-    if (kind === "fists") sfx.humanStrike(!!entry.crit);
-    else if (kind === "blade" || kind === "dual" || kind === "heavy") sfx.sword(kind === "heavy", !!entry.crit);
-    else if (entry.crit) sfx.crit();
-    else sfx.hit();
-  } else if (entry.t === "miss" || entry.t === "dodge") sfx.miss();
+    sfx.weaponImpact(weaponKind, !!entry.crit);
+    if (entry.blocked) sfx.defend();
+    if ((entry.absorbed ?? 0) > 0) sfx.barrier();
+    if (entry.crit) sfx.crit();
+    if (finisher) sfx.finisher();
+  } else if (entry.t === "miss" || entry.t === "dodge") sfx.weaponMiss(weaponKind, entry.t === "dodge");
   else if (entry.t === "quirk") {
-    if (["quirkRain", "quirkBees", "quirkChicken", "quirkPigeon", "quirkTomato"].includes(entry.key ?? "")) sfx.environment(entry.key);
-    else if (entry.key === "quirkBite" || entry.key === "quirkHeadbutt" || entry.key === "quirkSlipper") sfx.humanStrike(false);
-    else if (entry.dmg) sfx.hit();
-    else if (entry.heal) sfx.heal();
-    else sfx.miss();
-  } else if (entry.t === "event") sfx.environment(eventId);
-  else if (entry.t === "card" || entry.t === "showcase") sfx.legendary();
+    if (entry.heal) sfx.heal();
+    else sfx.quirk(entry.key);
+  } else if (entry.t === "event") {
+    const timelineEvent = typeof entry.params?.event === "string" ? entry.params.event : eventId;
+    sfx.environment(timelineEvent);
+  } else if (entry.t === "card") {
+    if (entry.key === "lightning") sfx.environment("thunderstorm");
+    else if (entry.key === "curse") sfx.environment("cursed_ground");
+    else if (entry.key === "magnet") sfx.quirk("quirkCaught");
+    else sfx.legendary();
+  } else if (entry.t === "showcase") sfx.legendary();
   else if (entry.t === "victory") sfx.victory();
   else if (entry.t === "death") sfx.death();
   else if (entry.key === "gearReturn") sfx.pick();
+  else if (entry.t === "poison" || entry.key === "poisonApplied") sfx.poison();
+  else if (entry.key === "reflect") sfx.reflect();
+  else if (entry.key === "stunApplied" || entry.key === "stunSkip") sfx.stun();
+  else if (entry.key === "revive") sfx.legendary();
   else if (entry.heal) sfx.heal();
 }
 
@@ -255,7 +258,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     const jumped = index - prevIndexRef.current > 1;
     prevIndexRef.current = index;
     if (!entry) return;
-    const isStrike = (entry.t === "attack" && (entry.dmg ?? 0) > 0) || entry.t === "miss" || entry.t === "dodge";
+    const isStrike = entry.t === "attack" || entry.t === "miss" || entry.t === "dodge";
     const waitsForImpact = !jumped && isStrike;
     const scheduledAt = index;
     const at = (fn: () => void, delay: number) => {
@@ -291,8 +294,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     const finisher = entry.t === "attack" && (entry.dmg ?? 0) > 0 && next?.t === "death";
     atImpact(() => {
       setDispHp({ a: entry.hpA, b: entry.hpB });
-      if (finisher) sfx.finisher();
-      else playSound(entry, battle, eventId);
+      playSound(entry, eventId, finisher);
       if (entry.t === "attack" && (entry.crit || finisher)) {
         setShake((sh) => sh + 1);
         setZoom(true);
@@ -868,7 +870,7 @@ function HpBar({ name, hp, maxHp, align, poisoned }: { name: string; hp: number;
   return (
     <div className={align === "right" ? "text-right" : ""}>
       <div className="mb-1 truncate text-sm font-bold">
-        {name} {poisoned && <span className="text-lime-300">☠️</span>}
+        {name} {poisoned && <span className="text-lime-300">🧪</span>}
       </div>
       <div className={`h-3 w-full overflow-hidden rounded-full bg-white/10 ${align === "right" ? "scale-x-[-1]" : ""}`}>
         <motion.div
