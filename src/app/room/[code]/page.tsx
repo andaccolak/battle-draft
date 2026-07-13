@@ -200,7 +200,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
             <EventReveal
               event={snapshot.event}
               player={currentPlayer}
-              seed={`${snapshot.code}:${snapshot.event.id}:${snapshot.deadline ?? 0}`}
+              seed={`${snapshot.code}:${snapshot.event.id}`}
               deadline={snapshot.deadline}
               serverNow={snapshot.serverNow}
             />

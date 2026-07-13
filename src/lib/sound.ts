@@ -115,6 +115,17 @@ function sample(id: SampleId, volume: number, delay = 0, rate = 1): void {
   });
 }
 
+function sampleOr(id: SampleId, volume: number, delay: number, rate: number, fallback: () => void): void {
+  if (muted) return;
+  if (sampleBuffers.has(id)) {
+    sample(id, volume, delay, rate);
+    return;
+  }
+  const ac = audio();
+  if (ac) void loadSample(ac, id);
+  fallback();
+}
+
 function tone(freq: number, duration: number, type: OscillatorType, volume: number, delay = 0, endFreq = freq): void {
   if (muted) return;
   const ac = audio();
@@ -175,32 +186,37 @@ function airSwipe(weight = 1, delay = 0): void {
 function weaponWindup(kind: WeaponAudioKind): void {
   switch (kind) {
     case "sword":
-      sample("bladeSwing", 0.15, 0.08, 1.04);
-      metalImpact(0.48);
-      airSwipe(0.45, 0.12);
+      sampleOr("bladeSwing", 0.15, 0.08, 1.04, () => {
+        metalImpact(0.48);
+        airSwipe(0.45, 0.12);
+      });
       break;
     case "dagger":
-      sample("bladeSwing", 0.11, 0.06, 1.22);
-      metalImpact(0.34);
-      airSwipe(0.35, 0.08);
+      sampleOr("bladeSwing", 0.11, 0.06, 1.22, () => {
+        metalImpact(0.34);
+        airSwipe(0.35, 0.08);
+      });
       break;
     case "axe":
-      sample("bladeSwing", 0.12, 0.11, 0.78);
-      tone(118, 0.25, "triangle", 0.05, 0, 78);
-      airSwipe(0.68, 0.16);
+      sampleOr("bladeSwing", 0.12, 0.11, 0.78, () => {
+        tone(118, 0.25, "triangle", 0.05, 0, 78);
+        airSwipe(0.68, 0.16);
+      });
       break;
     case "blunt":
-      sample("bladeSwing", 0.08, 0.12, 0.7);
-      tone(96, 0.24, "sine", 0.055, 0, 68);
-      airSwipe(0.6, 0.15);
+      sampleOr("bladeSwing", 0.08, 0.12, 0.7, () => {
+        tone(96, 0.24, "sine", 0.055, 0, 68);
+        airSwipe(0.6, 0.15);
+      });
       break;
     case "shield":
       metalImpact(0.55);
       break;
     case "scythe":
-      sample("bladeSwing", 0.14, 0.04, 0.88);
-      airSwipe(0.72);
-      tone(820, 0.24, "triangle", 0.045, 0.05, 390);
+      sampleOr("bladeSwing", 0.14, 0.04, 0.88, () => {
+        airSwipe(0.72);
+        tone(820, 0.24, "triangle", 0.045, 0.05, 390);
+      });
       break;
     case "bow":
       tone(165, 0.42, "triangle", 0.045, 0, 235);
@@ -225,63 +241,73 @@ function weaponImpact(kind: WeaponAudioKind, critical = false): void {
   if (critical) sample("humanPain", 0.12 * boost, 0.03, 1.05);
   switch (kind) {
     case "sword":
-      sample("metalShield", 0.13 * boost, 0.015, 1.04);
-      airSwipe(0.65);
-      metalImpact(0.72 * boost, 0.025);
+      sampleOr("metalShield", 0.13 * boost, 0.015, 1.04, () => {
+        airSwipe(0.65);
+        metalImpact(0.72 * boost, 0.025);
+      });
       bodyImpact(0.5 * boost, 0.035);
       break;
     case "dagger":
-      sample("bodyPunch", 0.1 * boost, 0.02, 1.2);
-      airSwipe(0.42);
-      noise(0.065, 0.05 * boost, 1750, 0.018, "bandpass");
-      bodyImpact(0.42 * boost, 0.028);
+      sampleOr("bodyPunch", 0.1 * boost, 0.02, 1.2, () => {
+        airSwipe(0.42);
+        noise(0.065, 0.05 * boost, 1750, 0.018, "bandpass");
+        bodyImpact(0.42 * boost, 0.028);
+      });
       break;
     case "axe":
-      sample("bodyPunch", 0.14 * boost, 0.025, 0.8);
-      airSwipe(0.95);
-      noise(0.09, 0.075 * boost, 1450, 0.03, "bandpass");
+      sampleOr("bodyPunch", 0.14 * boost, 0.025, 0.8, () => {
+        airSwipe(0.95);
+        noise(0.09, 0.075 * boost, 1450, 0.03, "bandpass");
+      });
       tone(105, 0.18, "triangle", 0.095 * boost, 0.035, 52);
       break;
     case "blunt":
-      sample("bodyPunch", 0.16 * boost, 0.02, 0.72);
-      airSwipe(0.75);
-      bodyImpact(1.15 * boost, 0.035);
+      sampleOr("bodyPunch", 0.16 * boost, 0.02, 0.72, () => {
+        airSwipe(0.75);
+        bodyImpact(1.15 * boost, 0.035);
+      });
       tone(72, 0.22, "sine", 0.11 * boost, 0.045, 38);
       break;
     case "shield":
-      sample("metalShield", 0.2 * boost, 0.01, 0.86);
-      airSwipe(0.65);
-      metalImpact(0.85 * boost, 0.025);
+      sampleOr("metalShield", 0.2 * boost, 0.01, 0.86, () => {
+        airSwipe(0.65);
+        metalImpact(0.85 * boost, 0.025);
+      });
       bodyImpact(0.7 * boost, 0.04);
       break;
     case "scythe":
-      sample("bladeSwing", 0.13 * boost, 0.01, 0.9);
-      airSwipe(1.05);
-      tone(920, 0.2, "triangle", 0.065 * boost, 0.02, 310);
+      sampleOr("bladeSwing", 0.13 * boost, 0.01, 0.9, () => {
+        airSwipe(1.05);
+        tone(920, 0.2, "triangle", 0.065 * boost, 0.02, 310);
+      });
       bodyImpact(0.55 * boost, 0.055);
       break;
     case "bow":
-      sample("arrowSwish", 0.15, 0, 1.08);
-      tone(238, 0.11, "triangle", 0.075, 0, 112);
-      noise(0.09, 0.045, 4300, 0.012, "highpass");
+      sampleOr("arrowSwish", 0.15, 0, 1.08, () => {
+        tone(238, 0.11, "triangle", 0.075, 0, 112);
+        noise(0.09, 0.045, 4300, 0.012, "highpass");
+      });
       bodyImpact(0.55 * boost, 0.075);
       break;
     case "crossbow":
-      sample("arrowSwish", 0.18, 0, 0.9);
-      tone(145, 0.08, "square", 0.065, 0, 72);
-      noise(0.055, 0.05, 5100, 0.008, "highpass");
+      sampleOr("arrowSwish", 0.18, 0, 0.9, () => {
+        tone(145, 0.08, "square", 0.065, 0, 72);
+        noise(0.055, 0.05, 5100, 0.008, "highpass");
+      });
       bodyImpact(0.7 * boost, 0.065);
       break;
     case "magic":
-      sample("fireMagic", 0.16 * boost, 0, 1.02);
-      tone(760, 0.24, "sine", 0.075 * boost, 0, 190);
-      tone(1140, 0.18, "triangle", 0.05 * boost, 0.015, 380);
-      noise(0.2, 0.045 * boost, 2400, 0.025, "bandpass");
+      sampleOr("fireMagic", 0.16 * boost, 0, 1.02, () => {
+        tone(760, 0.24, "sine", 0.075 * boost, 0, 190);
+        tone(1140, 0.18, "triangle", 0.05 * boost, 0.015, 380);
+        noise(0.2, 0.045 * boost, 2400, 0.025, "bandpass");
+      });
       break;
     case "fists":
-      sample("bodyPunch", 0.2 * boost, 0, critical ? 0.88 : 1.02);
-      airSwipe(0.45);
-      bodyImpact(0.95 * boost, 0.025);
+      sampleOr("bodyPunch", 0.2 * boost, 0, critical ? 0.88 : 1.02, () => {
+        airSwipe(0.45);
+        bodyImpact(0.95 * boost, 0.025);
+      });
       break;
   }
 }
@@ -289,14 +315,16 @@ function weaponImpact(kind: WeaponAudioKind, critical = false): void {
 function weaponMiss(kind: WeaponAudioKind, dodged = false): void {
   switch (kind) {
     case "bow":
-      sample("arrowSwish", 0.14, 0, 1.12);
-      tone(235, 0.12, "triangle", 0.065, 0, 105);
-      noise(0.24, 0.038, 4200, 0.035, "bandpass");
+      sampleOr("arrowSwish", 0.14, 0, 1.12, () => {
+        tone(235, 0.12, "triangle", 0.065, 0, 105);
+        noise(0.24, 0.038, 4200, 0.035, "bandpass");
+      });
       break;
     case "crossbow":
-      sample("arrowSwish", 0.16, 0, 0.92);
-      tone(145, 0.08, "square", 0.06, 0, 70);
-      noise(0.2, 0.038, 4900, 0.025, "bandpass");
+      sampleOr("arrowSwish", 0.16, 0, 0.92, () => {
+        tone(145, 0.08, "square", 0.06, 0, 70);
+        noise(0.2, 0.038, 4900, 0.025, "bandpass");
+      });
       break;
     case "magic":
       tone(650, 0.3, "sine", 0.06, 0, 145);
@@ -305,22 +333,22 @@ function weaponMiss(kind: WeaponAudioKind, dodged = false): void {
     case "axe":
     case "blunt":
     case "shield":
-      sample("bladeSwing", 0.09, 0, 0.72);
-      airSwipe(1);
+      sampleOr("bladeSwing", 0.09, 0, 0.72, () => airSwipe(1));
       break;
     case "scythe":
-      sample("bladeSwing", 0.12, 0, 0.86);
-      airSwipe(1.08);
-      tone(720, 0.16, "triangle", 0.04, 0.025, 260);
+      sampleOr("bladeSwing", 0.12, 0, 0.86, () => {
+        airSwipe(1.08);
+        tone(720, 0.16, "triangle", 0.04, 0.025, 260);
+      });
       break;
     case "sword":
-      sample("bladeSwing", 0.13, 0, 1.02);
-      airSwipe(0.72);
-      tone(630, 0.11, "triangle", 0.03, 0.02, 310);
+      sampleOr("bladeSwing", 0.13, 0, 1.02, () => {
+        airSwipe(0.72);
+        tone(630, 0.11, "triangle", 0.03, 0.02, 310);
+      });
       break;
     case "dagger":
-      sample("bladeSwing", 0.1, 0, 1.2);
-      airSwipe(0.45);
+      sampleOr("bladeSwing", 0.1, 0, 1.2, () => airSwipe(0.45));
       break;
     case "fists":
       airSwipe(0.42);
@@ -333,8 +361,7 @@ function weaponMiss(kind: WeaponAudioKind, dodged = false): void {
 }
 
 function defend(): void {
-  sample("metalShield", 0.24, 0, 0.96);
-  metalImpact(1.15);
+  sampleOr("metalShield", 0.24, 0, 0.96, () => metalImpact(1.15));
   tone(190, 0.16, "triangle", 0.065, 0.025, 105);
 }
 
@@ -522,8 +549,7 @@ export const sfx = {
     tone(784, 0.5, "triangle", 0.1, 0.45);
   },
   death(): void {
-    sample("humanPain", 0.32, 0, 0.82);
-    tone(195, 0.38, "sawtooth", 0.065, 0, 92);
+    sampleOr("humanPain", 0.32, 0, 0.82, () => tone(195, 0.38, "sawtooth", 0.065, 0, 92));
     noise(0.36, 0.065, 580, 0.68);
     tone(86, 0.42, "sine", 0.11, 0.68, 38);
     bodyImpact(1.2, 0.72);

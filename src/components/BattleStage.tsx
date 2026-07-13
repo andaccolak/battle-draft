@@ -23,11 +23,14 @@ interface FloatingNumber {
   y: number;
 }
 
+const FLOAT_STROKE = "[-webkit-text-stroke:1px_rgba(2,6,23,0.85)]";
+const NOTE_PILL = "rounded-full border border-cyan-200/30 bg-slate-950/85 px-2.5 py-1 text-sm text-cyan-200";
+
 const FLOAT_SIZES: Record<string, string[]> = {
-  dmg: ["text-2xl text-rose-400", "text-3xl text-rose-400", "text-4xl text-rose-300"],
-  crit: ["text-3xl text-orange-400", "text-3xl text-orange-400", "text-4xl text-orange-300"],
-  heal: ["text-2xl text-emerald-400", "text-2xl text-emerald-400", "text-3xl text-emerald-300"],
-  note: ["text-base text-cyan-300", "text-base text-cyan-300", "text-base text-cyan-300"]
+  dmg: [`text-2xl text-rose-400 ${FLOAT_STROKE}`, `text-3xl text-rose-400 ${FLOAT_STROKE}`, `text-4xl text-rose-300 ${FLOAT_STROKE}`],
+  crit: [`text-3xl text-orange-400 ${FLOAT_STROKE}`, `text-3xl text-orange-400 ${FLOAT_STROKE}`, `text-4xl text-orange-300 ${FLOAT_STROKE}`],
+  heal: [`text-2xl text-emerald-400 ${FLOAT_STROKE}`, `text-2xl text-emerald-400 ${FLOAT_STROKE}`, `text-3xl text-emerald-300 ${FLOAT_STROKE}`],
+  note: [NOTE_PILL, NOTE_PILL, NOTE_PILL]
 };
 
 function floatMag(dmg: number): number {
@@ -164,7 +167,6 @@ function playSound(entry: TimelineEntry, eventId?: string, finisher = false): vo
     sfx.weaponImpact(weaponKind, !!entry.crit);
     if (entry.blocked) sfx.defend();
     if ((entry.absorbed ?? 0) > 0) sfx.barrier();
-    if (entry.crit) sfx.crit();
     if (finisher) sfx.finisher();
   } else if (entry.t === "miss" || entry.t === "dodge") sfx.weaponMiss(weaponKind, entry.t === "dodge");
   else if (entry.t === "quirk") {
@@ -211,6 +213,9 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [shake, setShake] = useState(0);
   const [zoom, setZoom] = useState(false);
+  const [evasion, setEvasion] = useState<{ id: number; kind: "miss" | "dodge" } | null>(null);
+  const evasionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const evasionIdRef = useRef(0);
   const arenaMotion = useAnimationControls();
   const logRef = useRef<HTMLDivElement>(null);
   const logPinnedRef = useRef(true);
@@ -255,9 +260,23 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     pendingRef.current = [];
     impactRef.current = null;
     const entry = entriesRef.current[index];
-    const jumped = index - prevIndexRef.current > 1;
+    const prev = prevIndexRef.current;
+    const jumped = index - prev > 1;
     prevIndexRef.current = index;
     if (!entry) return;
+    const showEvasion = (kind: "miss" | "dodge") => {
+      evasionIdRef.current++;
+      setEvasion({ id: evasionIdRef.current, kind });
+      if (evasionTimerRef.current) clearTimeout(evasionTimerRef.current);
+      evasionTimerRef.current = setTimeout(() => setEvasion(null), 1400);
+    };
+    if (jumped) {
+      const skipped = entriesRef.current
+        .slice(Math.max(0, prev + 1), index + 1)
+        .filter((e) => e.t === "miss" || e.t === "dodge")
+        .pop();
+      if (skipped) showEvasion(skipped.t === "miss" ? "miss" : "dodge");
+    }
     const isStrike = entry.t === "attack" || entry.t === "miss" || entry.t === "dodge";
     const waitsForImpact = !jumped && isStrike;
     const scheduledAt = index;
@@ -303,6 +322,9 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       }
     });
     if (jumped) setFloats([]);
+    if (!jumped && (entry.t === "miss" || entry.t === "dodge")) {
+      atImpact(() => showEvasion(entry.t === "miss" ? "miss" : "dodge"));
+    }
     const other = entry.actor === "a" ? "b" : "a";
     if (entry.heal !== undefined && entry.heal > 0) pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal", "impact");
     if (entry.t === "passive" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0);
@@ -330,7 +352,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     }
   }, [index]);
 
-  useEffect(() => () => pendingRef.current.forEach(clearTimeout), []);
+  useEffect(
+    () => () => {
+      pendingRef.current.forEach(clearTimeout);
+      if (evasionTimerRef.current) clearTimeout(evasionTimerRef.current);
+    },
+    []
+  );
 
   useEffect(() => {
     const log = logRef.current;
@@ -366,11 +394,16 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const poisonedFor = (side: "a" | "b") => {
     if (eventId === "poison_mist") return true;
     const fighter = side === "a" ? battle.a : battle.b;
-    return visible.some(
-      (entry) =>
-        (entry.t === "poison" && entry.actor === side) ||
-        ((entry.key === "poisonApplied" || entry.key === "quirkBite") && entry.params?.d === fighter.nickname)
-    );
+    let lastEvidence = -1;
+    for (let i = 0; i < visible.length; i++) {
+      const entry = visible[i];
+      if (!entry) continue;
+      const applied = (entry.key === "poisonApplied" || entry.key === "quirkBite") && entry.params?.d === fighter.nickname;
+      const tick =
+        entry.actor === side && (entry.key === "poisonTick" || (entry.key === "fatigueTick" && entry.params?.poisoned === 1));
+      if (applied || tick) lastEvidence = i;
+    }
+    return lastEvidence >= 0 && index - lastEvidence <= 14;
   };
   const weaponLost = { a: weaponLostFor("a"), b: weaponLostFor("b") };
   const poisoned = { a: poisonedFor("a"), b: poisonedFor("b") };
@@ -401,7 +434,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       <motion.div
         data-testid="battle-arena"
         animate={arenaMotion}
-        className="relative mx-auto w-full max-w-[430px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.38)]"
+        className="relative mx-auto w-full max-w-[366px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.38)]"
         style={{ background: theme.sky, aspectRatio: "1 / 1" }}
       >
         
@@ -446,16 +479,16 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         </div>
 
         <AnimatePresence mode="wait">
-          {(current?.t === "miss" || current?.t === "dodge") && (
+          {evasion && (
             <motion.div
-              key={`evasion-${index}`}
+              key={`evasion-${evasion.id}`}
               initial={{ opacity: 0, scale: 0.65, y: 8 }}
               animate={{ opacity: [0, 1, 1], scale: [0.65, 1.1, 1], y: 0 }}
               exit={{ opacity: 0, scale: 0.9 }}
               transition={{ duration: 0.28, ease: "easeOut" }}
-              className="pointer-events-none absolute left-1/2 top-[14%] z-30 -translate-x-1/2 rounded-full border border-cyan-200/35 bg-slate-950/85 px-4 py-2 font-display text-xl font-black tracking-wide text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.28)]"
+              className="pointer-events-none absolute left-1/2 top-[14%] z-40 -translate-x-1/2 rounded-full border border-cyan-200/35 bg-slate-950/85 px-4 py-2 font-display text-xl font-black tracking-wide text-cyan-200 shadow-[0_0_24px_rgba(34,211,238,0.28)]"
             >
-              {current.t === "miss" ? `💨 ${t("noteMiss")}` : `↪ ${t("noteDodge")}`}
+              {evasion.kind === "miss" ? `💨 ${t("noteMiss")}` : `↪ ${t("noteDodge")}`}
             </motion.div>
           )}
         </AnimatePresence>
@@ -559,7 +592,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           const log = event.currentTarget;
           logPinnedRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 12;
         }}
-        className="mt-2 h-48 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
+        className="mt-2 h-40 shrink-0 space-y-1 overflow-y-auto rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-[13px] leading-snug"
       >
         {visible.map((entry, i) => (
           <motion.div

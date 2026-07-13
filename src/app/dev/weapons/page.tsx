@@ -5,7 +5,7 @@ import { ITEMS, weaponVisualKindFor, type WeaponVisualKind } from "@/lib/game/it
 import AvatarPortrait from "@/components/AvatarPortrait";
 
 const IDLE_ANIMATIONS: Record<WeaponVisualKind, string> = {
-  blade: "Melee_Blocking",
+  blade: "Idle_B",
   heavy: "Melee_2H_Idle",
   dual: "Melee_Blocking",
   shield: "Melee_Blocking",

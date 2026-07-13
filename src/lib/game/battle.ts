@@ -1276,7 +1276,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
             actor: c.key,
             text: `${fatigued ? "⏳ Fatigue and poison" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
             key: fatigued ? "fatigueTick" : "poisonTick",
-            params: { p: c.nickname, dmg: dot },
+            params: { p: c.nickname, dmg: dot, poisoned: c.poison > 0 ? 1 : 0 },
             dmg: dot
           });
           if (!tryRevive(c)) break;

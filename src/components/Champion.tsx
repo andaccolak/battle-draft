@@ -26,9 +26,10 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
 
   const buildImage = async (): Promise<Blob | null> => {
     if (!captureRef.current) return null;
+    await document.fonts?.ready.catch(() => undefined);
     const canvas = await html2canvas(captureRef.current, {
       backgroundColor: "#0f172a",
-      scale: 2,
+      scale: 3,
       useCORS: true,
       logging: false,
       ignoreElements: (el) => (el as HTMLElement).dataset?.noshare === "1",
@@ -51,7 +52,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
       void buildImage().then((b) => {
         if (b) blobRef.current = b;
       });
-    }, 1400);
+    }, 1900);
     return () => clearTimeout(timer);
   }, []);
 
@@ -119,7 +120,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
           data-share-name
-          className="font-display mt-2 bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text text-6xl font-black text-transparent"
+          className="font-display mx-auto mt-2 max-w-full break-words bg-gradient-to-r from-amber-300 to-orange-400 bg-clip-text px-2 text-[clamp(2rem,10vw,3.5rem)] font-black leading-tight text-transparent"
         >
           {snapshot.champion ?? champion?.nickname ?? "???"}
         </motion.h2>
@@ -146,7 +147,7 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
                 <span className="w-6 shrink-0 text-center text-base leading-none">
                   {p.spectator ? "👀" : i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "💀"}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-semibold leading-none">
+                <span className="min-w-0 flex-1 truncate text-[15px] font-bold leading-none text-slate-100">
                   {p.isBot ? "🤖 " : ""}
                   {p.nickname}
                 </span>
