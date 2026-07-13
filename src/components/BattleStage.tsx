@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import type { BattlePayload, FighterView, Rarity, TimelineEntry } from "@/lib/game/types";
 import { SLOTS } from "@/lib/game/types";
 import { type Pose } from "./Fighter";
@@ -194,11 +194,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const [floats, setFloats] = useState<FloatingNumber[]>([]);
   const [shake, setShake] = useState(0);
   const [zoom, setZoom] = useState(false);
+  const arenaMotion = useAnimationControls();
   const logRef = useRef<HTMLDivElement>(null);
   const floatId = useRef(0);
   const indexRef = useRef(0);
   const prevIndexRef = useRef(-1);
   const pendingRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const impactRef = useRef<{ beat: number; fire: () => void } | null>(null);
   const [dispHp, setDispHp] = useState(() => {
     const e = battle.timeline[indexForElapsed(battle.timeline, battle.elapsedMs ?? 0)];
     return { a: e?.hpA ?? battle.a.maxHp, b: e?.hpB ?? battle.b.maxHp };
@@ -214,6 +216,10 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   const poses = posesFor(current);
   const fx: FxKind = (eventId && EVENT_FX[eventId]) || "none";
   const theme = THEMES[fx];
+  const onArenaImpact = useCallback((beat: number) => {
+    const pendingImpact = impactRef.current;
+    if (pendingImpact?.beat === beat) pendingImpact.fire();
+  }, []);
 
   useEffect(() => {
     if (index >= entries.length - 1) return;
@@ -229,13 +235,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   useEffect(() => {
     for (const timer of pendingRef.current) clearTimeout(timer);
     pendingRef.current = [];
+    impactRef.current = null;
     const entry = entriesRef.current[index];
     const jumped = index - prevIndexRef.current > 1;
     prevIndexRef.current = index;
     if (!entry) return;
-    // hit lands mid-beat for strikes; everything else resolves immediately
     const isStrike = (entry.t === "attack" && (entry.dmg ?? 0) > 0) || entry.t === "miss" || entry.t === "dodge";
-    const impact = jumped ? 0 : entry.t === "dodge" ? 480 : isStrike ? 620 : 0;
+    const waitsForImpact = !jumped && isStrike;
     const scheduledAt = index;
     const at = (fn: () => void, delay: number) => {
       if (delay <= 0) {
@@ -248,8 +254,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         }, delay)
       );
     };
-    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], delay: number, mag = 0) => {
-      at(() => {
+    const impactTasks: (() => void)[] = [];
+    const atImpact = (fn: () => void) => {
+      if (waitsForImpact) impactTasks.push(fn);
+      else fn();
+    };
+    const pushFloat = (side: "a" | "b", value: string, kind: FloatingNumber["kind"], timing: "impact" | number, mag = 0) => {
+      const show = () => {
         floatId.current++;
         const pos = screenPosRef.current[side];
         setFloats((f) => {
@@ -257,12 +268,13 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           const y = Math.max(0.08, pos.y - onSide * 0.08);
           return [...f.slice(-2), { id: floatId.current, side, value, kind, mag, x: pos.x, y }];
         });
-      }, delay);
+      };
+      if (timing === "impact") atImpact(show);
+      else at(show, timing);
     };
     const next = entriesRef.current[index + 1];
     const finisher = entry.t === "attack" && (entry.dmg ?? 0) > 0 && next?.t === "death";
-    // HP bar + sound land together with the visual hit
-    at(() => {
+    atImpact(() => {
       setDispHp({ a: entry.hpA, b: entry.hpB });
       if (finisher) sfx.finisher();
       else playSound(entry);
@@ -272,21 +284,31 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         pendingRef.current.push(setTimeout(() => setZoom(false), finisher ? 1700 : 600));
         if (finisher) navigator.vibrate?.([24, 60, 40]);
       }
-    }, impact);
+    });
     if (jumped) setFloats([]);
     const other = entry.actor === "a" ? "b" : "a";
-    if (entry.heal !== undefined && entry.heal > 0) pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal", impact);
+    if (entry.heal !== undefined && entry.heal > 0) pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal", "impact");
     if (entry.t === "passive" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0);
     if (entry.t === "poison" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg", 0);
     if (entry.actor !== "none") {
-      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", impact);
-      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", impact);
+      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", "impact");
+      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", "impact");
       else if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
         const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
-        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", impact, floatMag(entry.dmg ?? 0));
+        pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", "impact", floatMag(entry.dmg ?? 0));
       }
       if (entry.t === "passive" && entry.key === "stunApplied") pushFloat(other, t("noteStun"), "note", 120);
       if (entry.t === "passive" && entry.key === "revive") pushFloat(entry.actor, t("noteRevive"), "note", 120);
+    }
+    if (waitsForImpact) {
+      let fired = false;
+      const fire = () => {
+        if (fired || indexRef.current !== scheduledAt) return;
+        fired = true;
+        for (const task of impactTasks) task();
+      };
+      impactRef.current = { beat: scheduledAt, fire };
+      pendingRef.current.push(setTimeout(fire, 900));
     }
   }, [index]);
 
@@ -295,6 +317,11 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
   }, [visible.length]);
+
+  useEffect(() => {
+    if (shake === 0) return;
+    void arenaMotion.start({ x: [0, -12, 12, -8, 8, 0], transition: { duration: 0.45 } });
+  }, [shake, arenaMotion]);
 
   const introNow = current?.t === "intro";
   const hpA = introNow ? battle.a.maxHp : dispHp.a;
@@ -339,9 +366,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       </div>
 
       <motion.div
-        key={shake}
-        animate={shake > 0 ? { x: [0, -12, 12, -8, 8, 0] } : {}}
-        transition={{ duration: 0.45 }}
+        animate={arenaMotion}
         className="relative flex-1 overflow-hidden rounded-3xl border border-white/10"
         style={{ background: theme.sky }}
       >
@@ -364,6 +389,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}
           finisher={finisherNow}
+          onImpact={onArenaImpact}
         />
         <div className="pointer-events-none absolute inset-0 z-20">
           <AnimatePresence>

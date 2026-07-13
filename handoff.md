@@ -1,8 +1,15 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the game-feel sprint milestones: finisher camera drama (slow-mo death blows + victory orbit) and the impact pack (hit-stop, sparks, flash, camera kick).
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active production branch is healthy after the contact-synchronized feedback pass: every strike now resolves its audiovisual/UI feedback at the actual 3D contact frame, and screen shake no longer remounts the WebGL arena.
 
 # Last Completed Work
+
+## Contact-synchronized feedback + persistent arena (game-feel sprint, 2026-07-13)
+
+- Arena3D now emits a one-shot impact signal at its real dynamic contact time (melee run distance + strike contact, ranged release timing, or dodge anticipation). BattleStage uses that signal for HP, hit/finisher sound, damage/heal/note floats, shake, zoom and haptics instead of the old fixed 620 ms guess. A guarded 900 ms fallback preserves UI progress if WebGL never signals.
+- Finisher slow motion now begins on the same real contact signal and restores 1360 ms later; it no longer starts at a fixed offset that could lead or trail dynamic melee contact by more than 200 ms.
+- Crit/finisher shake moved from a changing React `key` to Framer Motion animation controls. Previously every shake destroyed and recreated Arena3D, resetting rigs/camera and reloading the scene at the exact moment continuity mattered most; the arena now stays mounted through every impact.
+- Two complete two-human tournaments were driven through the real HTTP API in explicit offline-memory mode: Colosseum (75.8 s, 5 attacks, 1 crit, 1 block, 2 dodges, 2 QTE submissions) and Dungeon (66.6 s, 7 attacks, 2 crits, 1 dodge, 1 QTE submission). Both reached champion cleanly. Typecheck and production build pass.
 
 ## Physical hits + anti-float pass (game-feel sprint, 2026-07-13)
 
@@ -31,25 +38,26 @@ Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mat
 ## Finisher camera drama (2026-07-12)
 
 - The killing blow is now cinematic: when an attack entry's next timeline entry is a `death`, BattleStage flags it as the finisher (deterministic on every client since the timeline is known upfront).
-- At finisher impact (the same 620 ms mark where HP/sound land): a new deep `sfx.finisher()` boom replaces the normal hit sound, the screen shakes, the camera punch-in zoom holds 1.7 s (vs 0.6 s for crits), and phones with vibration support get a haptic pattern.
-- Arena3D runs a visual time-scale (`timeRef`): on the finisher beat it ramps to 0.3× at impact +620 ms and back to 1× at +1980 ms, slowing mixers, fighter movement, projectiles, and weather — the strike follow-through and the victim's crumple play in slow motion, usually bleeding into the death beat's fall.
+- At the actual 3D finisher contact, a deep `sfx.finisher()` boom replaces the normal hit sound, the screen shakes, the camera punch-in zoom holds 1.7 s (vs 0.6 s for crits), and phones with vibration support get a haptic pattern.
+- Arena3D runs a visual time-scale (`timeRef`): on finisher contact it targets 0.3× and restores 1360 ms later, slowing mixers, fighter movement, projectiles, and weather — the strike follow-through and the victim's crumple play in slow motion, usually bleeding into the death beat's fall.
 - The beat clock, server sync, and camera responsiveness are never slowed: BattleStage timers and `elapsedMs` snapping are untouched, and camera smoothing uses a separate real-time damp (`camDamp`).
 - Cinematic camera orbit, only while the user is not dragging (`pointers.size === 0`): fast drift (0.5 rad/s) during slow-mo, slow showcase drift (0.16 rad/s) whenever a fighter is in the victory pose.
 - Verified end-to-end with a driven 4-player tournament (3 battles to champion) + puppeteer screenshots: punch-in and orbit visible frame-to-frame, floats/HP at impact, QTE answered, no new console errors.
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather); the slow-mo ramp timers live in `slowTimersRef` and deliberately survive beat changes so the ramp-back can overhang into the death beat — they are cleared and the scale reset only on unmount.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. Draft and luck screens use short-lived local pending IDs for optimistic lock feedback without mutating the room snapshot. Audio is synthesized through `src/lib/sound.ts`; browser vibration is opportunistic and safely ignored by unsupported devices, including current iOS Safari. Arena3D's render loop distinguishes `rawDelta` (camera, orbit drift, time-scale easing) from the scaled `delta` (mixers, movement, projectiles, weather). Arena3D owns physical contact timing and calls BattleStage's stable `onImpact(beat)` callback; BattleStage queues all contact-dependent feedback behind a beat-checked one-shot resolver. Finisher slow-mo restore timers deliberately survive beat changes so follow-through can overhang into the death beat; they are cleared and scale is reset only on unmount.
 
 # Remaining Tasks
 
-- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking; owner should also taste-check the finisher slow-mo timing and orbit speeds.
+- [ ] Test a full two-device battle and QTE flow on physical iPhone Safari, including choice-lock recovery under constrained networking; owner should taste-check the now contact-synchronized finisher slow-mo, impact feedback and orbit speeds.
 - [ ] Sound design for remaining 3D beats (per-weapon whooshes, footsteps) if the owner wants more.
 - [ ] Add and optimize the next owner-supplied Meshy arena or equipment assets; more kit-built maps.
 
 # Known Bugs
 
 - Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
+- A room created while Neon is reachable can return HTTP 500 if the database becomes unreachable mid-room; initial startup failure correctly falls back to memory, but DB-mode request failures are not caught by `withRoom`. Production resilience work is outside the current feel pass, but this violates the documented graceful-fallback intent.
 
 # Current Branch
 
@@ -57,7 +65,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck` and `npm run build` passed on 2026-07-12 after this milestone.
+`npm run typecheck` and `npm run build` passed on 2026-07-13 after this milestone.
 
 # Files Recently Modified
 
@@ -68,11 +76,13 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Suggested Next Step
 
-Owner phone test of the whole feel pass: finisher slow-mo, hit-stop weight, spark/flash intensity, camera kick strength, float sizes. Tuning knobs: `impactFx` intensities/counts, `kickRef` increments (0.22/0.55), freeze 0.085 s, heft scales in applyPose, 0.3 slow-mo scale / 620–1980 ms window, orbit speeds (0.5/0.16 rad/s), 1700 ms zoom hold and `floatMag` thresholds in BattleStage. Next feel candidates: windup anticipation micro-lean, block spark direction, victory confetti in 3D space.
+Owner phone test of the whole feel pass: contact synchronization, finisher slow-mo, hit-stop weight, spark/flash intensity, camera kick strength and float sizes. Tuning knobs: `impactFx` intensities/counts, `kickRef` increments (0.22/0.55), freeze 0.085 s, heft scales in applyPose, 0.3 slow-mo scale / 1360 ms contact-relative hold, orbit speeds (0.5/0.16 rad/s), 1700 ms zoom hold and `floatMag` thresholds in BattleStage. Next feel candidates: windup anticipation micro-lean, directional block sparks, victory particles integrated into 3D space.
 
 # Important Decisions
 
 - Finisher detection is pure timeline lookahead (`attack` with dmg > 0 followed by `death`) — no server or sim changes, so determinism and cross-client sync are untouched.
+- Arena3D is the authority for presentation contact timing because melee timing depends on live circling distance. BattleStage remains authoritative for UI state and retains a 900 ms fallback; the callback changes presentation only and never affects deterministic simulation or server time.
+- Screen shake must never use a changing key above Arena3D. Replay shake through animation controls so the WebGL scene, camera and loaded rigs remain alive.
 - Slow-mo is visual-only time dilation inside Arena3D; the timeline beat scheduler must never be slowed or battles would desync from `elapsedMs`.
 - Poison/quirk deaths get no slow-mo on purpose — there is no strike animation to dramatize.
 - Auto-orbit yields to the player instantly: any active pointer on the arena suppresses the drift that frame.
@@ -81,7 +91,7 @@ Owner phone test of the whole feel pass: finisher slow-mo, hit-stop weight, spar
 
 # Notes For Next Session
 
-The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention.
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, make changes in small verified milestones, update this handoff before every push, and retain the existing no-code-comments convention. The in-app browser was unavailable during this session, so visual taste verification remains for the next available browser/physical-phone session; the two automated full tournaments covered server progression and timeline/QTE behavior, not rendered-frame inspection.
 
 ---
 

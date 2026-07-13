@@ -688,9 +688,10 @@ interface Props {
   zoom: boolean;
   crit: boolean;
   finisher?: boolean;
+  onImpact?: (beat: number) => void;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit, finisher }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit, finisher, onImpact }: Props) {
   const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
@@ -1190,6 +1191,15 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
     const kinds = kindRef.current;
     const seedA = beat * 2 + 1;
     const seedB = beat * 2 + 2;
+    const signalImpact = () => {
+      if (finisher) {
+        timeRef.current.target = 0.3;
+        slowTimersRef.current.push(setTimeout(() => {
+          timeRef.current.target = 1;
+        }, 1360));
+      }
+      onImpact?.(beat);
+    };
     for (const [pose, rig] of [
       [poseA, rigA],
       [poseB, rigB]
@@ -1213,33 +1223,26 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
         } else if (reaction === "dodge" || reaction === "roll") {
           defender.impulse.addScaledVector(defender.side, reaction === "roll" ? 3.6 : 2.8);
         }
+        signalImpact();
       }, Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead));
+    };
+    const attackWithoutReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, atkSeed: number) => {
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed);
+      defender.reactTimer = setTimeout(signalImpact, impactMsFor(attackerKind, attacker, defender));
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {
       delayReaction(rigA, kinds.a, rigB, poseB, kinds.b, seedA, seedB);
     } else if (poseB === "attack" && REACTION_POSES.has(poseA)) {
       delayReaction(rigB, kinds.b, rigA, poseA, kinds.a, seedB, seedA);
     } else {
-      if (poseA === "attack") applyPose(rigA, "attack", kinds.a, crit, () => spawnProjectile(rigA, rigB, kinds.a), rigB, seedA);
+      if (poseA === "attack") attackWithoutReaction(rigA, kinds.a, rigB, seedA);
       else if (poseA === "throw") applyPose(rigA, "throw", kinds.a, false, () => spawnProjectile(rigA, rigB, "fists"), rigB, seedA);
       else applyPose(rigA, poseA, kinds.a, crit, undefined, undefined, seedA);
-      if (poseB === "attack") applyPose(rigB, "attack", kinds.b, crit, () => spawnProjectile(rigB, rigA, kinds.b), rigA, seedB);
+      if (poseB === "attack") attackWithoutReaction(rigB, kinds.b, rigA, seedB);
       else if (poseB === "throw") applyPose(rigB, "throw", kinds.b, false, () => spawnProjectile(rigB, rigA, "fists"), rigA, seedB);
       else applyPose(rigB, poseB, kinds.b, crit, undefined, undefined, seedB);
     }
-  }, [poseA, poseB, beat, crit]);
-
-  useEffect(() => {
-    if (!finisher) return;
-    slowTimersRef.current.push(
-      setTimeout(() => {
-        timeRef.current.target = 0.3;
-      }, 620),
-      setTimeout(() => {
-        timeRef.current.target = 1;
-      }, 1980)
-    );
-  }, [finisher, beat]);
+  }, [poseA, poseB, beat, crit, finisher, onImpact]);
 
   useEffect(() => {
     const dropWeapon = (rig: Rig | null, lost: boolean | undefined) => {
