@@ -4,6 +4,15 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## New content: seven items on fresh Quaternius CC0 models (2026-07-13)
+
+- Eight new GLBs (40-105 KB each) in `public/models3d/kaykit/weapons/`, sourced from the Quaternius Medieval Weapons pack (CC0 — same pack as the existing bows/Claymore) via the `trebeljahr/quaternius-showcase` GitHub mirror: Scythe, Spear, Hammer_Double, Hammer_Small, Sword_Golden, Dagger_2, Shield_Heater, Shield_Celtic_Golden.
+- Five new weapons: War Maul (rare heavy blunt), Iron Mace (common blunt), Hunter's Spear (uncommon heavy, 2H per owner's reference), Gilded Blade (epic sword), Shadow Fang (rare dagger). Two new defensive items rendering their own off-hand shield models: Heater Shield (armor, block 16) and Celtic Ward (accessory, block 10).
+- Reaper's Scythe now uses the real Scythe model (kind heavy for 2H sweeps); EN/TR names restored to Reaper's Scythe / Ölüm Tırpanı.
+- Wiring per checklist: ITEMS + ITEM_NAMES_TR + WEAPON_MODELS + WEAPON_GRIPS + WEAPON_AUDIO_KINDS + SHIELD_MODELS + HEAVY_WEAPON_IDS + GLB_WEAPONS (new .glb extensions). 117 items total.
+- Grips audited on /dev/weapons; full driven tournament to champion passed; all new asset URLs return 200.
+- More content available in the same mirror if wanted: Axe_Small, Sword_2, Sword_Big, Bow_Wooden2, Shield_Round_2, Shield_Heater_2, Hammer variants.
+
 ## Arena proportions, beat-budgeted attacks, axe edges, compact draft (2026-07-13)
 
 - Arena is `max-w-[430px]` with `aspectRatio: "1 / 0.85"` — full width, 15% shorter. Do not shrink WIDTH to resize the battle view; the owner reads that as horizontal cropping.
