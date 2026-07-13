@@ -4,6 +4,17 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Nine player-reported presentation fixes (2026-07-13)
+
+- Weapon grips: KayKit weapons are authored FOR the handslots — the correct base grip rotation is `[0, 0, 0]` (the prior release's +90° X tilt pointed blades into the body). Bows use `[0, HALF_PI, HALF_PI]` to stand vertical in the left hand per the owner's reference sheet. Hatchet tinted steel (it vanished against gray armor). Audit with `/dev/weapons?start=N&count=8` (per-kind combat stances, two view angles).
+- Audio de-mix: `sampleOr()` in sound.ts plays a decoded sample EXCLUSIVELY and runs the procedural stack only as fallback; low body-thump accents still layer for weight. The extra `sfx.crit()` on top of the boosted weapon impact was removed. Don't reintroduce sample+full-synth doubling.
+- Event reel: seed must NOT include `snapshot.deadline` (it is re-adjusted for clock skew every poll, reshuffling tiles). Seed is `code:eventId`.
+- Poison: fatigue ticks (round 5+) share `t:"poison"` with real poison ticks — they now carry `params.poisoned`; the HP bar goes toxic only on real evidence (`poisonApplied`/`quirkBite` by nickname, `poisonTick`, flagged `fatigueTick`) within the last 14 beats, so it reverts when poison stops.
+- Miss/dodge feedback is a state-driven center pill (z-40, above the QTE overlay) that also fires when a timeline catch-up jump skips the beat.
+- Arena `max-w-[366px]`, battle log `h-40` — both static (~15% smaller per owner request).
+- Champion share: html2canvas at scale 3 after `document.fonts.ready`, fluid champion-name sizing (`clamp`), brighter standings names.
+- Verified: full driven tournament to champion; screenshots confirm stable reel tiles across polls, dodge pill above QTE layer, per-side poison badge, natural grips.
+
 ## Combat clarity, authoritative reel, league table, and sampled audio (live release, 2026-07-13)
 
 - Corrected offensive weapon presentation with per-model inward aim. Existing native sharp-end orientation remains intact while right- and left-hand mounts converge toward the opposing fighter instead of pointing outside the combat line.
