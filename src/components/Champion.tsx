@@ -8,6 +8,7 @@ import { useRef } from "react";
 import html2canvas from "html2canvas";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
+import LeagueTable from "./LeagueTable";
 
 interface Props {
   snapshot: RoomSnapshot;
@@ -156,6 +157,8 @@ export default function Champion({ snapshot, playerId, onPlayAgain, onShout }: P
             ))}
         </div>
       </div>
+
+      {snapshot.tourneyMode === "league" && <LeagueTable rows={snapshot.leagueTable} stage={snapshot.leagueStage} />}
 
       <button data-noshare="1" onClick={() => void share()} disabled={shareState === "busy"} className="btn-ghost w-full text-base">
         {shareState === "copied" ? t("shareCopied") : shareState === "saved" ? t("shareSaved") : t("shareResultBtn")}

@@ -12,6 +12,7 @@ import EventReveal from "@/components/EventReveal";
 import BattleStage from "@/components/BattleStage";
 import Bracket from "@/components/Bracket";
 import Champion from "@/components/Champion";
+import LeagueTable from "@/components/LeagueTable";
 import { LangToggle, useI18n } from "@/lib/i18n";
 import { isMuted, setMuted } from "@/lib/sound";
 
@@ -223,7 +224,10 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
                 />
               </div>
             ) : (
-              snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />
+              <div className="space-y-4">
+                {snapshot.tourneyMode === "league" && <LeagueTable rows={snapshot.leagueTable} stage={snapshot.leagueStage} updated />}
+                {snapshot.bracket && <Bracket rounds={snapshot.bracket} players={snapshot.players} />}
+              </div>
             ))}
           {snapshot.phase === "champion" && <Champion snapshot={snapshot} playerId={game.playerId} onPlayAgain={game.playAgain} onShout={game.shout} />}
         </motion.div>

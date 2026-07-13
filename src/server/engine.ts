@@ -8,6 +8,7 @@ import type {
   Item,
   LuckCard,
   LuckOffer,
+  LeagueStanding,
   Phase,
   RoomSnapshot,
   Slot,
@@ -20,6 +21,7 @@ import { EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle, type Build } from "@/lib/game/battle";
 
 const BATTLE_GAP_MS = 2500;
+const LEAGUE_TABLE_MS = 5500;
 const POST_BATTLE_MS = 5000;
 const HUMAN_AWAY_MS = 20000;
 const LOBBY_PRUNE_MS = 60000;
@@ -258,10 +260,10 @@ function lotHash(str: string): number {
   return h;
 }
 
-function headToHeadDiff(state: RoomState, xa: string, xb: string): number {
+function headToHeadDiff(state: RoomState, xa: string, xb: string, roundLimit = state.bracket.length): number {
   let xWins = 0;
   let yWins = 0;
-  for (const round of state.bracket) {
+  for (const round of state.bracket.slice(0, roundLimit)) {
     for (const m of round) {
       const pair = (m.a === xa && m.b === xb) || (m.a === xb && m.b === xa);
       if (!pair) continue;
@@ -273,6 +275,69 @@ function headToHeadDiff(state: RoomState, xa: string, xb: string): number {
     }
   }
   return yWins - xWins;
+}
+
+function leagueRoundCount(state: RoomState): number {
+  const count = state.players.filter((player) => !player.spectator).length;
+  if (count <= 2) return 0;
+  return count % 2 === 0 ? count - 1 : count;
+}
+
+function leagueTableFor(state: RoomState): LeagueStanding[] {
+  if (!isLeague(state)) return [];
+  const players = state.players.filter((player) => !player.spectator);
+  const rows = new Map(
+    players.map((player) => [
+      player.id,
+      {
+        playerId: player.id,
+        nickname: player.nickname,
+        avatar: player.avatar ?? avatarIdForSeed(player.id + player.nickname),
+        rank: 0,
+        played: 0,
+        won: 0,
+        lost: 0,
+        points: 0,
+        qualified: false
+      } satisfies LeagueStanding
+    ])
+  );
+  const roundCount = leagueRoundCount(state);
+  for (const round of state.bracket.slice(0, roundCount)) {
+    for (const match of round) {
+      if (!match.a || !match.b) continue;
+      const rowA = rows.get(match.a);
+      const rowB = rows.get(match.b);
+      if (!rowA || !rowB) continue;
+      const winsA = match.legWinsA ?? (match.winner === match.a ? 1 : 0);
+      const winsB = match.legWinsB ?? (match.winner === match.b ? 1 : 0);
+      const played = winsA + winsB;
+      if (played === 0) continue;
+      rowA.played += played;
+      rowA.won += winsA;
+      rowA.lost += winsB;
+      rowB.played += played;
+      rowB.won += winsB;
+      rowB.lost += winsA;
+    }
+  }
+  const ordered = [...rows.values()].sort(
+    (a, b) =>
+      b.won - a.won ||
+      headToHeadDiff(state, a.playerId, b.playerId, roundCount) ||
+      lotHash(state.code + b.playerId) - lotHash(state.code + a.playerId)
+  );
+  const qualifierCount = players.length >= 6 ? 4 : Math.min(2, players.length);
+  return ordered.map((row, index) => ({
+    ...row,
+    rank: index + 1,
+    points: row.won * 3,
+    qualified: players.length > 2 && index < qualifierCount
+  }));
+}
+
+function battleGapMs(state: RoomState): number {
+  return isLeague(state) ? LEAGUE_TABLE_MS : BATTLE_GAP_MS;
 }
 
 function roundRobinRounds(ids: string[]): StateBracketMatch[][] {
@@ -752,7 +817,7 @@ function finishBattle(state: RoomState, now: number): void {
       const winsB = match.legWinsB ?? 0;
       if (winsA + winsB < 2) {
         state.battle = null;
-        state.nextBattleAt = now + BATTLE_GAP_MS;
+        state.nextBattleAt = now + battleGapMs(state);
         return;
       }
       match.winner = winsA > winsB ? match.a : winsB > winsA ? match.b : battle.winnerId;
@@ -761,7 +826,7 @@ function finishBattle(state: RoomState, now: number): void {
     }
     state.battle = null;
     state.currentMatch++;
-    state.nextBattleAt = now + BATTLE_GAP_MS;
+    state.nextBattleAt = now + battleGapMs(state);
     return;
   }
   const homeAway = homeAwayActive(state);
@@ -772,7 +837,7 @@ function finishBattle(state: RoomState, now: number): void {
     const winsB = match.legWinsB ?? 0;
     if (winsA < 2 && winsB < 2) {
       state.battle = null;
-      state.nextBattleAt = now + BATTLE_GAP_MS;
+      state.nextBattleAt = now + battleGapMs(state);
       return;
     }
     match.winner = winsA >= 2 ? match.a : match.b;
@@ -781,7 +846,7 @@ function finishBattle(state: RoomState, now: number): void {
     if (loser) loser.eliminated = true;
     state.battle = null;
     state.currentMatch++;
-    state.nextBattleAt = now + BATTLE_GAP_MS;
+    state.nextBattleAt = now + battleGapMs(state);
     return;
   }
   if (match) match.winner = battle.winnerId;
@@ -789,7 +854,7 @@ function finishBattle(state: RoomState, now: number): void {
   if (loser) loser.eliminated = true;
   state.battle = null;
   state.currentMatch++;
-  state.nextBattleAt = now + BATTLE_GAP_MS;
+  state.nextBattleAt = now + battleGapMs(state);
 }
 
 export function shoutHost(state: RoomState, playerId: string, now: number): string | null {
@@ -973,6 +1038,8 @@ export function snapshotFor(
     arenaMap: state.arenaMap ?? "colosseum",
     matchMode: state.matchMode ?? "single",
     tourneyMode: state.tourneyMode ?? "knockout",
+    leagueStage: state.leagueStage ?? null,
+    leagueTable: leagueTableFor(state),
     shout: state.shout && now - state.shout.at < 6000 ? state.shout : null,
     players: state.players.map((p) => ({
       id: p.id,

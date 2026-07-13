@@ -165,6 +165,20 @@ export type MatchMode = (typeof MATCH_MODES)[number];
 export const TOURNEY_MODES = ["knockout", "league"] as const;
 export type TourneyMode = (typeof TOURNEY_MODES)[number];
 
+export type LeagueStage = "league" | "semis" | "final" | null;
+
+export interface LeagueStanding {
+  playerId: string;
+  nickname: string;
+  avatar: string;
+  rank: number;
+  played: number;
+  won: number;
+  lost: number;
+  points: number;
+  qualified: boolean;
+}
+
 export interface RoomSnapshot {
   code: string;
   phase: Phase;
@@ -172,6 +186,8 @@ export interface RoomSnapshot {
   arenaMap: ArenaMap;
   matchMode: MatchMode;
   tourneyMode: TourneyMode;
+  leagueStage: LeagueStage;
+  leagueTable: LeagueStanding[];
   players: PublicPlayer[];
   draftRound: number;
   totalDraftRounds: number;
