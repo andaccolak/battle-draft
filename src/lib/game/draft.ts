@@ -57,6 +57,31 @@ export function rollDraftHand(lockedSlots: Slot[] = [], round = 1): Item[] {
   return hand;
 }
 
+export function rollChaosPool(missingSlots: Slot[][], round = 1): Item[] {
+  const weights = ROUND_RARITY_WEIGHTS[Math.min(Math.max(round, 1), ROUND_RARITY_WEIGHTS.length) - 1] ?? ROUND_RARITY_WEIGHTS[0];
+  const size = missingSlots.length + 3;
+  const slotBag: Slot[] = [];
+  for (const slot of SLOTS) {
+    const need = missingSlots.filter((m) => m.includes(slot)).length;
+    for (let i = 0; i < need + 1; i++) slotBag.push(slot);
+  }
+  const pool: Item[] = [];
+  const used = new Set<string>();
+  let guard = 0;
+  while (pool.length < size && guard < 400) {
+    guard++;
+    const slot = slotBag[Math.floor(Math.random() * slotBag.length)] ?? "weapon";
+    const rarity = weights ? rollRarity(weights) : "common";
+    let options = ITEMS.filter((item) => item.slot === slot && item.rarity === rarity && !used.has(item.id));
+    if (options.length === 0) options = ITEMS.filter((item) => item.slot === slot && !used.has(item.id));
+    const item = options[Math.floor(Math.random() * options.length)];
+    if (!item) continue;
+    used.add(item.id);
+    pool.push(item);
+  }
+  return pool;
+}
+
 const SELF_LUCK_CARDS = new Set([
   "blacksmith",
   "lucky",

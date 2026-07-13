@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import type { DraftOffer, RoomSnapshot } from "@/lib/game/types";
-import { DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
+import { CHAOS_TIME_MS, DRAFT_TIME_MS, SLOTS, SLOT_META } from "@/lib/game/types";
 import ItemCard from "./ItemCard";
 import AvatarPortrait from "./AvatarPortrait";
 import { useI18n } from "@/lib/i18n";
@@ -38,6 +38,9 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
     const timer = setTimeout(() => setPendingId(null), 4000);
     return () => clearTimeout(timer);
   }, [pendingId]);
+
+  const chaos = offer?.mode === "chaos";
+  const claims = useMemo(() => new Map((offer?.claims ?? []).map((c) => [c.id, c])), [offer?.claims]);
 
   const pick = (itemId: string | null) => {
     if (pendingId) return;
@@ -90,10 +93,62 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
         </div>
       </div>
 
-      <TimerBar deadline={snapshot.deadline} totalMs={DRAFT_TIME_MS} />
+      <TimerBar deadline={snapshot.deadline} totalMs={chaos ? CHAOS_TIME_MS : DRAFT_TIME_MS} />
 
       <AnimatePresence mode="wait">
-        {offer && !offer.picked ? (
+        {offer && chaos ? (
+          <motion.div
+            key={`chaos-${offer.round}`}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -24 }}
+            className="space-y-2.5"
+          >
+            <p className="text-center text-sm font-bold text-amber-300">⚡ {t("chaosHint")}</p>
+            {offer.items.map((item, i) => {
+              const claim = claims.get(item.id);
+              const slotLocked = offer.lockedSlots.includes(item.slot);
+              return (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.94 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="relative"
+                >
+                  <div className={claim && !claim.mine ? "opacity-45 grayscale" : ""}>
+                    <ItemCard
+                      item={item}
+                      locked={slotLocked && !claim}
+                      pending={offer.picked || pendingId !== null || (!!claim && !claim.mine)}
+                      selected={claim?.mine ?? false}
+                      currentStats={currentStats}
+                      projectedStats={projectedStats[item.id]}
+                      onPick={claim || offer.picked || slotLocked ? undefined : () => pick(item.id)}
+                    />
+                  </div>
+                  {claim && (
+                    <motion.span
+                      initial={{ scale: 1.6, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className={`absolute right-2 top-2 z-10 rounded-full px-2.5 py-1 text-[11px] font-black shadow-lg ${
+                        claim.mine ? "bg-emerald-500 text-white" : "bg-slate-900/95 text-amber-300 ring-1 ring-amber-400/40"
+                      }`}
+                    >
+                      {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
+                    </motion.span>
+                  )}
+                </motion.div>
+              );
+            })}
+            {!offer.picked && !offer.canPickAny && (
+              <button onClick={() => pick(null)} disabled={pendingId !== null} className="btn-ghost w-full disabled:opacity-40">
+                {t("skipRound")}
+              </button>
+            )}
+            {offer.picked && <p className="text-center text-xs text-slate-400">{t("chaosWaiting")}</p>}
+          </motion.div>
+        ) : offer && !offer.picked ? (
           <motion.div
             key={`offer-${offer.round}`}
             initial={{ opacity: 0, y: 24 }}

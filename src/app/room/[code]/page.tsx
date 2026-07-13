@@ -190,7 +190,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
           transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
         >
           {snapshot.phase === "lobby" && (
-            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} onTourney={game.chooseTourney} onRename={game.rename} onKick={game.kick} onShout={game.shout} />
+            <Lobby snapshot={snapshot} playerId={game.playerId} onStart={game.startGame} onAvatar={game.chooseAvatar} onMap={game.chooseMap} onMode={game.chooseMode} onTourney={game.chooseTourney} onDraftMode={game.chooseDraftMode} onRename={game.rename} onKick={game.kick} onShout={game.shout} />
           )}
           {snapshot.phase === "draft" && (
             <DraftPhase snapshot={snapshot} offer={game.offer} playerId={game.playerId} onPick={game.pickItem} />

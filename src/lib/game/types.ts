@@ -165,6 +165,9 @@ export type MatchMode = (typeof MATCH_MODES)[number];
 export const TOURNEY_MODES = ["knockout", "league"] as const;
 export type TourneyMode = (typeof TOURNEY_MODES)[number];
 
+export const DRAFT_MODES = ["classic", "chaos"] as const;
+export type DraftMode = (typeof DRAFT_MODES)[number];
+
 export type LeagueStage = "league" | "semis" | "final" | null;
 
 export interface LeagueStanding {
@@ -186,6 +189,7 @@ export interface RoomSnapshot {
   arenaMap: ArenaMap;
   matchMode: MatchMode;
   tourneyMode: TourneyMode;
+  draftMode: DraftMode;
   leagueStage: LeagueStage;
   leagueTable: LeagueStanding[];
   players: PublicPlayer[];
@@ -206,6 +210,8 @@ export interface DraftOffer {
   lockedSlots: Slot[];
   picked: boolean;
   canPickAny: boolean;
+  mode?: DraftMode;
+  claims?: { id: string; by: string; mine: boolean }[];
 }
 
 export interface LuckOffer {
@@ -233,5 +239,6 @@ export const RARITY_ORDER: Record<Rarity, number> = {
 
 export const TOTAL_DRAFT_ROUNDS = 5;
 export const DRAFT_TIME_MS = 35000;
+export const CHAOS_TIME_MS = 20000;
 export const LUCK_TIME_MS = 25000;
 export const EVENT_REVEAL_MS = 12000;

@@ -4,6 +4,14 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Double feedback fix + Chaos Draft mode (2026-07-13)
+
+- Miss/dodge feedback showed twice (centered pill AND a corner note float, both saying ISKA!/KAÇTI!) — removed the noteMiss/noteDodge floats in BattleStage; the pill is the single source now.
+- New game mode: Chaos Draft (`DRAFT_MODES = ["classic","chaos"]`, host-only lobby picker with hint subtitles, guests see it in the settings chip card). Round flow: one SHARED pool of (players + 3) items per round (`rollChaosPool` in draft.ts — slot bag weighted by how many players still miss each slot, round rarity weights), 20s timer (`CHAOS_TIME_MS`), first tap claims (`state.chaosPool[].claimedBy`, arbitration = server POST order; losers get `err_item_taken` toast "Geç kaldın!"). Bots claim at staggered times (2.5s..11s) picking near-best rarity. Round ends when everyone claimed/passed or timer; unclaimed players auto-assigned a random leftover.
+- Client: DraftOffer gains `mode`/`claims`; DraftPhase renders the live board (stays visible after your claim so you watch the scramble) with 🔒 claimer badges, green "SENİN!" on your claim, grayed taken cards. POST responses return fresh snapshots, so claims feel instant on top of the 1.2s poll.
+- New i18n keys: chooseDraft, draft_classic/chaos (+_hint), chaosHint, chaosYours, chaosWaiting, err_item_taken.
+- Verified: typecheck + prod build clean; full chaos tournament driven to champion (claims visible in screenshots, only benign favicon 404s).
+
 ## Player-feedback batch: grips, lobby, bracket, clarity (2026-07-13)
 
 - Staff grip fix: `staff` and `Skeleton_Staff` WEAPON_GRIPS position was [0,0,0.38], which slid the whole model off the hand (Void Staff / Frost Staff / Soul Staff floated in mid-air). Correct value is [0,0,-0.15]: hand grips the shaft just below the orb. Rule of thumb for KayKit staffs: origin sits at the orb; small NEGATIVE z moves grip down the shaft, positive z detaches it.

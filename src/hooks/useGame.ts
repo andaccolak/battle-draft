@@ -18,6 +18,7 @@ export interface GameApi {
   chooseMap: (mapId: string) => void;
   chooseMode: (modeId: string) => void;
   chooseTourney: (modeId: string) => void;
+  chooseDraftMode: (modeId: string) => void;
   shout: () => void;
   rename: (nickname: string) => void;
   kick: (targetId: string) => void;
@@ -131,6 +132,7 @@ export function useGame(code: string, nickname: string): GameApi {
   const chooseMap = useCallback((mapId: string) => void postAction({ type: "map", mapId }), [postAction]);
   const chooseMode = useCallback((modeId: string) => void postAction({ type: "gamemode", modeId }), [postAction]);
   const chooseTourney = useCallback((modeId: string) => void postAction({ type: "tourney", modeId }), [postAction]);
+  const chooseDraftMode = useCallback((modeId: string) => void postAction({ type: "draftmode", modeId }), [postAction]);
   const pickItem = useCallback((itemId: string | null) => void postAction({ type: "pick", itemId }), [postAction]);
   const pickLuckCard = useCallback((cardId: string) => void postAction({ type: "luck", cardId }), [postAction]);
   const reactBattle = useCallback((pass: boolean, score?: number) => void postAction({ type: "react", pass, score }), [postAction]);
@@ -156,6 +158,7 @@ export function useGame(code: string, nickname: string): GameApi {
     chooseMap,
     chooseMode,
     chooseTourney,
+    chooseDraftMode,
     pickItem,
     pickLuckCard,
     reactBattle,

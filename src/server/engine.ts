@@ -1,5 +1,6 @@
 import type {
   ArenaMap,
+  DraftMode,
   MatchMode,
   TourneyMode,
   BattlePayload,
@@ -14,8 +15,8 @@ import type {
   Slot,
   TimelineEntry
 } from "@/lib/game/types";
-import { ARENA_MAPS, DRAFT_TIME_MS, EVENT_REVEAL_MS, LUCK_TIME_MS, MATCH_MODES, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
-import { rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
+import { ARENA_MAPS, CHAOS_TIME_MS, DRAFT_MODES, DRAFT_TIME_MS, EVENT_REVEAL_MS, LUCK_TIME_MS, MATCH_MODES, RARITY_ORDER, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
+import { rollChaosPool, rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
 import { EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle, type Build } from "@/lib/game/battle";
@@ -116,6 +117,8 @@ export interface RoomState {
   arenaMap?: ArenaMap;
   matchMode?: MatchMode;
   tourneyMode?: TourneyMode;
+  draftMode?: DraftMode;
+  chaosPool?: { item: Item; claimedBy: string | null }[] | null;
   leagueStage?: "league" | "semis" | "final" | null;
   recentEventIds?: string[];
   shout?: { by: string; at: number } | null;
@@ -160,6 +163,8 @@ export function createState(code: string, playerId: string, nickname: string, no
     arenaMap: "colosseum",
     matchMode: "single",
     tourneyMode: "knockout",
+    draftMode: "classic",
+    chaosPool: null,
     leagueStage: null
   };
 }
@@ -242,6 +247,18 @@ export function setTourneyMode(state: RoomState, playerId: string, modeId: strin
   if (!TOURNEY_MODES.includes(modeId as TourneyMode)) return null;
   state.tourneyMode = modeId as TourneyMode;
   return null;
+}
+
+export function setDraftMode(state: RoomState, playerId: string, modeId: string): string | null {
+  if (state.phase !== "lobby") return null;
+  if (state.hostId !== playerId) return "err_host_start";
+  if (!DRAFT_MODES.includes(modeId as DraftMode)) return null;
+  state.draftMode = modeId as DraftMode;
+  return null;
+}
+
+function isChaos(state: RoomState): boolean {
+  return (state.draftMode ?? "classic") === "chaos";
 }
 
 function isLeague(state: RoomState): boolean {
@@ -435,9 +452,29 @@ export function startGame(state: RoomState, playerId: string, now: number): stri
   return null;
 }
 
+function chaosSlotsMissing(p: StatePlayer): Slot[] {
+  return SLOTS.filter((slot) => !p.equipment[slot]);
+}
+
+function chaosClaimable(state: RoomState, p: StatePlayer): { item: Item; claimedBy: string | null }[] {
+  return (state.chaosPool ?? []).filter((entry) => entry.claimedBy === null && !p.equipment[entry.item.slot]);
+}
+
 function beginDraftRound(state: RoomState, now: number): void {
   state.phase = "draft";
   state.draftRound++;
+  if (isChaos(state)) {
+    const alive = state.players.filter((p) => !p.spectator);
+    state.deadline = now + CHAOS_TIME_MS;
+    state.chaosPool = rollChaosPool(alive.map(chaosSlotsMissing), state.draftRound).map((item) => ({ item, claimedBy: null }));
+    for (const p of state.players) {
+      p.offer = null;
+      p.offerPicked = p.spectator ?? false;
+      p.botPickAt = p.isBot ? now + 2500 + Math.random() * (CHAOS_TIME_MS * 0.55) : null;
+    }
+    return;
+  }
+  state.chaosPool = null;
   state.deadline = now + DRAFT_TIME_MS;
   for (const p of state.players) {
     if (p.spectator) {
@@ -454,6 +491,21 @@ function beginDraftRound(state: RoomState, now: number): void {
 export function pickItem(state: RoomState, playerId: string, itemId: string | null): string | null {
   if (state.phase !== "draft") return null;
   const p = findPlayer(state, playerId);
+  if (isChaos(state)) {
+    if (!p || p.offerPicked || !state.chaosPool) return null;
+    if (itemId === null) {
+      if (chaosClaimable(state, p).length > 0) return null;
+      p.offerPicked = true;
+      return null;
+    }
+    const entry = state.chaosPool.find((e) => e.item.id === itemId);
+    if (!entry || p.equipment[entry.item.slot]) return null;
+    if (entry.claimedBy !== null) return "err_item_taken";
+    entry.claimedBy = p.id;
+    p.equipment[entry.item.slot] = entry.item;
+    p.offerPicked = true;
+    return null;
+  }
   if (!p || p.offerPicked || !p.offer) return null;
   if (itemId === null) {
     const pickable = p.offer.filter((i) => !p.equipment[i.slot]);
@@ -469,6 +521,19 @@ export function pickItem(state: RoomState, playerId: string, itemId: string | nu
 }
 
 function finishDraftRound(state: RoomState, now: number): void {
+  if (isChaos(state)) {
+    for (const p of state.players) {
+      if (p.offerPicked || p.spectator) continue;
+      const options = chaosClaimable(state, p);
+      const pick = options[Math.floor(Math.random() * options.length)];
+      if (pick) {
+        pick.claimedBy = p.id;
+        p.equipment[pick.item.slot] = pick.item;
+      }
+      p.offerPicked = true;
+    }
+    state.chaosPool = null;
+  }
   for (const p of state.players) {
     if (p.offerPicked || !p.offer) continue;
     const pickable = p.offer.filter((i) => !p.equipment[i.slot]);
@@ -921,7 +986,26 @@ export function tick(state: RoomState, now: number): boolean {
   }
   if (state.phase === "draft") {
     for (const p of state.players) {
-      if (p.isBot && !p.offerPicked && p.botPickAt !== null && now >= p.botPickAt && p.offer) {
+      if (!p.isBot || p.offerPicked || p.botPickAt === null || now < p.botPickAt) continue;
+      if (isChaos(state)) {
+        const options = chaosClaimable(state, p);
+        if (options.length === 0) {
+          p.offerPicked = true;
+          changed = true;
+          continue;
+        }
+        const best = Math.max(...options.map((o) => RARITY_ORDER[o.item.rarity]));
+        const top = options.filter((o) => RARITY_ORDER[o.item.rarity] >= Math.max(0, best - 1));
+        const pick = top[Math.floor(Math.random() * top.length)] ?? options[0];
+        if (pick) {
+          pick.claimedBy = p.id;
+          p.equipment[pick.item.slot] = pick.item;
+        }
+        p.offerPicked = true;
+        changed = true;
+        continue;
+      }
+      if (p.offer) {
         const pickable = p.offer.filter((i) => !p.equipment[i.slot]);
         const pick = pickable[Math.floor(Math.random() * pickable.length)];
         if (pick) p.equipment[pick.slot] = pick;
@@ -1043,6 +1127,7 @@ export function snapshotFor(
     arenaMap: state.arenaMap ?? "colosseum",
     matchMode: state.matchMode ?? "single",
     tourneyMode: state.tourneyMode ?? "knockout",
+    draftMode: state.draftMode ?? "classic",
     leagueStage: state.leagueStage ?? null,
     leagueTable: leagueTableFor(state),
     shout: state.shout && now - state.shout.at < 6000 ? state.shout : null,
@@ -1070,7 +1155,24 @@ export function snapshotFor(
     serverNow: now
   };
   let offer: DraftOffer | null = null;
-  if (state.phase === "draft" && me?.offer) {
+  if (state.phase === "draft" && isChaos(state) && state.chaosPool && me && !me.spectator) {
+    const lockedSlots = SLOTS.filter((s) => me.equipment[s]);
+    offer = {
+      round: state.draftRound,
+      items: state.chaosPool.map((e) => e.item),
+      lockedSlots,
+      picked: me.offerPicked,
+      canPickAny: chaosClaimable(state, me).length > 0,
+      mode: "chaos",
+      claims: state.chaosPool
+        .filter((e) => e.claimedBy !== null)
+        .map((e) => ({
+          id: e.item.id,
+          by: findPlayer(state, e.claimedBy as string)?.nickname ?? "?",
+          mine: e.claimedBy === me.id
+        }))
+    };
+  } else if (state.phase === "draft" && me?.offer) {
     const lockedSlots = SLOTS.filter((s) => me.equipment[s]);
     offer = {
       round: state.draftRound,

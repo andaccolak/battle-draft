@@ -334,9 +334,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     if (entry.t === "passive" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0);
     if (entry.t === "poison" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg", 0);
     if (entry.actor !== "none") {
-      if (entry.t === "miss") pushFloat(other, t("noteMiss"), "note", "impact");
-      else if (entry.t === "dodge") pushFloat(other, t("noteDodge"), "note", "impact");
-      else if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
+      if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
         const prefix = entry.crit ? "⚡" : entry.blocked ? "🛡" : "";
         pushFloat(other, `${prefix}-${entry.dmg}`, entry.crit ? "crit" : "dmg", "impact", floatMag(entry.dmg ?? 0));
       }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withRoom } from "@/server/store";
-import { joinState, kickPlayer, leaveState, pickItem, pickLuck, playAgain, reactBattle, renamePlayer, setArenaMap, setAvatar, setMatchMode, setTourneyMode, shoutHost, snapshotFor, startGame, touch } from "@/server/engine";
+import { joinState, kickPlayer, leaveState, pickItem, pickLuck, playAgain, reactBattle, renamePlayer, setArenaMap, setAvatar, setDraftMode, setMatchMode, setTourneyMode, shoutHost, snapshotFor, startGame, touch } from "@/server/engine";
 
 export const dynamic = "force-dynamic";
 
@@ -83,6 +83,8 @@ export async function POST(req: Request, ctx: { params: { code: string } }): Pro
         return typeof body.modeId === "string" ? setMatchMode(state, playerId, body.modeId) : null;
       case "tourney":
         return typeof body.modeId === "string" ? setTourneyMode(state, playerId, body.modeId) : null;
+      case "draftmode":
+        return typeof body.modeId === "string" ? setDraftMode(state, playerId, body.modeId) : null;
       case "again":
         return playAgain(state, playerId, now);
       case "shout":
