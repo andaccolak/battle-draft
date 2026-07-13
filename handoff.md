@@ -4,6 +4,12 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Animation variety + poll resilience (2026-07-13)
+
+- 12 previously-unused Rig_Medium clips wired (104 shipped total; ~50 remain unused, mostly sit/lie/jump cycles): per-fighter idle personality (nickname-hash picks Idle_A vs Idle_B — deterministic across clients, stored as `rig.idleVariant`), seeded melee windup pools, Sneaking windup for dual-wielders and Crouching for fists, Running_A/B run-in variety, victory pool gains Skeletons_Taunt_Longer and Sit_Ups, and a new `use` pose (Use_Item/Interact/PickUp) for quirkSnack/quirkPrayer/quirkBreather heal beats (Pose union extended in CharacterSprite).
+- CLIENT RESILIENCE: `useGame` requires 3 CONSECUTIVE 404s before declaring a room fatal (`missingStreak`). A single transient 404 (dev recompile, cold lambda) used to permanently freeze the page mid-match. Do not revert to single-404 fatal.
+- Verified: full driven tournament to champion with the page following the entire match.
+
 ## Graveyard arena (KayKit Halloween Bits, 2026-07-13)
 
 - Third selectable map `graveyard` (host lobby card, 🪦, en/tr `map_graveyard`): fenced moonlit graveyard built in `buildGraveyardArena()` (arenaKits.ts) from 22 Halloween Bits pieces (CC0, 548 KB, `public/models3d/kaykit/halloween/` as .gltf+.bin+shared texture). Dirt floor with dug-open `floor_dirt_grave` pits outside the fight circle, perimeter fence with broken sections + gate, crypt backdrop with a green PointLight glow, 4 warm lantern-post lights, gravestones, dead trees, skull posts, jack-o-lanterns.
