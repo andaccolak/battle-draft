@@ -1,8 +1,19 @@
 # Current Status
 
-The player-feedback game-feel release is live and healthy at `https://battle-draft.vercel.app`. It replaces the oversized sticky draft totals with a compact bottom summary, exposes the same effective stats after luck and natural events, adds a deterministic case-opening event reel, corrects all weapon grips and combat animation families, routes distinct audio by weapon and action, changes the poison status badge to a bottle, and establishes a more logical item/stat foundation. Commit `1af2456` is synchronized on `main` and `claude/multiplayer-party-game-5dip9w`; GitHub/Vercel Production deployment `5423113850` completed successfully and the public alias was verified against the new client bundle and room API.
+The latest player-feedback milestone is locally verified and ready for production. It points sharp weapons inward toward opponents, guarantees central miss/dodge feedback, prevents offscreen combat floats from collapsing into the arena corner, fixes the event reel's stable authoritative landing, resets every new draft offer to the page top, makes item deltas immediately scannable, doubles the battle-log viewport, adds league standings after each match and at tournament end, and layers six trimmed Pixabay samples over the existing procedural combat audio. The previous production checkpoint remains commit `1af2456` until this milestone is pushed and its deployment is verified.
 
 # Last Completed Work
+
+## Combat clarity, authoritative reel, league table, and sampled audio (release candidate, 2026-07-13)
+
+- Corrected offensive weapon presentation with per-model inward aim. Existing native sharp-end orientation remains intact while right- and left-hand mounts converge toward the opposing fighter instead of pointing outside the combat line.
+- Miss/dodge impact fallback now scales to the actual beat duration and fires before short beats can cancel it. A central animated `MISS!`/`DODGED!` pill guarantees active feedback even when the fighter-relative float is obscured.
+- Fighter-relative projection accepts only genuinely visible center-safe coordinates. Invalid/off-camera projections retain their last valid position instead of clamping colored combat notes into the arena's top-left corner.
+- Natural-event reel tiles are memoized by stable event id and seed rather than the polled event object. The strip is anchored at viewport center and lands the server-authoritative selected event exactly beneath the marker instead of in a tile gap.
+- Each new draft round scrolls the document to the top. Item stat chips now lead with the signed effect (`+X`/`-X`), then show the compact current → projected total underneath. The current-match log viewport grew from 6rem to 12rem while preserving reader-pinned scrolling.
+- Added derived server-authoritative league standings with rank, played, won, lost, three-points-per-win, head-to-head/seeded-lot tie breaks, and playoff qualification. The table appears during the 5.5-second pause after every league battle and again on the champion screen; round-robin results remain separate from semifinal/final records.
+- Added six locally packaged Pixabay samples for blade movement, metal/shield contact, physical strikes, arrows, human pain/death, and fire magic. Samples are trimmed for immediate attack transients, pitch-varied slightly, routed through the existing compressor, and layered over procedural cues so sound remains responsive if decoding fails. Exact creators, source pages, and license are recorded in `docs/SOUND_CREDITS.md`.
+- Verification: `npm run typecheck`, `npm run build`, and `git diff --check` pass. Static invariants confirm all 22 referenced weapon models have grip transforms, six nonempty optimized audio samples are packaged, the reel center contract is present, and league/audio markers are in the production bundle. No match was created or played, per the owner's explicit instruction; physical-phone validation belongs to the owner after deployment.
 
 ## Live production verification (release checkpoint, 2026-07-13)
 
@@ -97,13 +108,14 @@ The player-feedback game-feel release is live and healthy at `https://battle-dra
 
 # Current Architecture Notes
 
-Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. The arena's responsive width up to 430 px plus inline `aspect-ratio: 1 / 1` remains the sole geometry authority, and all battle content stays in natural document flow. `src/lib/game/buildStats.ts` owns the nine keys/base values; `src/lib/game/combatProfile.ts` is now the single source for effective equipment, luck, event, passive, clamp, and uncertainty calculations used by both UI and `buildCombatant`. `BuildStatsPanel` renders that profile after Draft/Luck/Event content without sticky positioning. Event choice remains server-authoritative; `EventReveal` only builds a deterministic seeded reel around that selected event. Audio is synthesized through `src/lib/sound.ts` and routed by `WeaponAudioKind`; browser vibration remains opportunistic. `WEAPON_GRIPS` in `items.ts` provides explicit per-model position/rotation/scale, and `characterAssets.ts` attaches models through stable mount groups. Arena3D's render loop distinguishes `rawDelta` from scaled `delta`, owns physical contact timing, and calls BattleStage's stable `onImpact(beat)` resolver. Pirate/Magnet use `TimedSuppression` snapshots: a keyed Chaos random channel keeps shared item/event rolls aligned, later battle-start modifiers mutate both snapshot variants, exactly two attack attempts consume the suppression, and `gearReturn` applies the full-minus-suppressed delta without mutating tournament equipment.
+Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE grades against the current request-animation-frame marker position and sends the score to the existing server action. The arena's responsive width up to 430 px plus inline `aspect-ratio: 1 / 1` remains the sole geometry authority, and all battle content stays in natural document flow. `src/lib/game/buildStats.ts` owns the nine keys/base values; `src/lib/game/combatProfile.ts` is the single source for effective equipment, luck, event, passive, clamp, and uncertainty calculations used by both UI and `buildCombatant`. `BuildStatsPanel` renders that profile after Draft/Luck/Event content without sticky positioning. Event choice remains server-authoritative; `EventReveal` uses only the stable selected event id plus seed to build a cosmetic reel whose fixed center index is forced to that selection. Audio in `src/lib/sound.ts` layers asynchronously decoded local samples over `WeaponAudioKind` procedural synthesis through one compressor; sample failure never blocks the fallback cue. `WEAPON_GRIPS` in `items.ts` provides explicit per-model position/rotation/scale plus optional `inwardAim`, and `characterAssets.ts` mirrors that aim by hand side. `leagueTableFor()` derives standings only from the initial round-robin rounds; playoff results cannot rewrite league rank. Arena3D's render loop distinguishes `rawDelta` from scaled `delta`, owns physical contact timing, and calls BattleStage's stable `onImpact(beat)` resolver. Pirate/Magnet use `TimedSuppression` snapshots: a keyed Chaos random channel keeps shared item/event rolls aligned, later battle-start modifiers mutate both snapshot variants, exactly two attack attempts consume the suppression, and `gearReturn` applies the full-minus-suppressed delta without mutating tournament equipment.
 
 # Remaining Tasks
 
-- [ ] Play multiple two-device battles on physical iPhone Safari and taste-check the compact bottom stats, luck/event totals, reel timing, square arena, natural scrolling, log pinning, poison badge, weapon grips, and two-attack item returns.
-- [ ] Owner taste-check every sound family on phone speakers/headphones. Record the exact weapon/action if a cue is too synthetic, harsh, quiet, or mistimed; tune only that semantic layer in `src/lib/sound.ts`.
-- [ ] Inspect extreme two-handed attack frames on a real device for small offhand sliding. Current idle/guard/front/side grip diagnostics are clean; authored clips have no runtime IK.
+- [ ] Owner test multiple two-device league battles on physical iPhone Safari. Confirm the 5.5-second standings pause is readable after every battle and the final table is visible on the champion screen.
+- [ ] Owner inspect sharp weapon direction during left/right circling and extreme attack frames. Static mount math is corrected, but authored clips have no runtime hand IK and the owner explicitly reserved playtesting for a real device.
+- [ ] Owner taste-check the six sampled sound families on phone speakers/headphones. Record the exact weapon/action if a cue is harsh, quiet, mismatched, or mistimed; tune only that semantic layer in `src/lib/sound.ts`.
+- [ ] Owner confirm every natural-event reel keeps its tile strip stable and stops the revealed event exactly under the center marker on a real phone.
 - [ ] Continue measured item tuning with randomized full-loadout pairwise tests. Do not flatten rarity or remove counter-build overlap merely to force every neutral matchup toward 50%.
 - [ ] Permanently change GitHub default branch and Vercel Production Branch to `main` when administrator access is available; then remove the legacy branch mirror procedure.
 
@@ -111,7 +123,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 - Vercel Production Branch is still the legacy `claude/multiplayer-party-game-5dip9w` branch. A plain push to `main` creates only an authenticated Preview and does not update the public `battle-draft.vercel.app` alias. Repository/Vercel admin must permanently switch the production/default branch to `main`; until then mirror `main` by fast-forward after every release.
 - Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
-- The in-app browser backend was unavailable (`agent.browsers.list()` returned no browsers), so this milestone has build, HTTP, and deterministic simulation coverage but not rendered mobile screenshot/audio taste coverage.
+- The in-app browser backend was unavailable (`agent.browsers.list()` returned no browsers), and the owner explicitly requested no automated play. This milestone therefore has build/static coverage but no rendered mobile or audio taste validation.
 - Two-handed alignment uses authored KayKit poses rather than inverse kinematics; extreme attack frames may show minor offhand sliding even though static front/side grips are corrected.
 - A room created while Neon is reachable can return HTTP 500 if the database becomes unreachable mid-room; initial startup failure correctly falls back to memory, but DB-mode request failures are not caught by `withRoom`. Production resilience work is outside the current feel pass, but this violates the documented graceful-fallback intent.
 
@@ -121,27 +133,28 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the full player-feedback release. The optimized Next.js build compiled every route. Automated coverage includes 110 items, all weapon audio/model/grip assets, 57,200 balance battles, 7,040 profile parity cases, 2,400 deterministic modifier cases, 958 exact two-attack returns, 50,000 no-healing event seeds, and 9,706 HP-safe restoration paths. Two real four-fighter HTTP tournaments reached champion in Colosseum and Dungeon. Vercel Production deployment `5423113850` for code commit `1af2456` succeeded; public home/room/API and production-bundle markers were verified.
+`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the combat-clarity/league/audio milestone. The optimized Next.js build compiled every route; static checks cover 22 referenced weapon model grips, six optimized combat samples, exact event-reel center structure, and compiled league/audio UI markers. No match was created or played in this milestone, per owner instruction. The last verified Vercel Production deployment is still `5423113850` for commit `1af2456`; replace this checkpoint after the new push succeeds.
 
 # Files Recently Modified
 
-- `src/components/BuildStatsPanel.tsx`, `DraftPhase.tsx`, `LuckPhase.tsx`, `EventReveal.tsx`, `ItemCard.tsx`
-- `src/components/BattleStage.tsx`, `Arena3D.tsx`, `AvatarPortrait.tsx`
-- `src/lib/game/combatProfile.ts`, `battle.ts`, `items.ts`, `events.ts`, `draft.ts`, `types.ts`
+- `src/components/DraftPhase.tsx`, `EventReveal.tsx`, `ItemCard.tsx`, `LeagueTable.tsx`
+- `src/components/BattleStage.tsx`, `Arena3D.tsx`, `Champion.tsx`
+- `src/lib/game/items.ts`, `types.ts`
 - `src/lib/sound.ts`
-- `src/lib/three/characterAssets.ts`, `avatarThumbs.ts`
-- `src/lib/i18n/content.ts`, `dictionary.ts`
-- `src/app/room/[code]/page.tsx`, `src/app/dev/weapons/page.tsx`, `src/server/engine.ts`
+- `src/lib/three/characterAssets.ts`
+- `src/lib/i18n/dictionary.ts`
+- `src/app/room/[code]/page.tsx`, `src/server/engine.ts`
+- `public/audio/combat/*.mp3`, `docs/SOUND_CREDITS.md`
 - `handoff.md`
 
 # Suggested Next Step
 
-Play the live build on a physical phone with friends and report the first specific weapon/action whose pose or sound still feels wrong. Check the compact stats at the bottom of draft/luck/event screens and let the natural-event reel stop at least once. Tune that concrete case before adding more content.
+After deployment, the owner should play a league tournament with friends on physical phones. First verify event-center landing, then sharp-end direction, visible miss/dodge feedback, absence of top-left artifacts, the taller reader-pinned log, post-match/final league tables, and each semantic audio family. Report the first concrete mismatch with a screenshot or weapon/action name before adding content.
 
 # Important Decisions
 
 - Finisher detection is pure timeline lookahead (`attack` with dmg > 0 followed by `death`) — no server or sim changes, so determinism and cross-client sync are untouched.
-- Arena3D is the authority for presentation contact timing because melee timing depends on live circling distance. BattleStage remains authoritative for UI state and retains a 900 ms fallback; the callback changes presentation only and never affects deterministic simulation or server time.
+- Arena3D is the authority for presentation contact timing because melee timing depends on live circling distance. BattleStage remains authoritative for UI state and retains a beat-relative fallback clamped to 160–720 ms; the callback changes presentation only and never affects deterministic simulation or server time.
 - Screen shake must never use a changing key above Arena3D. Replay shake through animation controls so the WebGL scene, camera and loaded rigs remain alive.
 - Slow-mo is visual-only time dilation inside Arena3D; the timeline beat scheduler must never be slowed or battles would desync from `elapsedMs`.
 - Poison/quirk deaths get no slow-mo on purpose — there is no strike animation to dramatize.
@@ -155,6 +168,9 @@ Play the live build on a physical phone with friends and report the first specif
 - Draft decisions must be understandable before commitment. Keep every offer's current → projected total with signed delta and the compact overall panel below the offers. Do not make overall stats sticky or reintroduce the redundant “total after this pick” heading.
 - `combatProfile()` is the shared effective-build authority for Draft, Luck, Event, and the simulator. Add new stat/card/event/passive behavior there first; do not duplicate formulas in components or `buildCombatant`.
 - The natural-event reel is presentation-only. The server chooses the event; the client seed only determines surrounding cosmetic tiles and animation progress. Never let the reel choose or reroll gameplay state.
+- The reel's selected event must stay at `STOP_INDEX`; translate a strip anchored at `left: 50%` by the negative center offset. Do not put viewport `50%` inside Framer Motion's transform because percentage transforms are relative to the moving strip itself.
+- League tables are derived snapshot data, not mutable room state. Only initial round-robin bracket rounds contribute to played/won/lost/points; semifinals and finals are displayed through the existing bracket and must not alter league rank.
+- Licensed combat samples are local presentation assets documented in `docs/SOUND_CREDITS.md`. Keep procedural cues as immediate fallback/layering, trim leading silence before shipping, and never depend on a network sound request during battle.
 - Speed is persistent tempo and adds a modest capped extra-attack chance from the fighter-to-opponent gap. Initiative is an opening-round bonus only. Preserve that separation when balancing gear.
 - Weapon visuals, animation, and sound are separate semantic mappings. A model grip belongs in `WEAPON_GRIPS`, motion in `WeaponVisualKind`, and sound in `WeaponAudioKind`; changing one should not silently infer the others.
 - Item IDs are save/network contracts. Rename or rebalance fields in place, update Turkish names/descriptions, and preserve IDs unless a migration is deliberately designed.
@@ -163,7 +179,7 @@ Play the live build on a physical phone with friends and report the first specif
 
 # Notes For Next Session
 
-The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, use small verified milestones, update this handoff before every push, and retain the no-code-comments convention. This release directly responds to the three supplied phone screenshots: stats are compact and below picks, the redundant card heading is gone, the square arena remains in scrollable flow, poison uses a bottle, and weapon mounts no longer depend on one generic rotation. `/dev/weapons?start=N&count=4` renders reliable front/side grip batches; bulk portrait capture can show blanks because the shared offscreen renderer is asynchronous, not because the underlying asset is missing. The in-app browser still exposed no browser, so physical-device visual/audio confirmation is mandatory after deployment and must not be inferred from build success alone.
+The parked native iOS implementation still belongs on the separate `ios` branch. Keep the current web game on `main`, use small verified milestones, update this handoff before every push, and retain the no-code-comments convention. This release directly responds to the latest supplied phone screenshot and numbered feedback. `/dev/weapons?start=N&count=4` remains available for visual grip batches, but do not treat static math/build success as phone validation. The in-app browser exposed no browser and the owner explicitly said not to play; physical-device weapon, reel, league, and audio confirmation must come from the owner after deployment.
 
 ---
 
