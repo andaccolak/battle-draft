@@ -1,8 +1,15 @@
 # Current Status
 
-The player-feedback game-feel release is locally complete and buildable on `main`. It replaces the oversized sticky draft totals with a compact bottom summary, exposes the same effective stats after luck and natural events, adds a deterministic case-opening event reel, corrects all weapon grips and combat animation families, routes distinct audio by weapon and action, changes the poison status badge to a bottle, and establishes a more logical item/stat foundation. Two full four-fighter tournaments reached champion in both arenas. This commit still needs to be pushed and mirrored to the legacy Vercel production branch before the public `https://battle-draft.vercel.app` alias contains the work.
+The player-feedback game-feel release is live and healthy at `https://battle-draft.vercel.app`. It replaces the oversized sticky draft totals with a compact bottom summary, exposes the same effective stats after luck and natural events, adds a deterministic case-opening event reel, corrects all weapon grips and combat animation families, routes distinct audio by weapon and action, changes the poison status badge to a bottle, and establishes a more logical item/stat foundation. Commit `1af2456` is synchronized on `main` and `claude/multiplayer-party-game-5dip9w`; GitHub/Vercel Production deployment `5423113850` completed successfully and the public alias was verified against the new client bundle and room API.
 
 # Last Completed Work
+
+## Live production verification (release checkpoint, 2026-07-13)
+
+- Pushed commit `1af2456` to canonical `origin/main` and fast-forwarded the legacy Vercel Production Branch `claude/multiplayer-party-game-5dip9w` to the same SHA.
+- GitHub deployment `5423113850` reported `success` for the Production environment.
+- Fresh public checks returned HTTP 200 for the home page and a dynamic room, and the production API created verification room `VFKBAV` successfully.
+- All 15 scripts referenced by the public room page were inspected. The deployed bundle contains `Overall stats`, the rolling/locked event states, variable-stat messaging, `aspectRatio:"1 / 1"`, the poison bottle's `U+1F9EA` surrogate, and `Arcane Wand`; it does not contain the removed `Your total after this pick` label.
 
 ## Player-feedback combat, draft, and event overhaul (game-feel release candidate, 2026-07-13)
 
@@ -114,7 +121,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Build Status
 
-`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the full player-feedback release candidate. The optimized Next.js build compiled every route. Automated coverage includes 110 items, all weapon audio/model/grip assets, 57,200 balance battles, 7,040 profile parity cases, 2,400 deterministic modifier cases, 958 exact two-attack returns, 50,000 no-healing event seeds, and 9,706 HP-safe restoration paths. Two real four-fighter HTTP tournaments reached champion in Colosseum and Dungeon. Current release commit has not yet been pushed or verified on Vercel.
+`npm run typecheck`, `npm run build`, and `git diff --check` passed on 2026-07-13 after the full player-feedback release. The optimized Next.js build compiled every route. Automated coverage includes 110 items, all weapon audio/model/grip assets, 57,200 balance battles, 7,040 profile parity cases, 2,400 deterministic modifier cases, 958 exact two-attack returns, 50,000 no-healing event seeds, and 9,706 HP-safe restoration paths. Two real four-fighter HTTP tournaments reached champion in Colosseum and Dungeon. Vercel Production deployment `5423113850` for code commit `1af2456` succeeded; public home/room/API and production-bundle markers were verified.
 
 # Files Recently Modified
 
@@ -129,7 +136,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Suggested Next Step
 
-Push this verified commit to `main`, fast-forward `claude/multiplayer-party-game-5dip9w`, wait for Vercel Production to succeed, and verify the public alias serves the new reel/stat/audio/grip bundle. Then the owner should play on a physical phone and report the first specific weapon/action whose pose or sound still feels wrong; tune that concrete case before adding content.
+Play the live build on a physical phone with friends and report the first specific weapon/action whose pose or sound still feels wrong. Check the compact stats at the bottom of draft/luck/event screens and let the natural-event reel stop at least once. Tune that concrete case before adding more content.
 
 # Important Decisions
 
