@@ -1,8 +1,14 @@
 # Current Status
 
-Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits.
+Battle Draft is a stable, mobile-first multiplayer Next.js party game with a mature 3D battle presentation. The active `main` branch is healthy after correcting the mobile layout and draft-stat UX: the 3D arena now has a single explicit 1:1 aspect-ratio contract, the battle document scrolls naturally, current totals expose base and cumulative gear modifiers, and every offered item shows its exact projected totals before the player commits. Vercel production is currently wired to the legacy `claude/multiplayer-party-game-5dip9w` branch, so releases must temporarily fast-forward that branch from `main` until a repository/Vercel administrator changes the Production Branch setting to `main`.
 
 # Last Completed Work
+
+## Production deployment recovery (release correction, 2026-07-13)
+
+- Confirmed that commits `dc1d13e` and `71c9edc` built successfully on Vercel but were classified as authenticated Preview deployments only. The public `battle-draft.vercel.app` alias remained on old commit `927d75f`, explaining why none of the reported changes were visible to players.
+- GitHub still reports `claude/multiplayer-party-game-5dip9w` as the repository default branch and Vercel production follows it. The current GitHub credential can push code but cannot change repository administration settings (`gh repo edit --default-branch main` returns 404), and no local Vercel credential is available.
+- Temporary safe release procedure: keep development and canonical history on `main`, then fast-forward the legacy production branch with `git push origin main:claude/multiplayer-party-game-5dip9w`. Never develop independently on the legacy branch and never force-push it.
 
 ## Explicit square arena + useful pre-pick stat comparisons (UX correction, 2026-07-13)
 
@@ -77,6 +83,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Known Bugs
 
+- Vercel Production Branch is still the legacy `claude/multiplayer-party-game-5dip9w` branch. A plain push to `main` creates only an authenticated Preview and does not update the public `battle-draft.vercel.app` alias. Repository/Vercel admin must permanently switch the production/default branch to `main`; until then mirror `main` by fast-forward after every release.
 - Browser vibration support is platform-dependent; iOS Safari may not provide physical vibration feedback.
 - The in-app browser backend was unavailable (`agent.browsers.list()` returned no browsers), so this milestone has build, HTTP, and deterministic simulation coverage but not rendered mobile screenshot/audio taste coverage.
 - A room created while Neon is reachable can return HTTP 500 if the database becomes unreachable mid-room; initial startup failure correctly falls back to memory, but DB-mode request failures are not caught by `withRoom`. Production resilience work is outside the current feel pass, but this violates the documented graceful-fallback intent.
@@ -100,7 +107,7 @@ Battle presentation is client-side in `src/components/BattleStage.tsx`; the QTE 
 
 # Suggested Next Step
 
-Open a physical phone draft and battle after deployment. Measure/visually confirm the arena's rendered width equals height at several scroll positions; confirm the document can scroll through ticker/log/results without arena compression. In the draft, inspect a positive item, a negative trade-off item, and a passive-only item: the sticky panel must show base + gear, stat cards must show current → projected signed totals, and passives must remain readable. After this correction is accepted, return to weapon-specific windup whooshes and footsteps.
+Repository/Vercel administrator should set GitHub's default branch and Vercel's Production Branch to `main`, then remove the temporary legacy-branch mirroring procedure. After the current deployment, open `battle-draft.vercel.app` on a physical phone: measure/visually confirm the arena's rendered width equals height and inspect positive, negative, passive-only and locked draft cards for the new pre-pick comparisons.
 
 # Important Decisions
 
@@ -116,6 +123,7 @@ Open a physical phone draft and battle after deployment. Measure/visually confir
 - A `gearReturn` timeline entry is the presentation contract for restoring temporarily suppressed gear. Keep its actor as the recovering fighter and its `item` param as the stable item id so localization, pickup pose, audio, and return animation stay synchronized.
 - The battle arena has one sizing authority: responsive width capped at 430 px plus inline `aspect-ratio: 1 / 1`. Never add a separate height, viewport-height formula, or flex-grow sizing. Battle content belongs in natural document flow and may extend below the fold.
 - Draft decisions must be understandable before commitment. Keep the sticky summary's base + cumulative gear modifier and every offer's current → projected total with signed delta; an optimistic post-tap-only change is insufficient.
+- `main` remains the canonical development branch even while Vercel is misconfigured. The legacy production branch may only be fast-forwarded from `main` as a release mirror; never commit uniquely to it or force-push it.
 - Battle-log auto-follow is conditional on `logPinnedRef`; do not restore unconditional scroll-to-bottom behavior.
 
 # Notes For Next Session
