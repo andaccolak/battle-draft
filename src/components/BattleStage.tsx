@@ -300,6 +300,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       const show = () => {
         floatId.current++;
         const pos = screenPosRef.current[side];
+        if (pos.x <= 0.11 && pos.y <= 0.13) return;
         setFloats((f) => {
           const onSide = f.filter((x) => x.side === side).length;
           const y = Math.max(0.08, pos.y - onSide * 0.08);
@@ -321,7 +322,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
         if (finisher) navigator.vibrate?.([24, 60, 40]);
       }
     });
-    if (jumped) setFloats([]);
+    if (jumped || entry.t === "victory" || entry.t === "death") setFloats([]);
     if (!jumped && (entry.t === "miss" || entry.t === "dodge")) {
       atImpact(() => showEvasion(entry.t === "miss" ? "miss" : "dodge"));
     }
@@ -434,8 +435,8 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       <motion.div
         data-testid="battle-arena"
         animate={arenaMotion}
-        className="relative mx-auto w-full max-w-[366px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.38)]"
-        style={{ background: theme.sky, aspectRatio: "1 / 1" }}
+        className="relative mx-auto w-full max-w-[430px] overflow-hidden rounded-3xl border border-white/10 shadow-[0_18px_60px_rgba(0,0,0,0.38)]"
+        style={{ background: theme.sky, aspectRatio: "1 / 0.85" }}
       >
         
 
@@ -456,6 +457,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
           zoom={zoom}
           crit={current?.t === "attack" && !!current.crit}
           finisher={finisherNow}
+          beatMs={entryDuration(current)}
           onImpact={onArenaImpact}
         />
         <div className="pointer-events-none absolute inset-0 z-20">

@@ -602,7 +602,7 @@ function scheduleReturn(rig: Rig, ms: number): void {
   }, ms);
 }
 
-function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig, seed = 0): void {
+function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onShoot?: () => void, opp?: Rig, seed = 0, quick = false): void {
   if (pose === "dead" && rig.pose === "dead") return;
   if (rig.returnTimer) {
     clearTimeout(rig.returnTimer);
@@ -657,7 +657,7 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
           ? (pickAvailable(rig, critPool, true, seed) ?? pickAvailable(rig, pool, true, seed))
           : pickAvailable(rig, pool, true, seed);
       const heft = kind === "heavy" ? 0.9 : kind === "dual" || kind === "fists" ? 1.12 : kind === "shield" ? 0.96 : 1;
-      if (strike && MELEE_KINDS.has(kind) && rig.clips?.has("Running_A")) {
+      if (strike && MELEE_KINDS.has(kind) && !quick && rig.clips?.has("Running_A")) {
         rig.moveSpeed = RUN_SPEED;
         playAction(rig, ["Running_A"]);
         rig.actionTimer = setTimeout(() => {
@@ -666,9 +666,10 @@ function applyPose(rig: Rig, pose: Pose, kind: FighterKind, crit: boolean, onSho
           rig.current?.setEffectiveTimeScale(heft);
         }, meleeRunMs(rig, opp));
       } else if (strike) {
+        if (MELEE_KINDS.has(kind)) rig.moveSpeed = RUN_SPEED;
         playAction(rig, [strike], { once: true, backToIdle: true });
-        rig.current?.setEffectiveTimeScale(heft);
-        if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, 320);
+        rig.current?.setEffectiveTimeScale(heft * (quick ? 1.18 : 1));
+        if (!MELEE_KINDS.has(kind) && onShoot) rig.actionTimer = setTimeout(onShoot, quick ? 200 : 320);
       }
       scheduleReturn(rig, 1100);
       break;
@@ -740,10 +741,11 @@ interface Props {
   zoom: boolean;
   crit: boolean;
   finisher?: boolean;
+  beatMs?: number;
   onImpact?: (beat: number) => void;
 }
 
-export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit, finisher, onImpact }: Props) {
+export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, revealed, screenPosRef, weaponLostA, weaponLostB, focus, zoom, crit, finisher, beatMs, onImpact }: Props) {
   const charScale = (eventId && EVENT_VISUALS[eventId]?.charScale) || 1;
   const containerRef = useRef<HTMLDivElement>(null);
   const rigARef = useRef<Rig | null>(null);
@@ -1270,9 +1272,14 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
         );
       }
     }
+    const budget = Math.max(360, beatMs ?? 1500);
+    const contactFor = (attackerKind: FighterKind, attacker: Rig, defender: Rig) =>
+      Math.min(impactMsFor(attackerKind, attacker, defender), Math.max(260, budget * 0.6));
+    const quickFor = (attackerKind: FighterKind, attacker: Rig, defender: Rig) =>
+      impactMsFor(attackerKind, attacker, defender) > budget * 0.72;
     const delayReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, reaction: Pose, defenderKind: FighterKind, atkSeed: number, defSeed: number) => {
-      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed);
-      const lead = reaction === "dodge" || reaction === "roll" ? 260 : 0;
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender));
+      const lead = reaction === "dodge" || reaction === "roll" ? Math.min(260, budget * 0.25) : 0;
       defender.reactTimer = setTimeout(() => {
         applyPose(defender, reaction, defenderKind, false, undefined, undefined, defSeed);
         if (reaction === "hit" || reaction === "knockdown" || reaction === "block") {
@@ -1282,11 +1289,11 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
           defender.impulse.addScaledVector(defender.side, reaction === "roll" ? 3.6 : 2.8);
         }
         signalImpact();
-      }, Math.max(120, impactMsFor(attackerKind, attacker, defender) - lead));
+      }, Math.max(120, contactFor(attackerKind, attacker, defender) - lead));
     };
     const attackWithoutReaction = (attacker: Rig, attackerKind: FighterKind, defender: Rig, atkSeed: number) => {
-      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed);
-      defender.reactTimer = setTimeout(signalImpact, impactMsFor(attackerKind, attacker, defender));
+      applyPose(attacker, "attack", attackerKind, crit, () => spawnProjectile(attacker, defender, attackerKind), defender, atkSeed, quickFor(attackerKind, attacker, defender));
+      defender.reactTimer = setTimeout(signalImpact, contactFor(attackerKind, attacker, defender));
     };
     if (poseA === "attack" && REACTION_POSES.has(poseB)) {
       delayReaction(rigA, kinds.a, rigB, poseB, kinds.b, seedA, seedB);
@@ -1300,7 +1307,7 @@ export default function Arena3D({ a, b, poseA, poseB, beat, fx, map, eventId, re
       else if (poseB === "throw") applyPose(rigB, "throw", kinds.b, false, () => spawnProjectile(rigB, rigA, "fists"), rigA, seedB);
       else applyPose(rigB, poseB, kinds.b, crit, undefined, undefined, seedB);
     }
-  }, [poseA, poseB, beat, crit, finisher, onImpact]);
+  }, [poseA, poseB, beat, crit, finisher, beatMs, onImpact]);
 
   useEffect(() => {
     const scene = sceneRef.current;

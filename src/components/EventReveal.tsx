@@ -16,7 +16,7 @@ const TILE_GAP = 8;
 const TILE_STEP = TILE_WIDTH + TILE_GAP;
 const STOP_INDEX = 21;
 const REEL_LENGTH = 25;
-const SPIN_MS = 4800;
+const SPIN_MS = 6400;
 
 function hash(value: string): number {
   let result = 2166136261;

@@ -51,12 +51,12 @@ export default function ItemCard({ item, locked = false, pending = false, select
       transition={{ type: "spring", stiffness: 420, damping: 28 }}
       onClick={unavailable ? undefined : onPick}
       disabled={unavailable || !onPick}
-      className={`relative w-full rounded-2xl border-2 p-3 text-left transition ${style.border} ${style.bg} ${
+      className={`relative w-full rounded-2xl border-2 p-2.5 text-left transition ${style.border} ${style.bg} ${
         locked ? "grayscale opacity-60" : pending && !selected ? "opacity-45" : selected ? "border-emerald-300 bg-emerald-500/15 ring-2 ring-emerald-300/40" : item.rarity === "legendary" ? "animate-pulseGlow" : ""
       }`}
     >
-      <div className="flex items-start gap-3">
-        <div className="text-3xl">{item.emoji}</div>
+      <div className="flex items-start gap-2.5">
+        <div className="text-2xl">{item.emoji}</div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate font-bold">{itemName(item)}</span>
@@ -67,17 +67,19 @@ export default function ItemCard({ item, locked = false, pending = false, select
             {locked && <span className="rounded-full bg-slate-900/90 px-2 py-0.5 text-[9px] font-black text-slate-300">{t("slotOccupied")}</span>}
           </div>
           {!compact && comparisons.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-1.5 flex flex-wrap gap-1">
               {comparisons.map(({ key, before, after, delta }) => (
-                <span key={key} className={`inline-flex min-w-[5.5rem] flex-col rounded-lg border px-2 py-1.5 tabular-nums ${delta > 0 ? "border-emerald-400/20 bg-emerald-500/[0.08]" : "border-rose-400/20 bg-rose-500/[0.08]"}`}>
-                  <span className="flex items-center justify-between gap-1.5">
-                    <span className={`font-display text-sm font-black ${delta > 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                      {delta > 0 ? "+" : ""}{delta}
-                    </span>
-                    <span className="text-[8px] font-black uppercase tracking-wide text-slate-500">{t(`stat_${key}`)}</span>
+                <span
+                  key={key}
+                  className={`inline-flex items-baseline gap-1 rounded-md border px-1.5 py-0.5 tabular-nums ${delta > 0 ? "border-emerald-400/20 bg-emerald-500/[0.08]" : "border-rose-400/20 bg-rose-500/[0.08]"}`}
+                >
+                  <span className="text-[8px] font-black uppercase tracking-wide text-slate-500">{t(`stat_${key}`)}</span>
+                  <span className={`text-xs font-black ${delta > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                    {delta > 0 ? "+" : ""}
+                    {delta}
                   </span>
-                  <span className="mt-0.5 text-[10px] font-bold text-slate-400">
-                    {before} <span className="px-0.5 text-slate-600">→</span> <span className="text-slate-200">{after}</span>
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {before}<span className="text-slate-600">→</span><span className="text-slate-200">{after}</span>
                   </span>
                 </span>
               ))}
