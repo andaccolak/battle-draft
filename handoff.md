@@ -4,6 +4,18 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Chaos events, shared luck pool, claim strips, longer wheel (2026-07-14)
+
+- Claim overlay v3: bottom strip (bg-slate-950/90) INSIDE the card — item name stays readable; picker name in rose-300 (no rarity uses rose), own claim emerald "SENİN!". Applied to both chaos item grid and luck grid.
+- Last-pick reveal: chaos rounds no longer end the instant the final player claims — `state.chaosRevealAt` holds the board ~1.2s (plus poll latency) before finishDraftRound/finishLuckPhase. Reset in beginDraftRound/beginLuckPhase.
+- Chaos luck phase: shared pool of 10 luck cards (`state.chaosLuckPool`), first-tap claims, same strips; bots staggered; unclaimed players get random leftovers at finish. LuckOffer gained mode/claims.
+- Bot tempo: in chaos (draft AND luck), once every connected human has picked, bots' botPickAt clamps to now+250..1100ms — no dead waiting.
+- Event wheel: SPIN_MS 6400→12800, EVENT_REVEAL_MS 12000→20000 (all modes).
+- Chaos event pool (CHAOS_EVENTS, 12): six NEW mechanics — weapon_swap (fight with opponent's weapon), soul_swap (entire builds swap), bare_fists (weapons deleted from combat equipment → natural fists path), item_roulette (one random item per side disabled, seeded; returned via result.aDisabled/bDisabled + "roulette" pre-beat), ticking_bomb (escalatingDamage: round*5 via the dot pipeline, "bombTick" key so the client does NOT treat it as poison evidence), sudden_death (30% HP, +30% atk) — plus chaos_rift, mirror_world, tornado, gravity, storm_blades, glass_cannon. beginEventPhase picks from CHAOS_EVENTS when isChaos; EventReveal reel filler also uses the chaos pool (chaos prop from page).
+- CRITICAL: swap/fists battles must NOT persist equipment — `equipmentPersists(state)` guards both `pa.equipment = result.aEquipment` sites (battle create + resolveReaction). Trade/pirate persistence unchanged for normal events.
+- TR added for all 6 events (EVENTS_TR) + bombTick/roulette LOG_TEMPLATES.
+- Verified: typecheck + prod build clean; two full chaos tournaments to champion; screenshots of luck pool (claims + strips) and chaos-only wheel; page-tracking diagnostic (freeze.js) showed UI following server through all phases.
+
 ## Chaos guarantees, claim overlays, QTE resume, stat weight (2026-07-14)
 
 - Nobody ends chaos draft short: (a) rollChaosPool coverage pass — every player gets ≥2 pool items matching their missing slots (swaps out the least-needed items, pool stays 10); (b) finishDraftRound consolation — any player with no claim this round (sniped or passed) gets a random item for a missing slot via `rollChaosConsolation` (round rarity weights). Everyone always finishes with 5 items.

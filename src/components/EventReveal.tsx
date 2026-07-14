@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { GameEvent, PublicPlayer } from "@/lib/game/types";
 import { EVENT_REVEAL_MS } from "@/lib/game/types";
-import { EVENTS } from "@/lib/game/events";
+import { CHAOS_EVENTS, EVENTS } from "@/lib/game/events";
 import { sfx } from "@/lib/sound";
 import { useI18n } from "@/lib/i18n";
 import { BUILD_STAT_KEYS } from "@/lib/game/buildStats";
@@ -16,7 +16,7 @@ const TILE_GAP = 8;
 const TILE_STEP = TILE_WIDTH + TILE_GAP;
 const STOP_INDEX = 21;
 const REEL_LENGTH = 25;
-const SPIN_MS = 6400;
+const SPIN_MS = 12800;
 
 function hash(value: string): number {
   let result = 2166136261;
@@ -27,12 +27,13 @@ function hash(value: string): number {
   return result >>> 0;
 }
 
-function reelEvents(selected: GameEvent, seed: string): GameEvent[] {
+function reelEvents(selected: GameEvent, seed: string, chaos: boolean): GameEvent[] {
+  const source = chaos ? CHAOS_EVENTS : EVENTS;
   let state = hash(seed);
   const reel = Array.from({ length: REEL_LENGTH }, () => {
     state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
-    const candidate = EVENTS[state % EVENTS.length];
-    return candidate ?? EVENTS[0] ?? selected;
+    const candidate = source[state % source.length];
+    return candidate ?? source[0] ?? selected;
   });
   reel[STOP_INDEX] = selected;
   return reel;
@@ -44,9 +45,10 @@ interface Props {
   seed: string;
   deadline: number | null;
   serverNow: number;
+  chaos?: boolean;
 }
 
-export default function EventReveal({ event, player, seed, deadline, serverNow }: Props) {
+export default function EventReveal({ event, player, seed, deadline, serverNow, chaos = false }: Props) {
   const { t, eventText } = useI18n();
   const reducedMotion = useReducedMotion();
   const spinStartedAt = (deadline ?? serverNow + EVENT_REVEAL_MS) - EVENT_REVEAL_MS;
@@ -56,7 +58,7 @@ export default function EventReveal({ event, player, seed, deadline, serverNow }
   const localized = eventText(event.id);
   const eventDef = EVENTS.find((candidate) => candidate.id === event.id);
   const selectedEvent = eventDef ?? event;
-  const reel = useMemo(() => reelEvents(selectedEvent, seed), [selectedEvent.id, seed]);
+  const reel = useMemo(() => reelEvents(selectedEvent, seed, chaos), [selectedEvent.id, seed, chaos]);
   const preEventProfile = useMemo(
     () => combatProfile(player?.equipment ?? {}, player?.luckCard, null),
     [player?.equipment, player?.luckCard]

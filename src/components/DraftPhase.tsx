@@ -20,11 +20,6 @@ interface Props {
   onPick: (itemId: string | null) => void;
 }
 
-function claimColor(name: string): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
-  return `hsl(${Math.abs(hash) % 360}, 90%, 72%)`;
-}
 
 export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props) {
   const { t, itemName, passiveLabel } = useI18n();
@@ -154,20 +149,13 @@ export default function DraftPhase({ snapshot, offer, playerId, onPick }: Props)
                     {item.passive && <div className="mt-0.5 truncate text-[8px] font-medium leading-tight text-amber-300">✦ {passiveLabel(item.passive)}</div>}
                     {claim && (
                       <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`absolute inset-0 z-10 flex items-center justify-center rounded-[10px] backdrop-blur-[2.5px] ${
-                          claim.mine ? "bg-emerald-950/45" : "bg-slate-950/55"
-                        }`}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center bg-slate-950/90 px-2 py-[3px]"
                       >
-                        <motion.span
-                          initial={{ scale: 1.4 }}
-                          animate={{ scale: 1 }}
-                          className="max-w-[92%] truncate px-2 text-[13px] font-black drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]"
-                          style={claim.mine ? { color: "#6ee7b7" } : { color: claimColor(claim.by) }}
-                        >
+                        <span className={`truncate text-[11px] font-black ${claim.mine ? "text-emerald-300" : "text-rose-300"}`}>
                           {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
-                        </motion.span>
+                        </span>
                       </motion.div>
                     )}
                   </motion.button>

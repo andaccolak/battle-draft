@@ -26,6 +26,11 @@ export interface EventHooks {
   underdogBoost?: number;
   silenceAccessories?: boolean;
   zeroDodge?: boolean;
+  swapWeapons?: boolean;
+  swapBuilds?: boolean;
+  fistsOnly?: boolean;
+  disableRandomItem?: boolean;
+  escalatingDamage?: number;
 }
 
 export interface EventStatMod {
@@ -70,8 +75,31 @@ export const EVENTS: EventDef[] = [
   { id: "golden_age", name: "Golden Age", emoji: "🏆", description: "Epic and Legendary items contribute 20% more attack and defense; Common items contribute 10% less.", hooks: { statMods: [{ target: "rarity", match: "epic", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "legendary", attackMult: 1.2, defenseMult: 1.2 }, { target: "rarity", match: "common", attackMult: 0.9, defenseMult: 0.9 }] } },
   { id: "underdog", name: "Underdog Spirit", emoji: "🐕", description: "The lower-power fighter gains 30% attack, defense, and HP.", hooks: { underdogBoost: 30 } },
   { id: "silence", name: "Arcane Silence", emoji: "🤫", description: "Magic fizzles out. All accessory passives are disabled.", hooks: { silenceAccessories: true } },
-  { id: "midnight_sun", name: "Midnight Sun", emoji: "🌞", description: "The sun refuses to set. Speed +30% and everyone hits 10% harder.", hooks: { speedMultiplier: 1.3, attackMultiplier: 1.1 } }
+  { id: "midnight_sun", name: "Midnight Sun", emoji: "🌞", description: "The sun refuses to set. Speed +30% and everyone hits 10% harder.", hooks: { speedMultiplier: 1.3, attackMultiplier: 1.1 } },
+  { id: "weapon_swap", name: "Weapon Swap", emoji: "🔄", description: "A trickster spirit switches the fighters' weapons! Everyone fights with their opponent's weapon.", hooks: { swapWeapons: true } },
+  { id: "soul_swap", name: "Soul Swap", emoji: "👻", description: "Souls trade bodies for one battle. You fight wearing your OPPONENT'S entire build!", hooks: { swapBuilds: true } },
+  { id: "bare_fists", name: "Bare-Knuckle Night", emoji: "👊", description: "The crowd demands honor! All weapons are confiscated — settle it with your fists.", hooks: { fistsOnly: true } },
+  { id: "item_roulette", name: "Item Roulette", emoji: "🎰", description: "The wheel spins... one random item of each fighter jams and does nothing this battle.", hooks: { disableRandomItem: true } },
+  { id: "ticking_bomb", name: "Ticking Bomb", emoji: "💣", description: "A bomb is chained to the arena. Both fighters take rising damage every round — finish it FAST.", hooks: { escalatingDamage: 5 } },
+  { id: "sudden_death", name: "Sudden Death", emoji: "⚰️", description: "One mistake ends it all. Everyone starts at 30% HP but hits 30% harder.", hooks: { hpMultiplier: 0.3, attackMultiplier: 1.3 } }
 ];
+
+const CHAOS_EVENT_IDS = new Set([
+  "weapon_swap",
+  "soul_swap",
+  "bare_fists",
+  "item_roulette",
+  "ticking_bomb",
+  "sudden_death",
+  "chaos_rift",
+  "mirror_world",
+  "tornado",
+  "gravity",
+  "storm_blades",
+  "glass_cannon"
+]);
+
+export const CHAOS_EVENTS: EventDef[] = EVENTS.filter((e) => CHAOS_EVENT_IDS.has(e.id));
 
 export function randomEvent(): EventDef {
   return EVENTS[Math.floor(Math.random() * EVENTS.length)] as EventDef;

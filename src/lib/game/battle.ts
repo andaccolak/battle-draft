@@ -362,7 +362,48 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   const bEquip: Partial<Record<Slot, Item>> = { ...bBuild.equipment };
   const aDisabled: string[] = [];
   const bDisabled: string[] = [];
+  const rouletteA: string[] = [];
+  const rouletteB: string[] = [];
   const pre: PreEntry[] = [];
+  if (event.hooks.swapBuilds) {
+    for (const slot of SLOTS) {
+      const mine = aEquip[slot];
+      const theirs = bEquip[slot];
+      if (theirs) aEquip[slot] = theirs;
+      else delete aEquip[slot];
+      if (mine) bEquip[slot] = mine;
+      else delete bEquip[slot];
+    }
+  } else if (event.hooks.swapWeapons) {
+    const mine = aEquip.weapon;
+    const theirs = bEquip.weapon;
+    if (theirs) aEquip.weapon = theirs;
+    else delete aEquip.weapon;
+    if (mine) bEquip.weapon = mine;
+    else delete bEquip.weapon;
+  }
+  if (event.hooks.fistsOnly) {
+    delete aEquip.weapon;
+    delete bEquip.weapon;
+  }
+  if (event.hooks.disableRandomItem) {
+    for (const [equip, disabled, roulette, name] of [
+      [aEquip, aDisabled, rouletteA, aBuild.nickname],
+      [bEquip, bDisabled, rouletteB, bBuild.nickname]
+    ] as const) {
+      const slot = randomEquippedSlot(equip);
+      const item = slot ? equip[slot] : undefined;
+      if (item) {
+        disabled.push(item.id);
+        roulette.push(item.id);
+        pre.push({
+          text: `🎰 The roulette jams ${name}'s ${item.emoji} ${item.name}!`,
+          key: "roulette",
+          params: { p: name, item: item.id, emoji: item.emoji }
+        });
+      }
+    }
+  }
   const pendingSuppressions: Partial<Record<"a" | "b", PendingSuppression>> = {};
 
   const applyTrade = (
@@ -1271,15 +1312,17 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         const other = c === a ? b : a;
         if (other.hp <= 0) continue;
         let dot = c.poison + (event.hooks.poisonAll ?? 0);
+        if (event.hooks.escalatingDamage) dot += round * event.hooks.escalatingDamage;
         if (round > 4) dot += (round - 4) * 8;
         if (dot > 0) {
           c.hp -= dot;
           const fatigued = round > 4;
+          const bombed = !!event.hooks.escalatingDamage && c.poison <= 0;
           push({
             t: "poison",
             actor: c.key,
-            text: `${fatigued ? "⏳ Fatigue and poison" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
-            key: fatigued ? "fatigueTick" : "poisonTick",
+            text: `${fatigued ? "⏳ Fatigue and poison" : bombed ? "💣 The bomb" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
+            key: fatigued ? "fatigueTick" : bombed ? "bombTick" : "poisonTick",
             params: { p: c.nickname, dmg: dot, poisoned: c.poison > 0 ? 1 : 0 },
             dmg: dot
           });
@@ -1362,8 +1405,8 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
     pendingSide,
     aEquipment: aEquip,
     bEquipment: bEquip,
-    aDisabled: [],
-    bDisabled: [],
+    aDisabled: rouletteA,
+    bDisabled: rouletteB,
     aMaxHp: a.maxHp,
     bMaxHp: b.maxHp
   };

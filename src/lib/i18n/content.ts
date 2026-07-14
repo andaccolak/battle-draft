@@ -119,6 +119,12 @@ export const ITEM_NAMES_TR: Record<string, string> = {
 };
 
 export const EVENTS_TR: Record<string, { name: string; description: string }> = {
+  weapon_swap: { name: "Silah Takası", description: "Muzip bir ruh dövüşçülerin silahlarını değiştirdi! Herkes rakibinin silahıyla savaşır." },
+  soul_swap: { name: "Ruh Takası", description: "Ruhlar bir savaşlığına beden değiştirdi. RAKİBİNİN bütün ekipmanıyla dövüşürsün!" },
+  bare_fists: { name: "Çıplak Yumruk Gecesi", description: "Kalabalık şeref istiyor! Tüm silahlara el konuldu — hesabı yumruklarla görün." },
+  item_roulette: { name: "Eşya Ruleti", description: "Çark dönüyor... Her dövüşçünün rastgele bir eşyası sıkışır ve bu savaşta hiçbir işe yaramaz." },
+  ticking_bomb: { name: "Saatli Bomba", description: "Arenaya bomba zincirlendi. Her tur iki dövüşçü de artan hasar alır — işi HIZLI bitir." },
+  sudden_death: { name: "Ani Ölüm", description: "Tek hata her şeyi bitirir. Herkes %30 canla başlar ama %30 daha sert vurur." },
   rain: { name: "Yağmur", description: "Sağanak her yay kirişini ıslattı. Menzilli silahlar %35 daha az saldırı sağlar." },
   blood_moon: { name: "Kanlı Ay", description: "Ay kızıla döndü. Kritik hasar bonusu 50 puan artar." },
   blizzard: { name: "Kar Fırtınası", description: "Dondurucu rüzgar herkesi yavaşlatıyor. Hız %35 azaldı." },
@@ -269,6 +275,8 @@ export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   stunSkip: { en: "💫 {p} is stunned and staggers!", tr: "💫 {p} sersemlemiş halde sendeliyor!" },
   revive: { en: "🔥 {p} refuses to die and rises again with {hp} HP!", tr: "🔥 {p} ölmeyi reddediyor ve {hp} canla yeniden ayağa kalkıyor!" },
   poisonTick: { en: "☠️ Poison deals {dmg} damage to {p}!", tr: "☠️ Zehir {p} oyuncusuna {dmg} hasar verdi!" },
+  bombTick: { en: "💣 The bomb deals {dmg} damage to {p}!", tr: "💣 Bomba {p} oyuncusuna {dmg} hasar verdi!" },
+  roulette: { en: "🎰 The roulette jams {p}'s {item}!", tr: "🎰 Rulet {p} oyuncusunun {item} eşyasını sıkıştırdı!" },
   fatigueTick: { en: "⏳ Fatigue and poison deals {dmg} damage to {p}!", tr: "⏳ Yorgunluk ve zehir {p} oyuncusuna {dmg} hasar verdi!" },
   regen: { en: "💚 {p} regenerates {heal} HP.", tr: "💚 {p} {heal} can yeniledi." },
   judges: { en: "⏱️ The judges call it! {p} takes it on remaining strength!", tr: "⏱️ Hakemler kararını verdi! Kalan gücüyle {p} kazandı!" },

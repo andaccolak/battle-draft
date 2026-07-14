@@ -217,6 +217,8 @@ export interface DraftOffer {
 export interface LuckOffer {
   cards: LuckCard[];
   picked: boolean;
+  mode?: DraftMode;
+  claims?: { id: string; by: string; mine: boolean }[];
 }
 
 export const SLOTS: Slot[] = ["weapon", "helmet", "armor", "boots", "accessory"];
@@ -241,4 +243,4 @@ export const TOTAL_DRAFT_ROUNDS = 5;
 export const DRAFT_TIME_MS = 35000;
 export const CHAOS_TIME_MS = 20000;
 export const LUCK_TIME_MS = 25000;
-export const EVENT_REVEAL_MS = 12000;
+export const EVENT_REVEAL_MS = 20000;

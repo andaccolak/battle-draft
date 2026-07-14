@@ -203,6 +203,7 @@ function Game({ code, nickname, onExit }: { code: string; nickname: string; onEx
               seed={`${snapshot.code}:${snapshot.event.id}`}
               deadline={snapshot.deadline}
               serverNow={snapshot.serverNow}
+              chaos={snapshot.draftMode === "chaos"}
             />
           )}
           {snapshot.phase === "battle" &&

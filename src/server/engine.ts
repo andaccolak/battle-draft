@@ -17,8 +17,9 @@ import type {
 } from "@/lib/game/types";
 import { ARENA_MAPS, CHAOS_TIME_MS, DRAFT_MODES, DRAFT_TIME_MS, EVENT_REVEAL_MS, LUCK_TIME_MS, MATCH_MODES, RARITY_ORDER, SLOTS, TOTAL_DRAFT_ROUNDS, TOURNEY_MODES } from "@/lib/game/types";
 import { rollChaosConsolation, rollChaosPool, rollDraftHand, rollLuckHand, applyBuildCard } from "@/lib/game/draft";
+import { LUCK_CARDS } from "@/lib/game/luckCards";
 import { AVATAR_IDS, avatarIdForSeed } from "@/lib/game/avatars";
-import { EVENTS, type EventDef } from "@/lib/game/events";
+import { CHAOS_EVENTS, EVENTS, type EventDef } from "@/lib/game/events";
 import { simulateBattle, type Build } from "@/lib/game/battle";
 
 const BATTLE_GAP_MS = 2500;
@@ -119,6 +120,8 @@ export interface RoomState {
   tourneyMode?: TourneyMode;
   draftMode?: DraftMode;
   chaosPool?: { item: Item; claimedBy: string | null }[] | null;
+  chaosLuckPool?: { card: LuckCard; claimedBy: string | null }[] | null;
+  chaosRevealAt?: number | null;
   leagueStage?: "league" | "semis" | "final" | null;
   recentEventIds?: string[];
   shout?: { by: string; at: number } | null;
@@ -165,6 +168,8 @@ export function createState(code: string, playerId: string, nickname: string, no
     tourneyMode: "knockout",
     draftMode: "classic",
     chaosPool: null,
+    chaosLuckPool: null,
+    chaosRevealAt: null,
     leagueStage: null
   };
 }
@@ -463,6 +468,7 @@ function chaosClaimable(state: RoomState, p: StatePlayer): { item: Item; claimed
 function beginDraftRound(state: RoomState, now: number): void {
   state.phase = "draft";
   state.draftRound++;
+  state.chaosRevealAt = null;
   if (isChaos(state)) {
     const alive = state.players.filter((p) => !p.spectator);
     state.deadline = now + CHAOS_TIME_MS;
@@ -561,6 +567,27 @@ function finishDraftRound(state: RoomState, now: number): void {
 function beginLuckPhase(state: RoomState, now: number): void {
   state.phase = "luck";
   state.deadline = now + LUCK_TIME_MS;
+  state.chaosRevealAt = null;
+  if (isChaos(state)) {
+    const deck = [...LUCK_CARDS];
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const x = deck[i];
+      const y = deck[j];
+      if (x !== undefined && y !== undefined) {
+        deck[i] = y;
+        deck[j] = x;
+      }
+    }
+    state.chaosLuckPool = deck.slice(0, 10).map((card) => ({ card, claimedBy: null }));
+    for (const p of state.players) {
+      p.luckOffer = null;
+      p.luckCard = null;
+      p.botPickAt = p.isBot && !p.spectator ? now + 2500 + Math.random() * (LUCK_TIME_MS * 0.45) : null;
+    }
+    return;
+  }
+  state.chaosLuckPool = null;
   for (const p of state.players) {
     if (p.spectator) {
       p.luckOffer = null;
@@ -575,6 +602,16 @@ function beginLuckPhase(state: RoomState, now: number): void {
 export function pickLuck(state: RoomState, playerId: string, cardId: string): string | null {
   if (state.phase !== "luck") return null;
   const p = findPlayer(state, playerId);
+  if (isChaos(state)) {
+    if (!p || p.spectator || p.luckCard || !state.chaosLuckPool) return null;
+    const entry = state.chaosLuckPool.find((e) => e.card.id === cardId);
+    if (!entry) return null;
+    if (entry.claimedBy !== null) return "err_item_taken";
+    entry.claimedBy = p.id;
+    p.luckCard = entry.card;
+    p.equipment = applyBuildCard(p.equipment, entry.card.id).equipment;
+    return null;
+  }
   if (!p || p.luckCard || !p.luckOffer) return null;
   const card = p.luckOffer.find((c) => c.id === cardId);
   if (!card) return null;
@@ -584,6 +621,19 @@ export function pickLuck(state: RoomState, playerId: string, cardId: string): st
 }
 
 function finishLuckPhase(state: RoomState, now: number): void {
+  if (isChaos(state)) {
+    for (const p of state.players) {
+      if (p.spectator || p.luckCard) continue;
+      const open = (state.chaosLuckPool ?? []).filter((e) => e.claimedBy === null);
+      const entry = open[Math.floor(Math.random() * open.length)];
+      if (entry) {
+        entry.claimedBy = p.id;
+        p.luckCard = entry.card;
+        p.equipment = applyBuildCard(p.equipment, entry.card.id).equipment;
+      }
+    }
+    state.chaosLuckPool = null;
+  }
   for (const p of state.players) {
     if (p.luckCard || !p.luckOffer) continue;
     const card = p.luckOffer[Math.floor(Math.random() * p.luckOffer.length)];
@@ -598,8 +648,9 @@ function finishLuckPhase(state: RoomState, now: number): void {
 function beginEventPhase(state: RoomState, now: number): void {
   state.phase = "event";
   const recent = state.recentEventIds ?? [];
-  const pool = EVENTS.filter((e) => !recent.includes(e.id));
-  const candidates = pool.length > 0 ? pool : EVENTS;
+  const source = isChaos(state) ? CHAOS_EVENTS : EVENTS;
+  const pool = source.filter((e) => !recent.includes(e.id));
+  const candidates = pool.length > 0 ? pool : source;
   const event = candidates[Math.floor(Math.random() * candidates.length)];
   state.eventId = event ? event.id : "rain";
   state.recentEventIds = [...recent, state.eventId].slice(-4);
@@ -639,6 +690,11 @@ function beginEventPhase(state: RoomState, now: number): void {
 
 function eventDef(state: RoomState): EventDef {
   return EVENTS.find((e) => e.id === state.eventId) ?? (EVENTS[0] as EventDef);
+}
+
+function equipmentPersists(state: RoomState): boolean {
+  const hooks = eventDef(state).hooks;
+  return !hooks.swapBuilds && !hooks.swapWeapons && !hooks.fistsOnly;
 }
 
 function advanceBattles(state: RoomState, now: number): void {
@@ -782,8 +838,10 @@ function advanceBattles(state: RoomState, now: number): void {
       recorded: false
     };
     if (!result.pendingSide) {
-      pa.equipment = result.aEquipment;
-      pb.equipment = result.bEquipment;
+      if (equipmentPersists(state)) {
+        pa.equipment = result.aEquipment;
+        pb.equipment = result.bEquipment;
+      }
       finalizeBattleResult(state, result.winner, result.timeline);
     }
     state.nextBattleAt = null;
@@ -829,8 +887,10 @@ function resolveReaction(state: RoomState, pass: boolean, now: number): void {
     battle.endsAt = battle.startedAt + battle.waitedMs + result.totalMs + POST_BATTLE_MS;
     const pa = findPlayer(state, battle.aPlayerId);
     const pb = findPlayer(state, battle.bPlayerId);
-    if (pa) pa.equipment = result.aEquipment;
-    if (pb) pb.equipment = result.bEquipment;
+    if (equipmentPersists(state)) {
+      if (pa) pa.equipment = result.aEquipment;
+      if (pb) pb.equipment = result.bEquipment;
+    }
     finalizeBattleResult(state, result.winner, result.timeline);
   }
 }
@@ -995,6 +1055,16 @@ export function tick(state: RoomState, now: number): boolean {
     }
   }
   if (state.phase === "draft") {
+    if (isChaos(state)) {
+      const humansDone = state.players.every((p) => p.isBot || p.spectator || p.offerPicked || !isConnected(p, now));
+      if (humansDone) {
+        for (const p of state.players) {
+          if (p.isBot && !p.offerPicked && p.botPickAt !== null && p.botPickAt > now + 1100) {
+            p.botPickAt = now + 250 + Math.random() * 850;
+          }
+        }
+      }
+    }
     for (const p of state.players) {
       if (!p.isBot || p.offerPicked || p.botPickAt === null || now < p.botPickAt) continue;
       if (isChaos(state)) {
@@ -1024,14 +1094,45 @@ export function tick(state: RoomState, now: number): boolean {
       }
     }
     const allDone = state.players.every((p) => p.spectator || p.offerPicked || !isConnected(p, now));
-    if ((state.deadline !== null && now >= state.deadline) || allDone) {
+    const deadlineHit = state.deadline !== null && now >= state.deadline;
+    if (deadlineHit || (allDone && !isChaos(state))) {
       finishDraftRound(state, now);
       changed = true;
+    } else if (allDone && isChaos(state)) {
+      if (!state.chaosRevealAt) {
+        state.chaosRevealAt = now + 1200;
+        changed = true;
+      } else if (now >= state.chaosRevealAt) {
+        finishDraftRound(state, now);
+        changed = true;
+      }
     }
   }
   if (state.phase === "luck") {
+    if (isChaos(state)) {
+      const humansDone = state.players.every((p) => p.isBot || p.spectator || p.luckCard !== null || !isConnected(p, now));
+      if (humansDone) {
+        for (const p of state.players) {
+          if (p.isBot && !p.luckCard && p.botPickAt !== null && p.botPickAt > now + 1100) {
+            p.botPickAt = now + 250 + Math.random() * 850;
+          }
+        }
+      }
+    }
     for (const p of state.players) {
-      if (p.isBot && !p.luckCard && p.botPickAt !== null && now >= p.botPickAt && p.luckOffer) {
+      if (!p.isBot || p.luckCard || p.botPickAt === null || now < p.botPickAt) continue;
+      if (isChaos(state)) {
+        const open = (state.chaosLuckPool ?? []).filter((e) => e.claimedBy === null);
+        const entry = open[Math.floor(Math.random() * open.length)];
+        if (entry) {
+          entry.claimedBy = p.id;
+          p.luckCard = entry.card;
+          p.equipment = applyBuildCard(p.equipment, entry.card.id).equipment;
+        }
+        changed = true;
+        continue;
+      }
+      if (p.luckOffer) {
         const card = p.luckOffer[Math.floor(Math.random() * p.luckOffer.length)];
         if (card) {
           p.luckCard = card;
@@ -1041,9 +1142,18 @@ export function tick(state: RoomState, now: number): boolean {
       }
     }
     const allDone = state.players.every((p) => p.spectator || p.luckCard !== null || !isConnected(p, now));
-    if ((state.deadline !== null && now >= state.deadline) || allDone) {
+    const deadlineHit = state.deadline !== null && now >= state.deadline;
+    if (deadlineHit || (allDone && !isChaos(state))) {
       finishLuckPhase(state, now);
       changed = true;
+    } else if (allDone && isChaos(state)) {
+      if (!state.chaosRevealAt) {
+        state.chaosRevealAt = now + 1200;
+        changed = true;
+      } else if (now >= state.chaosRevealAt) {
+        finishLuckPhase(state, now);
+        changed = true;
+      }
     }
   }
   if (state.phase === "event") {
@@ -1193,7 +1303,20 @@ export function snapshotFor(
     };
   }
   let luckOffer: LuckOffer | null = null;
-  if (state.phase === "luck" && me?.luckOffer) {
+  if (state.phase === "luck" && isChaos(state) && state.chaosLuckPool && me && !me.spectator) {
+    luckOffer = {
+      cards: state.chaosLuckPool.map((e) => e.card),
+      picked: me.luckCard !== null,
+      mode: "chaos",
+      claims: state.chaosLuckPool
+        .filter((e) => e.claimedBy !== null)
+        .map((e) => ({
+          id: e.card.id,
+          by: findPlayer(state, e.claimedBy as string)?.nickname ?? "?",
+          mine: e.claimedBy === me.id
+        }))
+    };
+  } else if (state.phase === "luck" && me?.luckOffer) {
     luckOffer = { cards: me.luckOffer, picked: me.luckCard !== null };
   }
   return { snapshot, offer, luckOffer };

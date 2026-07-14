@@ -23,6 +23,7 @@ export default function LuckPhase({ snapshot, luckOffer, playerId, onPick }: Pro
   const { t, cardText } = useI18n();
   const [pendingCardId, setPendingCardId] = useState<string | null>(null);
   const me = snapshot.players.find((player) => player.id === playerId);
+  const claims = useMemo(() => new Map((luckOffer?.claims ?? []).map((c) => [c.id, c])), [luckOffer?.claims]);
 
   useEffect(() => {
     setPendingCardId(null);
@@ -66,7 +67,55 @@ export default function LuckPhase({ snapshot, luckOffer, playerId, onPick }: Pro
       <TimerBar deadline={snapshot.deadline} totalMs={LUCK_TIME_MS} />
 
       <AnimatePresence mode="wait">
-        {luckOffer && !luckOffer.picked ? (
+        {luckOffer && luckOffer.mode === "chaos" ? (
+          <motion.div key="chaos-cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-2">
+            <p className="text-center text-xs font-bold text-amber-300">⚡ {t("chaosHint")}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {luckOffer.cards.map((card, i) => {
+                const claim = claims.get(card.id);
+                const disabled = !!claim || luckOffer.picked || pendingCardId !== null;
+                return (
+                  <motion.button
+                    key={card.id}
+                    initial={{ opacity: 0, rotateY: 90 }}
+                    animate={{ opacity: 1, rotateY: 0 }}
+                    transition={{ delay: 0.1 + i * 0.05, duration: 0.3 }}
+                    whileTap={disabled ? undefined : { scale: 0.95 }}
+                    onClick={disabled ? undefined : () => pick(card.id)}
+                    disabled={disabled}
+                    className={`relative overflow-hidden rounded-xl border-2 border-fuchsia-400/40 bg-gradient-to-br from-fuchsia-500/15 to-indigo-500/15 p-2 text-left ${
+                      claim && !claim.mine
+                        ? "grayscale"
+                        : claim?.mine
+                          ? "border-emerald-300 ring-2 ring-emerald-300/40"
+                          : pendingCardId === card.id
+                            ? "ring-2 ring-indigo-300/60"
+                            : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-lg leading-none">{card.emoji}</span>
+                      <span className="min-w-0 flex-1 truncate text-[11px] font-black leading-tight">{cardText(card).name}</span>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-[9px] leading-snug text-slate-300">{cardText(card).description}</div>
+                    {claim && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="absolute inset-x-0 bottom-0 z-10 flex items-center justify-center bg-slate-950/90 px-2 py-[3px]"
+                      >
+                        <span className={`truncate text-[11px] font-black ${claim.mine ? "text-emerald-300" : "text-rose-300"}`}>
+                          {claim.mine ? `✓ ${t("chaosYours")}` : `🔒 ${claim.by}`}
+                        </span>
+                      </motion.div>
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
+            {luckOffer.picked && <p className="text-center text-xs text-slate-400">{t("chaosWaiting")}</p>}
+          </motion.div>
+        ) : luckOffer && !luckOffer.picked ? (
           <motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-3">
             {luckOffer.cards.map((card, i) => (
               <motion.button
