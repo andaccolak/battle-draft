@@ -347,6 +347,14 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
     const other = entry.actor === "a" ? "b" : "a";
     if (entry.heal !== undefined && entry.heal > 0) pushFloat(entry.actor === "a" ? "a" : "b", `+${entry.heal}`, "heal", "impact");
     if (entry.t === "passive" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0);
+    if (entry.t === "quirk" && entry.dmg !== undefined && entry.dmg > 0) {
+      if (entry.actor === "none") {
+        pushFloat("a", `-${entry.dmg}`, "dmg", 0);
+        pushFloat("b", `-${entry.dmg}`, "dmg", 0);
+      } else {
+        pushFloat(entry.actor === "a" ? "b" : "a", `-${entry.dmg}`, "dmg", 0, floatMag(entry.dmg));
+      }
+    }
     if (entry.t === "poison" && entry.dmg !== undefined) pushFloat(entry.actor === "a" ? "a" : "b", `-${entry.dmg}`, "dmg", 0);
     if (entry.actor !== "none") {
       if (entry.t === "attack" && (entry.dmg ?? 0) > 0) {
@@ -419,7 +427,7 @@ export default function BattleStage({ battle, eventId, arenaMap, playerId, spect
       if (!entry) continue;
       const applied = (entry.key === "poisonApplied" || entry.key === "quirkBite") && entry.params?.d === fighter.nickname;
       const tick =
-        entry.actor === side && (entry.key === "poisonTick" || (entry.key === "fatigueTick" && entry.params?.poisoned === 1));
+        entry.actor === side && entry.key === "poisonTick";
       if (applied || tick) lastEvidence = i;
     }
     return lastEvidence >= 0 && index - lastEvidence <= 14;

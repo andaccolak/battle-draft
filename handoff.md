@@ -4,6 +4,14 @@ The latest player-feedback milestone is live and healthy at `https://battle-draf
 
 # Last Completed Work
 
+## Fatigue rework, quirk damage floats, legendary edge (2026-07-14)
+
+- Fatigue: no longer merged into the poison beat. Separate `fatigueTick` beat (t:"passive"), damage 2/4/6/8 capped at 8 (was (round-4)*8 unbounded), wording pure tiredness ("Yorgunluk ... can götürdü", no ☠️/poison text). Client poison-evidence check simplified to poisonTick only.
+- Because capped fatigue lengthens stalemates, `maxRounds` 20→12 — judges call it on remaining-HP% sooner. Human battles are never time-compressed, so this also keeps real matches from dragging past ~2 minutes.
+- Quirk damage floats: improv/desperation beats (rock/boot/slipper/bite/all-out, t:"quirk" with dmg) showed NO damage numbers (owner video: bare-fists match, HP dropping silently). BattleStage now floats quirk dmg (both sides for actor:"none" head-clash).
+- Legendary edge: `buildCombatant` applies +4% attack/defense/HP per equipped legendary (cap +16%, disabled items excluded). A 4-legendary build now carries a real statistical edge on top of item stats.
+- Verified: typecheck + prod build clean; full classic tournament to champion (driver window extended to 480s since uncompressed human battles are longer now).
+
 ## Chaos events, shared luck pool, claim strips, longer wheel (2026-07-14)
 
 - Claim overlay v3: bottom strip (bg-slate-950/90) INSIDE the card — item name stays readable; picker name in rose-300 (no rarity uses rose), own claim emerald "SENİN!". Applied to both chaos item grid and luck grid.

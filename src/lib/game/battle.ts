@@ -253,14 +253,18 @@ function buildCombatant(
 ): Combatant {
   const profile = combatProfile(build.equipment, build.luckCard, event, { disabledItems: disabled, random, chaosRandom });
   const stats = profile.stats;
+  const legendaries = Object.values(build.equipment).filter(
+    (item) => item && item.rarity === "legendary" && !disabled.includes(item.id)
+  ).length;
+  const legendMult = 1 + Math.min(4, legendaries) * 0.04;
   const c: Combatant = {
     key,
     nickname: build.nickname,
-    hp: stats.hp,
-    maxHp: stats.hp,
+    hp: Math.round(stats.hp * legendMult),
+    maxHp: Math.round(stats.hp * legendMult),
     shield: profile.shield,
-    attack: stats.attack,
-    defense: stats.defense,
+    attack: stats.attack * legendMult,
+    defense: stats.defense * legendMult,
     critChance: stats.critChance,
     critDamage: stats.critDamage,
     accuracy: stats.accuracy,
@@ -1266,7 +1270,7 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
   try {
     let round = 1;
     let interludes = 0;
-    const maxRounds = 20;
+    const maxRounds = 12;
     while (a.hp > 0 && b.hp > 0 && round <= maxRounds) {
       if (round >= 2 && interludes < 2 && roll(9)) {
         interludes++;
@@ -1313,18 +1317,29 @@ export function simulateBattle(aBuild: Build, bBuild: Build, event: EventDef, op
         if (other.hp <= 0) continue;
         let dot = c.poison + (event.hooks.poisonAll ?? 0);
         if (event.hooks.escalatingDamage) dot += round * event.hooks.escalatingDamage;
-        if (round > 4) dot += (round - 4) * 8;
         if (dot > 0) {
           c.hp -= dot;
-          const fatigued = round > 4;
           const bombed = !!event.hooks.escalatingDamage && c.poison <= 0;
           push({
             t: "poison",
             actor: c.key,
-            text: `${fatigued ? "⏳ Fatigue and poison" : bombed ? "💣 The bomb" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
-            key: fatigued ? "fatigueTick" : bombed ? "bombTick" : "poisonTick",
+            text: `${bombed ? "💣 The bomb" : "☠️ Poison"} deals ${dot} damage to ${c.nickname}!`,
+            key: bombed ? "bombTick" : "poisonTick",
             params: { p: c.nickname, dmg: dot, poisoned: c.poison > 0 ? 1 : 0 },
             dmg: dot
+          });
+          if (!tryRevive(c)) break;
+        }
+        const fatigue = round > 4 ? Math.min(8, (round - 4) * 2) : 0;
+        if (fatigue > 0 && c.hp > 0) {
+          c.hp -= fatigue;
+          push({
+            t: "passive",
+            actor: c.key,
+            text: `⏳ Fatigue drains ${fatigue} HP from ${c.nickname}!`,
+            key: "fatigueTick",
+            params: { p: c.nickname, dmg: fatigue },
+            dmg: fatigue
           });
           if (!tryRevive(c)) break;
         }

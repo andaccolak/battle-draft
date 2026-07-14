@@ -277,7 +277,7 @@ export const LOG_TEMPLATES: Record<string, { en: string; tr: string }> = {
   poisonTick: { en: "☠️ Poison deals {dmg} damage to {p}!", tr: "☠️ Zehir {p} oyuncusuna {dmg} hasar verdi!" },
   bombTick: { en: "💣 The bomb deals {dmg} damage to {p}!", tr: "💣 Bomba {p} oyuncusuna {dmg} hasar verdi!" },
   roulette: { en: "🎰 The roulette jams {p}'s {item}!", tr: "🎰 Rulet {p} oyuncusunun {item} eşyasını sıkıştırdı!" },
-  fatigueTick: { en: "⏳ Fatigue and poison deals {dmg} damage to {p}!", tr: "⏳ Yorgunluk ve zehir {p} oyuncusuna {dmg} hasar verdi!" },
+  fatigueTick: { en: "⏳ Fatigue drains {dmg} HP from {p}!", tr: "⏳ Yorgunluk {p} oyuncusundan {dmg} can götürdü!" },
   regen: { en: "💚 {p} regenerates {heal} HP.", tr: "💚 {p} {heal} can yeniledi." },
   judges: { en: "⏱️ The judges call it! {p} takes it on remaining strength!", tr: "⏱️ Hakemler kararını verdi! Kalan gücüyle {p} kazandı!" },
   death: { en: "💀 {p} has fallen!", tr: "💀 {p} düştü!" },
